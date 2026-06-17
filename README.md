@@ -42,6 +42,7 @@ Latest Android APK: **[releases/latest](https://github.com/Galusz/sensmos-app/re
 | 🌐 Website | https://sensmos.com |
 | 🔌 Firmware | https://github.com/Galusz/sensmos-firmware |
 | 🏠 Home Assistant | https://github.com/Galusz/sensmos-homeassistant |
+| 📜 Protocol | https://github.com/Galusz/sensmos-protocol |
 | 💬 Discord | https://discord.gg/ukea386Kqx |
 
 GALU runs on Polygon. © 2026 Sensmos.
