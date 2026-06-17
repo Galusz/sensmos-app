@@ -1,0 +1,63 @@
+name: sensmos_app
+description: SENSMOS — sieć inteligentnych czujników
+publish_to: 'none'
+version: 0.1.1+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State management
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
+
+  # Networking
+  http: ^1.2.0
+  web_socket_channel: ^2.4.0
+
+  # BLE + discovery
+  flutter_blue_plus: ^1.31.15
+  multicast_dns: ^0.3.2+6
+
+  # Crypto wallet
+  web3dart: ^2.7.3
+  bip39: ^1.0.6
+  ed25519_hd_key: ^2.2.0
+  pointycastle: ^3.7.4
+
+  # Secure storage (Keychain / Keystore)
+  flutter_secure_storage: ^9.0.0
+  shared_preferences: ^2.2.2
+
+  # Map
+  flutter_map: ^6.1.0
+  latlong2: ^0.9.0
+
+  # GPS (app-proof lokalizacji noda)
+  geolocator: ^12.0.0
+
+  # Charts
+  fl_chart: ^0.66.0
+
+  # QR (odbiór MATIC, adres portfela)
+  qr_flutter: ^4.1.0
+
+  # Push (FCM)
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
+
+  # Utils
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
