@@ -1,55 +1,47 @@
-# DATAHIVE App (Flutter)
+<img src="logo.png" alt="Sensmos" height="80">
 
-Szkielet aplikacji mobilnej DATAHIVE.
+# Sensmos — Mobile App
 
-## Architektura
+The Sensmos companion app — onboard nodes over Bluetooth, watch the live map, and manage your self-custody **GALU** wallet. Built with Flutter (Android; iOS-ready), in English and Polish (follows the system language).
+
+> Sensmos is a DePIN sensor network: cheap ESP32 nodes measure the real world, publish to a shared map, trade data peer-to-peer, and earn GALU. This app is how you run and own your part of it — no cloud, your keys stay with you.
+
+## Features
+
+- **Node onboarding** — discover nodes over BLE / mDNS, provision WiFi, and pair with a PIN.
+- **Live map & leaderboard** — your neighborhood's data and the network ranking, in real time.
+- **Self-custody wallet** (`web3dart`) — GALU balance, **claim** rewards on-chain (cumulative Merkle proof), and **deposit** to spend in the network.
+- **Node config** — location, entities, edge scripts and webhooks, straight from your phone.
+- **Wallet safety** — encrypted backup to your own node (behind a PIN), or export the key to MetaMask.
+
+## Security model
 
 ```
-CoreBloc (globalny stan: wallet + connected node)
-   │
-   ├─ AppRouter — wybiera ekran wg fazy:
-   │    loading → needWallet → needNode → ready
-   │
-   ├─ Onboarding (tworzy wallet automatycznie)
-   ├─ Setup (parowanie noda — IP+PIN teraz, BLE później)
-   └─ AppShell (bottom nav)
-        ├─ Dashboard   (DashboardBloc — TODO)
-        ├─ Map         (flutter_map — TODO)
-        ├─ Wallet      (claim, saldo — TODO)
-        ├─ Ranking     (działa — leaderboard API)
-        └─ NodeConfig  (lokalizacja, webhooki — TODO)
+Sensitive (wallet, node config) → NodeService → ESP32 (PIN / session token) → backend
+Public (map, leaderboard)       → ApiService  → backend directly
+Wallet key                      → device secure storage  (+ optional encrypted backup on the node)
 ```
 
-## Serwisy (wstrzykiwane do BLoCów)
-
-- `WalletService` — generowanie/podpis, secure storage (opcja C)
-- `NodeService`   — proxy do noda (PIN), operacje wrażliwe
-- `ApiService`    — BE publiczne (mapa, ranking) — działa
-- `BleService`    — skan BLE + mDNS (TODO: firmware BLE chars)
-
-## Uruchomienie
+## Build & run
 
 ```bash
-cd datahive_app
 flutter pub get
-flutter run
+# set the backend + contract in lib/config.dart
+flutter run                      # debug
+flutter build apk --release      # release APK
 ```
 
-Zmień `lib/config.dart` → `beUrl` na adres backendu.
+## Download
 
-## Model bezpieczeństwa
+Latest Android APK: **[releases/latest](https://github.com/Galusz/sensmos-app/releases/latest)** (installed outside Google Play).
 
-```
-Wrażliwe (portfel, config) → NodeService → ESP32 (PIN) → BE (session token)
-Publiczne (mapa, ranking)  → ApiService → BE bezpośrednio
-Wallet → secure storage telefonu + backup do ESP NVS (opcja C)
-```
+## Part of the Sensmos project
 
-## Do zrobienia (priorytety)
+| | |
+|---|---|
+| 🌐 Website | https://sensmos.com |
+| 🔌 Firmware | https://github.com/Galusz/sensmos-firmware |
+| 🏠 Home Assistant | https://github.com/Galusz/sensmos-homeassistant |
+| 💬 Discord | https://discord.com/channels/1516178525814526044/1516181082750451772 |
 
-1. Mapa — przenieść z map.html (flutter_map + heatmapy)
-2. Dashboard — wykres nagród (fl_chart) + saldo z noda
-3. Wallet — claim on-chain (web3dart)
-4. BLE setup — pełny flow (skan → WiFi → challenge)
-5. Node config — picker lokalizacji, webhooki, skrypty
-6. bip39 mnemonic w WalletService (backup frazy)
+GALU runs on Polygon. © 2026 Sensmos.
