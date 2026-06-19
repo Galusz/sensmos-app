@@ -63,7 +63,9 @@ class _NodesScreenState extends State<NodesScreen> {
           'radius':    device['radius_km'] != null
               ? '${double.tryParse(device['radius_km'].toString())?.toStringAsFixed(1)} km'
               : '—',
-          'balance':   balance['available']?.toString() ?? '—',
+          'balance':   balance['available'] != null
+              ? (double.tryParse(balance['available'].toString())?.toStringAsFixed(2) ?? '—')
+              : '—',
         };
       });
     } catch (e) { print('[BeData] BŁĄD $e'); }
@@ -77,7 +79,7 @@ class _NodesScreenState extends State<NodesScreen> {
       final j = jsonDecode(res.body) as Map<String,dynamic>;
       if (mounted) {
         final bal = j['available'] ?? j['total_earned'];
-        if (bal != null) setState(() => _balance = double.tryParse(bal.toString())?.toStringAsFixed(1) ?? bal.toString());
+        if (bal != null) setState(() => _balance = double.tryParse(bal.toString())?.toStringAsFixed(2) ?? bal.toString());
       }
     } catch (_) {}
   }
