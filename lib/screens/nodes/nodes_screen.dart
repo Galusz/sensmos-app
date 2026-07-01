@@ -8,6 +8,7 @@ import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
 import '../../services/node_service.dart';
 import '../node_config/node_config_screen.dart';
+import '../node_config/node_location_screen.dart';
 import '../../config.dart';
 import '../entities/entities_screen.dart';
 import '../setup/setup_screen.dart';
@@ -66,6 +67,7 @@ class _NodesScreenState extends State<NodesScreen> {
           'balance':   balance['available'] != null
               ? (double.tryParse(balance['available'].toString())?.toStringAsFixed(2) ?? '—')
               : '—',
+          'located':   device['located'] == true,   // czy node ma pozycję (BE = źródło prawdy)
         };
       });
     } catch (e) { print('[BeData] BŁĄD $e'); }
@@ -238,6 +240,15 @@ class _NodesScreenState extends State<NodesScreen> {
                   style: TextStyle(fontSize: 11,
                       color: online == true ? AppTheme.teal : AppTheme.muted)),
               ),
+              if (_beData[n.id]?['located'] == false) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: Icon(Icons.location_off, size: 13, color: Colors.amber.shade700)),
+              ],
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more,
                   color: AppTheme.muted, size: 20),
@@ -253,6 +264,34 @@ class _NodesScreenState extends State<NodesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (_beData[n.id]?['located'] == false) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.withOpacity(0.35))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(Icons.location_off, color: Colors.amber.shade700, size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(
+                          tr('Brak lokalizacji — node niewidoczny na mapie i nie nalicza nagród.'),
+                          style: TextStyle(color: Colors.amber.shade700, fontSize: 13,
+                              fontWeight: FontWeight.w500))),
+                      ]),
+                      const SizedBox(height: 8),
+                      SizedBox(width: double.infinity, child: TextButton.icon(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => NodeLocationScreen(
+                              ip: n.ip, pin: n.pin, title: tr('Lokalizacja noda')))),
+                        icon: const Icon(Icons.add_location_alt, size: 18),
+                        label: Text(tr('Ustaw lokalizację')),
+                        style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
+                      )),
+                    ])),
+                ],
                 if (online == true && data != null) ...[
                   Row(children: [
                     _stat('Scarcity',  _scarcity[n.id] ?? '—'),
