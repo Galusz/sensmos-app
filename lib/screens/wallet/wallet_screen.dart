@@ -517,6 +517,10 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   void _showKeyDialog(String pk) {
+    // Kanoniczne 64 hex (32 bajty). web3dart potrafi zwrócić 66 znaków z wiodącym
+    // bajtem 00 (klucz z najwyższym bitem = 1, ~50% przypadków) albo <64 (wiodące
+    // zero) — MetaMask wymaga dokładnie 64. Obetnij nadmiar / dopełnij zerami.
+    final k = pk.length > 64 ? pk.substring(pk.length - 64) : pk.padLeft(64, '0');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -538,7 +542,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   style: const TextStyle(color: AppTheme.red, fontSize: 12)),
             ),
             const SizedBox(height: 12),
-            SelectableText('0x$pk',
+            SelectableText('0x$k',
                 style: const TextStyle(
                     color: AppTheme.text,
                     fontSize: 12,
@@ -552,7 +556,7 @@ class _WalletScreenState extends State<WalletScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: '0x$pk'));
+              Clipboard.setData(ClipboardData(text: '0x$k'));
               _snack(tr('Klucz skopiowany'));
             },
             child: Text(tr('Kopiuj')),

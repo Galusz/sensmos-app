@@ -35,7 +35,11 @@ class WalletService {
     final rng = Random.secure();
     final priv = EthPrivateKey.createRandom(rng);
     final addr = priv.address.hexEip55;
-    final pkHex = bytesToHex(priv.privateKey, include0x: false);
+    // Kanoniczne 64 hex z liczby klucza. web3dart (encodeBigInt, ze znakiem) zapisuje
+    // klucz jako 33 bajty (wiodący 00 gdy najwyższy bit = 1, ~50% przypadków) lub <32
+    // (wiodące zero); przez privateKeyInt dostajemy zawsze dokładnie 32 bajty — inaczej
+    // MetaMask odrzuca import ("couldn't import that private key").
+    final pkHex = priv.privateKeyInt.toRadixString(16).padLeft(64, '0');
 
     await _storage.write(key: Config.kWalletKey, value: pkHex);
     await _storage.write(key: Config.kWalletAddr, value: addr);
@@ -56,8 +60,10 @@ class WalletService {
 
   /// Zapisz wallet z surowego klucza (po recovery z noda)
   Future<AppWallet> restore(String privateKeyHex) async {
-    final pk = privateKeyHex.startsWith('0x')
-        ? privateKeyHex.substring(2) : privateKeyHex;
+    final clean = privateKeyHex.trim();
+    var pk = clean.startsWith('0x') ? clean.substring(2) : clean;
+    // Normalizuj do 64 hex: obetnij wiodący bajt znaku (00) albo dopełnij zerami.
+    pk = pk.length > 64 ? pk.substring(pk.length - 64) : pk.padLeft(64, '0');
     final priv = EthPrivateKey.fromHex(pk);
     final addr = priv.address.hexEip55;
     await _storage.write(key: Config.kWalletKey, value: pk);
