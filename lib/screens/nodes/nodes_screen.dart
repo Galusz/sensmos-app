@@ -68,6 +68,7 @@ class _NodesScreenState extends State<NodesScreen> {
               ? (double.tryParse(balance['available'].toString())?.toStringAsFixed(2) ?? '—')
               : '—',
           'located':   device['located'] == true,   // czy node ma pozycję (BE = źródło prawdy)
+          'last_ping': device['last_ping'],          // zdrowie noda wg chmury (niezależne od lokalnej sieci)
         };
       });
     } catch (e) { print('[BeData] BŁĄD $e'); }
@@ -100,8 +101,25 @@ class _NodesScreenState extends State<NodesScreen> {
   }
 
   // Statystyki globalne
-  int get _onlineCount  => _online.values.where((v) => v).length;
   int get _totalNodes   => context.read<NodeService>().nodes.length;
+  int get _reportingCount => context.read<NodeService>().nodes
+      .where((n) { final s = _beSecs(n.id); return s != null && s < 3600; }).length;
+
+  // Ile temu node raportował do chmury (last_ping) — niezależne od tego czy telefon jest w sieci noda
+  double? _beSecs(String id) {
+    final lp = _beData[id]?['last_ping'];
+    if (lp == null) return null;
+    try {
+      return (DateTime.now().millisecondsSinceEpoch
+          - DateTime.parse(lp).millisecondsSinceEpoch) / 1000;
+    } catch (_) { return null; }
+  }
+  String _ago(num secs) {
+    if (secs < 60)    return tr('przed chwilą');
+    if (secs < 3600)  return '${(secs/60).floor()}m';
+    if (secs < 86400) return '${(secs/3600).floor()}h';
+    return '${(secs/86400).floor()}d';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +175,7 @@ class _NodesScreenState extends State<NodesScreen> {
         border: Border.all(color: AppTheme.border),
       ),
       child: Row(children: [
-        _globalStat(Icons.sensors,    '$_onlineCount/$_totalNodes', 'Online'),
+        _globalStat(Icons.sensors,    '$_reportingCount/$_totalNodes', tr('Raportują')),
 
         _divider(),
         _globalStat(Icons.data_usage, totalEntities > 0
@@ -191,6 +209,13 @@ class _NodesScreenState extends State<NodesScreen> {
     final name     = n.label.isNotEmpty && n.label != 'Node'
         ? n.label
         : 'sensmos-${n.id.length >= 6 ? n.id.substring(0,6) : n.id}';
+    // Zdrowie z chmury (last_ping) — niezależne od łączności lokalnej (online = telefon sięga noda po IP)
+    final beSecs      = _beSecs(n.id);
+    final healthColor = beSecs == null ? AppTheme.muted
+        : beSecs < 3600 ? AppTheme.teal : Colors.amber.shade700;
+    final healthText  = beSecs == null ? tr('brak danych z chmury')
+        : beSecs < 3600 ? '${tr('raportuje')} ${_ago(beSecs)}'
+        : '${tr('cisza')} ${_ago(beSecs)}';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -215,9 +240,7 @@ class _NodesScreenState extends State<NodesScreen> {
             child: Row(children: [
               Container(width: 10, height: 10,
                 decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: online == null ? AppTheme.muted
-                      : online ? AppTheme.teal : Colors.red.shade400)),
+                  shape: BoxShape.circle, color: healthColor)),
               const SizedBox(width: 12),
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,18 +250,24 @@ class _NodesScreenState extends State<NodesScreen> {
                       fontWeight: FontWeight.w500, fontSize: 14)),
                   Text(n.ip, style: const TextStyle(
                       color: AppTheme.muted, fontSize: 12)),
+                  Text(healthText, style: TextStyle(
+                      color: healthColor, fontSize: 11)),
                 ],
               )),
+              // Łączność lokalna — czy telefon jest w sieci noda (można konfigurować), NIE zdrowie noda
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: (online == true ? AppTheme.teal : AppTheme.muted)
-                      .withOpacity(0.12),
+                  color: (online == true ? AppTheme.teal : AppTheme.muted).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(10)),
-                child: Text(
-                  online == null ? '...' : online ? 'Online' : 'Offline',
-                  style: TextStyle(fontSize: 11,
-                      color: online == true ? AppTheme.teal : AppTheme.muted)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(online == true ? Icons.wifi : Icons.wifi_off, size: 12,
+                      color: online == true ? AppTheme.teal : AppTheme.muted),
+                  const SizedBox(width: 4),
+                  Text(online == null ? '…' : online ? tr('W sieci') : tr('Zdalnie'),
+                    style: TextStyle(fontSize: 11,
+                        color: online == true ? AppTheme.teal : AppTheme.muted)),
+                ]),
               ),
               if (_beData[n.id]?['located'] == false) ...[
                 const SizedBox(width: 6),
@@ -282,14 +311,18 @@ class _NodesScreenState extends State<NodesScreen> {
                               fontWeight: FontWeight.w500))),
                       ]),
                       const SizedBox(height: 8),
-                      SizedBox(width: double.infinity, child: TextButton.icon(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => NodeLocationScreen(
-                              ip: n.ip, pin: n.pin, title: tr('Lokalizacja noda')))),
-                        icon: const Icon(Icons.add_location_alt, size: 18),
-                        label: Text(tr('Ustaw lokalizację')),
-                        style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
-                      )),
+                      if (online == true)
+                        SizedBox(width: double.infinity, child: TextButton.icon(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => NodeLocationScreen(
+                                ip: n.ip, pin: n.pin, title: tr('Lokalizacja noda')))),
+                          icon: const Icon(Icons.add_location_alt, size: 18),
+                          label: Text(tr('Ustaw lokalizację')),
+                          style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
+                        ))
+                      else
+                        Text(tr('Połącz się z siecią noda, aby ustawić lokalizację.'),
+                            style: TextStyle(color: Colors.amber.shade700, fontSize: 12)),
                     ])),
                 ],
                 if (online == true && data != null) ...[
@@ -318,8 +351,8 @@ class _NodesScreenState extends State<NodesScreen> {
                   const SizedBox(height: 8),
                 ],
 
-                // Przyciski — zawsze aktywne
-                Row(children: [
+                // Akcje wymagają lokalnego dostępu do noda (telefon w tej samej sieci co node)
+                if (online == true) Row(children: [
                   Expanded(child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(
@@ -344,7 +377,20 @@ class _NodesScreenState extends State<NodesScreen> {
                         foregroundColor: AppTheme.text,
                         side: const BorderSide(color: AppTheme.border)),
                   )),
-                ]),
+                ]) else Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.muted.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8)),
+                  child: Row(children: [
+                    const Icon(Icons.wifi_off, size: 16, color: AppTheme.muted),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(
+                      tr('Połącz się z siecią WiFi noda, aby zobaczyć encje i zmienić ustawienia.'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12))),
+                  ]),
+                ),
               ],
             ),
           ),

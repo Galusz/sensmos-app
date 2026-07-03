@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
+import '../../config.dart';
 
 /// App-proof geo: apka pobiera GPS telefonu (jesteś przy nodzie = dowód) i wysyła
 /// go do noda. Pozycji NIE ustawia się ręcznie — backend nakłada losowy fuzz
@@ -28,6 +29,64 @@ class _NodeLocationScreenState extends State<NodeLocationScreen> {
   bool _fuzz = true;
   bool _saving = false;
   bool _gettingGps = false;
+  String? _deviceId;
+  String? _fw;
+  bool?   _ghost;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadState();
+  }
+
+  // Ghost wymaga FW ≥ 0.25 (starsze nie forwardują location_mode → cicha porażka)
+  bool get _fwSupportsGhost {
+    final v = _fw;
+    if (v == null) return false;
+    final p = v.split('.');
+    final major = int.tryParse(p.isNotEmpty ? p[0] : '0') ?? 0;
+    final minor = int.tryParse(p.length > 1 ? p[1] : '0') ?? 0;
+    return major > 0 || (major == 0 && minor >= 25);
+  }
+
+  Future<void> _loadState() async {
+    try {
+      final info = await http
+          .get(Uri.parse('http://${widget.ip}/info'))
+          .timeout(const Duration(seconds: 4));
+      final j = jsonDecode(info.body) as Map<String, dynamic>;
+      _deviceId = j['device_id'] as String?;
+      if (mounted) setState(() => _fw = (j['version'] ?? j['firmware']) as String?);
+      if (_deviceId != null) {
+        final be = await http
+            .get(Uri.parse('${Config.beUrl}/v1/nodes/$_deviceId'))
+            .timeout(const Duration(seconds: 5));
+        final bj = jsonDecode(be.body) as Map<String, dynamic>;
+        final src = (bj['device']?['location_source'] ?? '').toString();
+        if (mounted) setState(() => _ghost = src == 'ghost');
+      }
+    } catch (_) { if (mounted) setState(() => _ghost ??= false); }
+  }
+
+  Future<void> _setGhost(bool on) async {
+    try {
+      final res = await http
+          .post(Uri.parse('http://${widget.ip}/config'),
+              headers: _h,
+              body: jsonEncode({'location_mode': on ? 'ghost' : 'public'}))
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        if (mounted) setState(() => _ghost = on);
+        _snack(on
+            ? tr('Tryb prywatny włączony — node ukryty z mapy i nagród')
+            : tr('Tryb prywatny wyłączony'));
+      } else {
+        _snack(tr('Błąd %s', [res.statusCode]), error: true);
+      }
+    } catch (e) {
+      _snack(tr('Błąd: %s', [e]), error: true);
+    }
+  }
 
   Map<String, String> get _h => {
         'Content-Type': 'application/json',
@@ -190,6 +249,32 @@ class _NodeLocationScreenState extends State<NodeLocationScreen> {
                   _fuzz
                       ? tr('Na mapie ~200–800 m od prawdziwej pozycji (losowo)')
                       : tr('Na mapie dokładny adres noda'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.border),
+            ),
+            child: SwitchListTile(
+              value: _ghost ?? false,
+              onChanged: (!_fwSupportsGhost || _ghost == null)
+                  ? null
+                  : (v) => _setGhost(v),
+              activeColor: AppTheme.teal,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              secondary: const Icon(Icons.visibility_off_outlined,
+                  color: AppTheme.muted),
+              title: Text(tr('Tryb prywatny (ghost)'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  _fwSupportsGhost
+                      ? tr('Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.')
+                      : tr('Wymaga firmware 0.25+ — zaktualizuj node.'),
                   style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
             ),
           ),
