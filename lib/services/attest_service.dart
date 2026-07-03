@@ -15,6 +15,9 @@ class TrustEvidence {
   final int uptimeS;
   final String sigEsp;
   final String pubkeyEsp;
+  final String? gpsLat;   // v2 (null = v1, trust-only)
+  final String? gpsLon;
+  final int gv;           // wersja atestu potwierdzona przez node (1|2)
 
   TrustEvidence({
     required this.rounds,
@@ -25,6 +28,9 @@ class TrustEvidence {
     required this.uptimeS,
     required this.sigEsp,
     required this.pubkeyEsp,
+    this.gpsLat,
+    this.gpsLon,
+    this.gv = 1,
   });
 }
 
@@ -82,6 +88,8 @@ class AttestService {
     required String owner,
     int rounds = 3,
     bool resume = false,
+    String? gpsLat,   // stringi (6 miejsc) — verbatim do atestu, bez re-formatowania
+    String? gpsLon,
   }) async {
     final roundLog = <Map<String, dynamic>>[];
     for (var i = 0; i < rounds; i++) {
@@ -99,18 +107,25 @@ class AttestService {
       roundLog.add({'c': c, 'r': r, 't_ms': sw.elapsedMilliseconds});
     }
 
+    final hasGps = gpsLat != null && gpsLat.isNotEmpty &&
+                   gpsLon != null && gpsLon.isNotEmpty;
     final sign = await ble.sendCommand(
       {
         'cmd': 'trust_sign',
         'seed': seed,
         'owner': owner,
         if (resume) 'resume': true,
+        if (hasGps) 'gps_lat': gpsLat,
+        if (hasGps) 'gps_lon': gpsLon,
       },
       timeout: const Duration(seconds: 10),
     );
     if (sign['status'] != 'ok' || sign['sig'] == null) {
       throw Exception('trust_sign failed: ${sign['msg'] ?? sign}');
     }
+    // gv = wersja atestu potwierdzona przez node (2 gdy przyjął GPS). Canonical budujemy
+    // dokładnie wg tego, co node podpisał — inaczej podpis się nie zgodzi.
+    final gv = (sign['gv'] as num?)?.toInt() ?? 1;
 
     return TrustEvidence(
       rounds: roundLog,
@@ -121,6 +136,9 @@ class AttestService {
       uptimeS: (sign['up'] as num).toInt(),
       sigEsp: sign['sig'] as String,
       pubkeyEsp: sign['pk'] as String,
+      gpsLat: (gv == 2 && hasGps) ? gpsLat : null,
+      gpsLon: (gv == 2 && hasGps) ? gpsLon : null,
+      gv: gv,
     );
   }
 
@@ -130,11 +148,18 @@ class AttestService {
     required String owner,
     required String seed,
     required TrustEvidence ev,
-  }) =>
-      '{"v":1,"device_id":"$deviceId","owner":"$owner",'
-      '"seed":"$seed","nonce":"${ev.nonce}","ble_mac":"${ev.bleMac}",'
-      '"efuse_mac":"${ev.efuseMac}","rounds":"${ev.roundsDigest}",'
-      '"uptime_s":${ev.uptimeS}}';
+  }) {
+    if (ev.gv == 2 && ev.gpsLat != null && ev.gpsLon != null) {
+      return '{"v":2,"device_id":"$deviceId","owner":"$owner",'
+          '"seed":"$seed","nonce":"${ev.nonce}","ble_mac":"${ev.bleMac}",'
+          '"efuse_mac":"${ev.efuseMac}","rounds":"${ev.roundsDigest}",'
+          '"uptime_s":${ev.uptimeS},"gps_lat":"${ev.gpsLat}","gps_lon":"${ev.gpsLon}"}';
+    }
+    return '{"v":1,"device_id":"$deviceId","owner":"$owner",'
+        '"seed":"$seed","nonce":"${ev.nonce}","ble_mac":"${ev.bleMac}",'
+        '"efuse_mac":"${ev.efuseMac}","rounds":"${ev.roundsDigest}",'
+        '"uptime_s":${ev.uptimeS}}';
+  }
 
   /// Wyślij dowody do BE. Zwraca (sukces, komunikat).
   Future<(bool, String)> submit({
@@ -163,6 +188,8 @@ class AttestService {
                 'sig_esp': ev.sigEsp,
                 'pubkey': ev.pubkeyEsp,
                 'sig_wallet': sigWallet,
+                if (ev.gpsLat != null) 'gps_lat': ev.gpsLat,
+                if (ev.gpsLon != null) 'gps_lon': ev.gpsLon,
                 'app_report': {
                   'ble_name': bleName,
                   'ble_mac': bleMac,

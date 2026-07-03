@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../core/core_bloc.dart';
@@ -9,6 +11,7 @@ import '../../services/ble_service.dart';
 import '../../services/attest_service.dart';
 import '../../services/wallet_service.dart';
 import '../../services/node_service.dart';
+import '../../config.dart';
 import '../../l10n.dart';
 
 /// Ceremonia trust (re-atestacja) — node przechodzi w tryb BLE,
@@ -31,6 +34,10 @@ class _TrustScreenState extends State<TrustScreen> {
   bool? _trusted;
   String? _trustedAt;
   bool _loading = true;
+  String? _fw;
+  bool? _ghost;
+  bool _fuzz = true;
+  bool _located = false;
 
   AttestService get _attest => context.read<AttestService>();
   BleService get _ble => context.read<BleService>();
@@ -49,6 +56,99 @@ class _TrustScreenState extends State<TrustScreen> {
       _trustedAt = s?['trusted_at'] as String?;
       _loading = false;
     });
+    _loadGhost();
+  }
+
+  // Ghost wymaga FW ≥ 0.25 (starsze nie forwardują location_mode → cicha porażka)
+  bool get _fwSupportsGhost {
+    final v = _fw;
+    if (v == null) return false;
+    final p = v.split('.');
+    final major = int.tryParse(p.isNotEmpty ? p[0] : '0') ?? 0;
+    final minor = int.tryParse(p.length > 1 ? p[1] : '0') ?? 0;
+    return major > 0 || (major == 0 && minor >= 25);
+  }
+
+  // Fuzz-only re-publikacja z kotwicy wymaga FW ≥ 0.27
+  bool get _fwSupportsFuzz {
+    final v = _fw;
+    if (v == null) return false;
+    final p = v.split('.');
+    final major = int.tryParse(p.isNotEmpty ? p[0] : '0') ?? 0;
+    final minor = int.tryParse(p.length > 1 ? p[1] : '0') ?? 0;
+    return major > 0 || (major == 0 && minor >= 27);
+  }
+
+  Future<void> _loadGhost() async {
+    try {
+      final info = await http
+          .get(Uri.parse('http://${widget.node.ip}/info'))
+          .timeout(const Duration(seconds: 4));
+      final j = jsonDecode(info.body) as Map<String, dynamic>;
+      if (mounted) setState(() => _fw = (j['version'] ?? j['firmware']) as String?);
+      final be = await http
+          .get(Uri.parse('${Config.beUrl}/v1/nodes/${widget.node.id}'))
+          .timeout(const Duration(seconds: 5));
+      final bj = jsonDecode(be.body) as Map<String, dynamic>;
+      final src = (bj['device']?['location_source'] ?? '').toString();
+      if (mounted) setState(() { _ghost = src == 'ghost'; _located = src == 'app'; });
+    } catch (_) {
+      if (mounted) setState(() => _ghost ??= false);
+    }
+  }
+
+  Future<void> _setFuzz(bool on) async {
+    setState(() => _fuzz = on);
+    try {
+      final res = await http
+          .post(Uri.parse('http://${widget.node.ip}/config'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${widget.node.pin}',
+              },
+              body: jsonEncode({'fuzz': on}))
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        _snack(on
+            ? tr('Rozmycie włączone — na mapie ~200–800 m od pozycji')
+            : tr('Rozmycie wyłączone — na mapie dokładny adres'));
+      } else {
+        _snack(tr('Błąd %s', [res.statusCode]), error: true);
+      }
+    } catch (e) {
+      _snack(tr('Błąd: %s', [e]), error: true);
+    }
+  }
+
+  Future<void> _setGhost(bool on) async {
+    try {
+      final res = await http
+          .post(Uri.parse('http://${widget.node.ip}/config'),
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ${widget.node.pin}',
+              },
+              body: jsonEncode({'location_mode': on ? 'ghost' : 'public'}))
+          .timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        if (mounted) setState(() => _ghost = on);
+        _snack(on
+            ? tr('Tryb prywatny włączony — node ukryty z mapy i nagród')
+            : tr('Tryb prywatny wyłączony'));
+      } else {
+        _snack(tr('Błąd %s', [res.statusCode]), error: true);
+      }
+    } catch (e) {
+      _snack(tr('Błąd: %s', [e]), error: true);
+    }
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: error ? AppTheme.red : null,
+    ));
   }
 
   Future<void> _runCeremony() async {
@@ -58,6 +158,22 @@ class _TrustScreenState extends State<TrustScreen> {
       setState(() { _phase = _Phase.error; _error = tr('Brak portfela'); });
       return;
     }
+
+    // GPS telefonu (jesteś przy nodzie) → ceremonia v2 = lokalizacja + trust naraz. Best-effort.
+    String? gpsLat, gpsLon;
+    try {
+      if (await Geolocator.isLocationServiceEnabled()) {
+        var perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.denied) perm = await Geolocator.requestPermission();
+        if (perm != LocationPermission.denied && perm != LocationPermission.deniedForever) {
+          final pos = await Geolocator.getCurrentPosition(
+                  desiredAccuracy: LocationAccuracy.high)
+              .timeout(const Duration(seconds: 12));
+          gpsLat = pos.latitude.toStringAsFixed(6);
+          gpsLon = pos.longitude.toStringAsFixed(6);
+        }
+      }
+    } catch (_) { /* brak GPS → sam trust, bez lokalizacji */ }
 
     setState(() { _phase = _Phase.restarting; _error = null;
         _status = tr('Przełączam node w tryb Bluetooth…'); });
@@ -140,7 +256,8 @@ class _TrustScreenState extends State<TrustScreen> {
       setState(() => _status = tr('Rundy challenge (%s)…', [rounds]));
       final ev = await _attest.runCeremony(
           ble: _ble, seed: seed, owner: owner,
-          rounds: rounds, resume: true);
+          rounds: rounds, resume: true,
+          gpsLat: gpsLat, gpsLon: gpsLon);
 
       await _ble.disconnect();
 
@@ -178,7 +295,7 @@ class _TrustScreenState extends State<TrustScreen> {
         _phase == _Phase.submitting;
 
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Zaufanie noda'))),
+      appBar: AppBar(title: Text(tr('Lokalizacja i weryfikacja'))),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
           : ListView(
@@ -247,10 +364,70 @@ class _TrustScreenState extends State<TrustScreen> {
                     ]),
                   ),
                 ],
+                const SizedBox(height: 24),
+                const Divider(color: AppTheme.border),
+                const SizedBox(height: 12),
+                Text(tr('PRYWATNOŚĆ'),
+                    style: const TextStyle(
+                        color: AppTheme.muted, fontSize: 11, letterSpacing: 0.8)),
+                const SizedBox(height: 8),
+                _privacyCard(),
               ],
             ),
     );
   }
+
+  Widget _privacyCard() => Container(
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppTheme.border),
+        ),
+        child: Column(
+          children: [
+            SwitchListTile(
+              value: _fuzz,
+              onChanged: (!_fwSupportsFuzz || !_located || (_ghost ?? false))
+                  ? null
+                  : (v) => _setFuzz(v),
+              activeColor: AppTheme.teal,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              secondary: const Icon(Icons.blur_on, color: AppTheme.muted),
+              title: Text(tr('Rozmycie prywatności'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  !_fwSupportsFuzz
+                      ? tr('Wymaga firmware 0.27+ — zaktualizuj node.')
+                      : !_located
+                          ? tr('Najpierw ustaw lokalizację (ceremonia powyżej).')
+                          : _fuzz
+                              ? tr('Na mapie ~200–800 m od prawdziwej pozycji (losowo).')
+                              : tr('Na mapie dokładny adres noda.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+            const Divider(height: 1, color: AppTheme.border),
+            SwitchListTile(
+              value: _ghost ?? false,
+              onChanged: (!_fwSupportsGhost || _ghost == null)
+                  ? null
+                  : (v) => _setGhost(v),
+              activeColor: AppTheme.teal,
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              secondary: const Icon(Icons.visibility_off_outlined,
+                  color: AppTheme.muted),
+              title: Text(tr('Tryb prywatny (ghost)'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  _fwSupportsGhost
+                      ? tr('Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.')
+                      : tr('Wymaga firmware 0.25+ — zaktualizuj node.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+          ],
+        ),
+      );
 
   Widget _statusCard() {
     final trusted = _trusted == true;

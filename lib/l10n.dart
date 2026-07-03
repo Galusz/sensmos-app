@@ -358,4 +358,48 @@ const Map<String, String> _enMap = {
   "Node nie pojawił się w sieci.\nSprawdź SSID i hasło WiFi.":
       "Node didn't appear on the network.\nCheck the SSID and WiFi password.",
   "Błędny PIN lub uszkodzona kopia": "Wrong PIN or corrupted backup",
+
+  // ── Lokalizacja / weryfikacja / prywatność ───────────────────
+  "Lokalizacja i weryfikacja": "Location & verification",
+  "ceremonia BLE + GPS — ustawia pozycję i potwierdza urządzenie":
+      "BLE + GPS ceremony — sets position and verifies the device",
+  "PRYWATNOŚĆ": "PRIVACY",
+  "Na mapie ~200–800 m od prawdziwej pozycji (losowo).":
+      "On the map ~200–800 m from the real position (random).",
+  "Na mapie dokładny adres noda.": "Exact node address on the map.",
+  "Rozmycie włączone — na mapie ~200–800 m od pozycji":
+      "Blur on — shown ~200–800 m from position on the map",
+  "Rozmycie wyłączone — na mapie dokładny adres":
+      "Blur off — exact address shown on the map",
+  "Najpierw ustaw lokalizację (ceremonia powyżej).":
+      "Set the location first (ceremony above).",
+  "Wymaga firmware 0.27+ — zaktualizuj node.":
+      "Requires firmware 0.27+ — update the node.",
+  "Wymaga firmware 0.25+ — zaktualizuj node.":
+      "Requires firmware 0.25+ — update the node.",
+  "Tryb prywatny (ghost)": "Private mode (ghost)",
+  "Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.":
+      "Hidden from map, 0 rewards. Data works locally; you still pay for subscriptions.",
+  "Tryb prywatny włączony — node ukryty z mapy i nagród":
+      "Private mode on — node hidden from the map and rewards",
+  "Tryb prywatny wyłączony": "Private mode off",
+  "Pobieram pozycję GPS...": "Getting GPS position...",
+  "Zaraz poprosimy o lokalizację (GPS) — potwierdza, że node jest fizycznie tutaj. Bez niej node działa, ale zarabia znacznie mniej.":
+      "We'll ask for location (GPS) — it confirms the node is physically here. Without it the node works but earns much less.",
+  "Brak lokalizacji — node niewidoczny na mapie i nie nalicza nagród.":
+      "No location — node not shown on the map and earns no rewards.",
+  "Ustaw lokalizację": "Set location",
+  "Połącz się z siecią noda, aby ustawić lokalizację.":
+      "Connect to the node's network to set the location.",
+  "Połącz się z siecią WiFi noda, aby zobaczyć encje i zmienić ustawienia.":
+      "Connect to the node's WiFi to view entities and change settings.",
+
+  // ── Widok noda: chmura vs sieć lokalna ───────────────────────
+  "raportuje": "reporting",
+  "Raportują": "Reporting",
+  "cisza": "silent",
+  "brak danych z chmury": "no cloud data",
+  "W sieci": "On network",
+  "Zdalnie": "Remote",
+  "przed chwilą": "just now",
 };

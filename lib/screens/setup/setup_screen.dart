@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../theme.dart';
 import '../../config.dart';
 import '../../core/core_bloc.dart';
@@ -128,6 +129,27 @@ class _SetupScreenState extends State<SetupScreen> {
       setState(() => _status = tr('Podpisywanie challenge...'));
       final sigWallet = await walletService.signMessage(nonce);
 
+      // GPS telefonu (jesteś fizycznie przy nodzie) → ceremonia v2 = trust + lokalizacja naraz.
+      // Best-effort: brak/odmowa GPS → node zaufany, ale niebieski (GPS dograsz później).
+      String? gpsLat, gpsLon;
+      try {
+        setState(() => _status = tr('Pobieram pozycję GPS...'));
+        if (await Geolocator.isLocationServiceEnabled()) {
+          var perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.denied) {
+            perm = await Geolocator.requestPermission();
+          }
+          if (perm != LocationPermission.denied &&
+              perm != LocationPermission.deniedForever) {
+            final pos = await Geolocator.getCurrentPosition(
+                    desiredAccuracy: LocationAccuracy.high)
+                .timeout(const Duration(seconds: 12));
+            gpsLat = pos.latitude.toStringAsFixed(6);
+            gpsLon = pos.longitude.toStringAsFixed(6);
+          }
+        }
+      } catch (_) { /* brak GPS → node niebieski, GPS dograsz później */ }
+
       setState(() => _status = tr('Łączę z WiFi przez node...'));
       _nodeIp = await _ble.setupNode(
         pin:             nodePin,
@@ -142,6 +164,8 @@ class _SetupScreenState extends State<SetupScreen> {
         signAttest:      walletService.signMessage,
         walletBlob:      walletBlob,
         walletAddr:      ownerAddress,
+        gpsLat:          gpsLat,
+        gpsLon:          gpsLon,
       );
 
       setState(() => _status = tr('Łączę z nodem przez sieć...'));
@@ -242,7 +266,8 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget _buildForm() {
     final name = _selected?.advertisementData.advName.isNotEmpty == true
         ? _selected!.advertisementData.advName : _selected?.device.platformName ?? 'Node';
-    return Column(
+    return SingleChildScrollView(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Card(child: ListTile(
@@ -272,6 +297,25 @@ class _SetupScreenState extends State<SetupScreen> {
             ]),
           ),
         ],
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.amber.withOpacity(0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.amber.withOpacity(0.3)),
+          ),
+          child: Row(children: [
+            const Icon(Icons.location_on_outlined, color: AppTheme.amber, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+                child: Text(
+                    tr('Zaraz poprosimy o lokalizację (GPS) — potwierdza, że node jest '
+                        'fizycznie tutaj. Bez niej node działa, ale zarabia znacznie mniej.'),
+                    style: const TextStyle(
+                        color: AppTheme.amber, fontSize: 12, height: 1.35))),
+          ]),
+        ),
         const SizedBox(height: 20),
         FilledButton(
           onPressed: _doSetup,
@@ -284,7 +328,7 @@ class _SetupScreenState extends State<SetupScreen> {
           child: Text(tr('← Wróć do skanowania'), style: const TextStyle(color: AppTheme.muted)),
         ),
       ],
-    );
+    ));
   }
 
   // ── CONNECTING ───────────────────────────────────────────

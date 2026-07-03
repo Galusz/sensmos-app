@@ -8,7 +8,7 @@ import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
 import '../../services/node_service.dart';
 import '../node_config/node_config_screen.dart';
-import '../node_config/node_location_screen.dart';
+import '../node_config/trust_screen.dart';
 import '../../config.dart';
 import '../entities/entities_screen.dart';
 import '../setup/setup_screen.dart';
@@ -314,8 +314,7 @@ class _NodesScreenState extends State<NodesScreen> {
                       if (online == true)
                         SizedBox(width: double.infinity, child: TextButton.icon(
                           onPressed: () => Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => NodeLocationScreen(
-                                ip: n.ip, pin: n.pin, title: tr('Lokalizacja noda')))),
+                            builder: (_) => TrustScreen(node: n))),
                           icon: const Icon(Icons.add_location_alt, size: 18),
                           label: Text(tr('Ustaw lokalizację')),
                           style: TextButton.styleFrom(foregroundColor: AppTheme.teal),

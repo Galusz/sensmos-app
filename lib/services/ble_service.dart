@@ -138,6 +138,8 @@ class BleService {
     Future<String> Function(String message)? signAttest,
     String? walletBlob,
     String? walletAddr,
+    String? gpsLat,   // GPS telefonu (przy nodzie) → atest v2 (lokalizacja + trust naraz)
+    String? gpsLon,
   }) async {
     // ── Ceremonia trust — PRZED register (register restartuje node) ──
     String? seed;
@@ -154,7 +156,8 @@ class BleService {
         obsRssi = await readRssi();
         try {
           trustEv = await attest.runCeremony(
-              ble: this, seed: seed!, owner: ownerAddress, rounds: nRounds);
+              ble: this, seed: seed!, owner: ownerAddress, rounds: nRounds,
+              gpsLat: gpsLat, gpsLon: gpsLon);
           print('[Setup] Trust: ceremonia OK (${trustEv.rounds.length} rund)');
         } catch (e) {
           print('[Setup] Trust: ceremonia nieudana: $e');

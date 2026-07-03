@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/node_service.dart';
-import '../node_config/node_location_screen.dart';
+import '../node_config/trust_screen.dart';
 
 class NodesLocationScreen extends StatelessWidget {
   const NodesLocationScreen({super.key});
@@ -41,8 +41,7 @@ class NodesLocationScreen extends StatelessWidget {
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => NodeLocationScreen(
-                                ip: n.ip, pin: n.pin, title: n.label),
+                            builder: (_) => TrustScreen(node: n),
                           ),
                         ),
                       ),

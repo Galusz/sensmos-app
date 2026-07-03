@@ -10,7 +10,6 @@ import '../../core/core_event.dart';
 import '../scripts/scripts_screen.dart';
 import '../message_actions/message_actions_screen.dart';
 import '../messages/messages_screen.dart';
-import 'node_location_screen.dart';
 import 'trust_screen.dart';
 import 'service_screen.dart';
 
@@ -101,14 +100,11 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
           ),
           _tile(
             icon: Icons.location_on_outlined,
-            title: tr('Lokalizacja'),
-            sub: tr('współrzędne noda'),
+            title: tr('Lokalizacja i weryfikacja'),
+            sub: tr('ceremonia BLE + GPS — ustawia pozycję i potwierdza urządzenie'),
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(
-                builder: (_) => NodeLocationScreen(
-                    ip: node.ip, pin: pin, title: tr('Lokalizacja noda')),
-              ),
+              MaterialPageRoute(builder: (_) => TrustScreen(node: node)),
             ),
           ),
           _tile(
@@ -116,15 +112,6 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
             title: tr('Integracja (webhook)'),
             sub: tr('URL wywoływany przy zdarzeniach noda'),
             onTap: _editIntegration,
-          ),
-          _tile(
-            icon: Icons.verified_user_outlined,
-            title: tr('Zaufanie (trust)'),
-            sub: tr('ceremonia potwierdzająca fizyczne urządzenie'),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => TrustScreen(node: node)),
-            ),
           ),
           _tile(
             icon: Icons.vpn_key_outlined,
