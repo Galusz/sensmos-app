@@ -12,6 +12,7 @@ import '../../services/wallet_service.dart';
 import '../../services/node_service.dart';
 import '../node_config/node_config_screen.dart';
 import '../node_config/trust_screen.dart';
+import '../node_config/service_screen.dart';
 import '../../config.dart';
 import '../entities/entities_screen.dart';
 import '../setup/setup_screen.dart';
@@ -373,7 +374,7 @@ class _NodesScreenState extends State<NodesScreen> {
         child: Column(children: [
           const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 20),
           const SizedBox(height: 4),
-          Text(tr('Importuj portfel'),
+          Text(tr('import z klucza'),
               textAlign: TextAlign.center,
               style: const TextStyle(color: Color(0xFFFF4444),
                   fontSize: 12, fontWeight: FontWeight.bold)),
@@ -513,6 +514,16 @@ class _NodesScreenState extends State<NodesScreen> {
                     borderRadius: BorderRadius.circular(10)),
                   child: Icon(Icons.location_off, size: 13, color: Colors.amber.shade700)),
               ],
+              if (context.read<CoreBloc>().state.wallet == null) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF4444).withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.account_balance_wallet_outlined,
+                      size: 13, color: Color(0xFFFF4444))),
+              ],
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more,
                   color: AppTheme.muted, size: 20),
@@ -528,6 +539,33 @@ class _NodesScreenState extends State<NodesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (context.read<CoreBloc>().state.wallet == null) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF4444).withOpacity(0.10),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFF4444).withOpacity(0.35))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(
+                          tr('Brak portfela w apce. Odzyskaj kopię zapisaną na tym nodzie.'),
+                          style: const TextStyle(color: Color(0xFFFF4444), fontSize: 13,
+                              fontWeight: FontWeight.w500))),
+                      ]),
+                      const SizedBox(height: 8),
+                      SizedBox(width: double.infinity, child: TextButton.icon(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => ServiceScreen(node: n))),
+                        icon: const Icon(Icons.download_outlined, size: 18),
+                        label: Text(tr('Importuj portfel z noda')),
+                        style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF4444)),
+                      )),
+                    ])),
+                ],
                 if (_beData[n.id]?['located'] == false) ...[
                   Container(
                     padding: const EdgeInsets.all(12),
