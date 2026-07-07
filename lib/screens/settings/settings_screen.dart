@@ -42,7 +42,7 @@ class SettingsScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.info_outline, color: AppTheme.muted),
               title: Text(tr('Wersja'), style: const TextStyle(color: AppTheme.text)),
-              trailing: const Text('0.5',
+              trailing: const Text('1.1.4',
                   style: TextStyle(color: AppTheme.muted, fontSize: 13)),
             ),
             const Divider(color: AppTheme.border, height: 1),
@@ -50,7 +50,7 @@ class SettingsScreen extends StatelessWidget {
               leading: Icon(Icons.code, color: AppTheme.muted),
               title: Text('Sensmos Network',
                   style: TextStyle(color: AppTheme.text)),
-              subtitle: Text('sensmos.zkv.pl',
+              subtitle: Text('sensmos.com',
                   style: TextStyle(color: AppTheme.muted, fontSize: 12)),
             ),
           ])),

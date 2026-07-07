@@ -512,6 +512,18 @@ class _NodesScreenState extends State<NodesScreen> {
                     const SizedBox(width: 16),
                     _stat(tr('Encje'),
                         (data['entity_count'] ?? data['buffer_count'] ?? '—').toString()),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.copy, size: 16, color: AppTheme.muted),
+                      tooltip: tr('Kopiuj ID'),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: n.id));
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                            content: Text(tr('ID skopiowane: %s', [n.id])),
+                            duration: const Duration(seconds: 2)));
+                      },
+                    ),
                   ]),
                   const SizedBox(height: 14),
                 ] else if (online == true) ...[
