@@ -7,14 +7,14 @@ import '../../core/core_event.dart';
 import '../../services/wallet_service.dart';
 import '../node/node_manager_screen.dart';
 
-/// Ekran powitalny (welcome). Dwie sciezki: dodaj node (tworzy nowy portfel
-/// przy pierwszym nodzie) albo zaimportuj istniejacy portfel (np. z MetaMask).
+/// Ekran powitalny (welcome). Nowy start (dodaj node) — albo, jeśli już
+/// korzystałeś z SENSMOS: wyszukaj swoje nody w WiFi lub zaimportuj portfel.
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
-  void _addNode(BuildContext context) {
+  void _openNodeManager(BuildContext context, int tab) {
     Navigator.push(context,
-        MaterialPageRoute(builder: (_) => const NodeManagerScreen()));
+        MaterialPageRoute(builder: (_) => NodeManagerScreen(initialTab: tab)));
   }
 
   Future<void> _importWallet(BuildContext context) async {
@@ -44,15 +44,16 @@ class OnboardingScreen extends StatelessWidget {
       ),
     );
     if (pk == null || pk.isEmpty) return;
+    // Wszystko wyłuskane PRZED await; WalletImported (przełącza ekran → dispose) na końcu.
     final ws = context.read<WalletService>();
     final messenger = ScaffoldMessenger.of(context);
     final bloc = context.read<CoreBloc>();
     try {
       final w = await ws.restore(pk);
-      bloc.add(WalletImported());
       messenger.showSnackBar(SnackBar(content: Text(
           tr('Portfel zaimportowany: %s',
              ['${w.address.substring(0,6)}…${w.address.substring(w.address.length-4)}']))));
+      bloc.add(WalletImported());
     } catch (_) {
       messenger.showSnackBar(SnackBar(
           content: Text(tr('Nieprawidłowy klucz prywatny')),
@@ -64,13 +65,12 @@ class OnboardingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(32),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Spacer(),
+              const SizedBox(height: 24),
               const Text('SENSMOS',
                   style: TextStyle(
                       color: AppTheme.teal,
@@ -80,15 +80,18 @@ class OnboardingScreen extends StatelessWidget {
               const SizedBox(height: 12),
               Text(tr('Twoje urządzenia. Twoje dane. Twoja sieć.'),
                   style: const TextStyle(color: AppTheme.muted, fontSize: 15)),
-              const SizedBox(height: 48),
+              const SizedBox(height: 40),
               _bullet(Icons.sensors, tr('Podłącz czujnik i monitoruj okolicę')),
+              _bullet(Icons.lan_outlined, tr('Monitoruj sieć i internet')),
               _bullet(Icons.swap_horiz, tr('Wymieniaj dane z sąsiadami')),
               _bullet(Icons.notifications_active, tr('Alerty na telefon')),
-              const Spacer(),
+              const SizedBox(height: 32),
+
+              // ── Nowy start ──
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _addNode(context),
+                  onPressed: () => _openNodeManager(context, 0),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.teal,
                     foregroundColor: AppTheme.bg,
@@ -99,29 +102,32 @@ class OnboardingScreen extends StatelessWidget {
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(tr('tworzy nowy portfel'),
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 11),
-                  textAlign: TextAlign.center),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _importWallet(context),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.text,
-                    side: const BorderSide(color: AppTheme.border),
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: const Icon(Icons.download_outlined),
-                  label: Text(tr('Importuj portfel'),
-                      style: const TextStyle(fontSize: 15)),
+
+              const SizedBox(height: 28),
+              Row(children: [
+                const Expanded(child: Divider(color: AppTheme.border)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(tr('Korzystałeś już z SENSMOS?'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                 ),
+                const Expanded(child: Divider(color: AppTheme.border)),
+              ]),
+              const SizedBox(height: 16),
+
+              // ── Powracający ──
+              _secondary(
+                icon: Icons.wifi_find,
+                label: tr('Wyszukaj moje nody w sieci WiFi'),
+                onTap: () => _openNodeManager(context, 1),
               ),
-              const SizedBox(height: 8),
-              Text(tr('masz już portfel (np. w MetaMask)? odzyskaj dostęp do swoich nodów'),
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 11),
-                  textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              _secondary(
+                icon: Icons.download_outlined,
+                label: tr('Importuj portfel'),
+                onTap: () => _importWallet(context),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -129,8 +135,25 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 
+  Widget _secondary(
+          {required IconData icon, required String label, required VoidCallback onTap}) =>
+      SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: onTap,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.text,
+            side: const BorderSide(color: AppTheme.border),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            alignment: Alignment.centerLeft,
+          ),
+          icon: Icon(icon, size: 20, color: AppTheme.muted),
+          label: Text(label, style: const TextStyle(fontSize: 14)),
+        ),
+      );
+
   Widget _bullet(IconData icon, String text) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(children: [
           Icon(icon, color: AppTheme.purple, size: 22),
           const SizedBox(width: 14),

@@ -13,8 +13,9 @@ import '../setup/setup_screen.dart';
 import '../../l10n.dart';
 
 class NodeManagerScreen extends StatefulWidget {
-  const NodeManagerScreen({super.key, this.popOnActivate = false});
+  const NodeManagerScreen({super.key, this.popOnActivate = false, this.initialTab});
   final bool popOnActivate;
+  final int? initialTab;   // 0=Dodaj 1=Szukaj 2=Ręcznie (z ekranu welcome)
   @override State<NodeManagerScreen> createState() => _NodeManagerScreenState();
 }
 
@@ -27,7 +28,7 @@ class _FoundNode {
 }
 
 class _NodeManagerScreenState extends State<NodeManagerScreen> {
-  _Tab    _tab     = _Tab.add;
+  late _Tab _tab = _Tab.values[widget.initialTab ?? 0];
   bool    _busy    = false;
   String  _status  = '';
   String? _error;
