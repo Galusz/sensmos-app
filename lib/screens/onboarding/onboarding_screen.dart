@@ -100,11 +100,9 @@ class OnboardingScreen extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.teal,
                     foregroundColor: AppTheme.bg,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   icon: const Icon(Icons.add),
-                  label: Text(tr('Dodaj node'),
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  label: Text(tr('Dodaj node')),
                 ),
               ),
 
@@ -148,12 +146,10 @@ class OnboardingScreen extends StatelessWidget {
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
             foregroundColor: AppTheme.text,
-            side: const BorderSide(color: AppTheme.border),
-            padding: const EdgeInsets.symmetric(vertical: 14),
             alignment: Alignment.centerLeft,
           ),
           icon: Icon(icon, size: 20, color: AppTheme.muted),
-          label: Text(label, style: const TextStyle(fontSize: 14)),
+          label: Text(label),
         ),
       );
 

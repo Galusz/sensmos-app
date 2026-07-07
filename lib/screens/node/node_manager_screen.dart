@@ -273,8 +273,7 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
     FilledButton(
       onPressed: _busy ? null : _connectManual,
       style: FilledButton.styleFrom(
-          backgroundColor: AppTheme.teal, foregroundColor: AppTheme.bg,
-          padding: const EdgeInsets.symmetric(vertical: 14)),
+          backgroundColor: AppTheme.teal, foregroundColor: AppTheme.bg),
       child: Text(tr('Połącz i dodaj')),
     ),
   ]);

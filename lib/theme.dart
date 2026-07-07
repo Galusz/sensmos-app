@@ -38,6 +38,24 @@ class AppTheme {
             side: const BorderSide(color: border, width: 1),
           ),
         ),
+        // Jednolite przyciski w całej apce: wysokość 48, ten sam kształt/rozmiar czcionki.
+        // Dzięki temu nie ma już różnych wysokości (30/40/…) rozsianych po ekranach.
+        filledButtonTheme: FilledButtonThemeData(style: _btn()),
+        elevatedButtonTheme: ElevatedButtonThemeData(style: _btn()),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+            style: _btn().copyWith(side: WidgetStatePropertyAll(
+                const BorderSide(color: border)))),
+        textButtonTheme: TextButtonThemeData(style: _btn(pad: 12)),
+      );
+
+  static ButtonStyle _btn({double pad = 14}) => ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(0, 48)),
+        padding: WidgetStatePropertyAll(
+            EdgeInsets.symmetric(horizontal: 16, vertical: pad)),
+        textStyle: const WidgetStatePropertyAll(
+            TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+        shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10))),
       );
 
   // Status node → kolor
