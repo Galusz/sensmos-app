@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
@@ -120,6 +121,17 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
             title: tr('Zmień PIN'),
             sub: tr('PIN dostępu do noda'),
             onTap: _changePin,
+          ),
+          _tile(
+            icon: Icons.copy,
+            title: tr('Kopiuj ID noda'),
+            sub: node.id,
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: node.id));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(tr('ID skopiowane: %s', [node.id])),
+                  duration: const Duration(seconds: 2)));
+            },
           ),
           _tile(
             icon: Icons.bluetooth_searching,

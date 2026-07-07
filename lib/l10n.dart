@@ -217,6 +217,12 @@ const Map<String, String> _enMap = {
   "Node usunięty z sieci": "Node deleted from network",
   "Błąd usuwania: %s": "Delete error: %s",
   "Brak walleta": "No wallet",
+  "Moje nody w sieci": "My nodes in the network",
+  "Wszystkie nody zarejestrowane na Twój wallet (wg SENSMOS)": "All nodes registered to your wallet (per SENSMOS)",
+  "brak w tej apce": "not in this app",
+  "nieaktywny": "inactive",
+  "ID skopiowane: %s": "ID copied: %s",
+  "Kopiuj ID noda": "Copy node ID",
   "Trwale usuwa node z Twoich urządzeń": "Permanently removes the node from your devices",
   "Node POST-uje tu zdarzenia (message_received, batch_sent, sub_received, ws_connected). Puste = wyłączone.":
       "The node POSTs events here (message_received, batch_sent, sub_received, ws_connected). Empty = disabled.",

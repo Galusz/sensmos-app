@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
+import '../../core/core_event.dart';
+import '../../services/wallet_service.dart';
 import '../../services/node_service.dart';
 import '../node_config/node_config_screen.dart';
 import '../node_config/trust_screen.dart';
@@ -26,6 +29,7 @@ class _NodesScreenState extends State<NodesScreen> {
   final _nodeData  = <String, Map<String,dynamic>>{};
   final _scarcity  = <String, String>{};
   final _beData    = <String, Map<String,dynamic>>{};  // dane z BE per node
+  List<Map<String,dynamic>> _myBeNodes = [];            // WSZYSTKIE nody walleta wg BE (tez duchy)
   String? _balance;
 
   @override
@@ -39,6 +43,74 @@ class _NodesScreenState extends State<NodesScreen> {
     }
     // Pobierz saldo GALU z pierwszego dostępnego noda
     if (ns.nodes.isNotEmpty) _fetchBalance(ns.nodes.first.ip, ns.nodes.first.pin);
+    _fetchMyBeNodes();
+  }
+
+  // Moje nody wg BE (po owner wallet) — źródło prawdy o sieci: pokazuje też nody,
+  // których nie ma na lokalnej liście (reinstall apki, duch po wymianie płytki)
+  Future<void> _fetchMyBeNodes() async {
+    final owner = context.read<CoreBloc>().state.wallet?.address;
+    if (owner == null) return;
+    try {
+      final res = await http.get(
+        Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
+        headers: const {'X-App-Key': 'sensmos2025'},
+      ).timeout(const Duration(seconds: 6));
+      final j = jsonDecode(res.body) as Map<String,dynamic>;
+      if (mounted) setState(() =>
+          _myBeNodes = List<Map<String,dynamic>>.from(j['nodes'] ?? []));
+    } catch (e) { print('[MyBeNodes] BŁĄD $e'); }
+  }
+
+  Future<void> _deleteFromNetwork(Map<String,dynamic> n) async {
+    final id = n['device_id'] as String;
+    final short = id.length > 8 ? '${id.substring(0,8)}…' : id;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Usunąć node z sieci?')),
+        content: Text(tr(
+            'Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. '
+            'Ta tożsamość nie będzie mogła się ponownie zarejestrować. '
+            'Zarobione GALU pozostają na Twoim wallecie.', [short])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Usuń permanentnie'),
+                  style: const TextStyle(color: Color(0xFFFF4444)))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      final owner = context.read<CoreBloc>().state.wallet?.address;
+      final wallet = context.read<WalletService>();
+      if (owner == null) throw Exception(tr('Brak walleta'));
+      final ts = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
+      final sig = await wallet.signMessage('sensmos:delete:$id:$ts');
+      final res = await http.delete(
+        Uri.parse('${Config.beUrl}/v1/nodes/$id'),
+        headers: {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+        body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        throw Exception(jsonDecode(res.body)['error'] ?? res.statusCode);
+      }
+      if (!mounted) return;
+      // Jeśli node był też na lokalnej liście — usuń i stamtąd
+      final ns = context.read<NodeService>();
+      if (ns.nodes.any((x) => x.id == id)) {
+        context.read<CoreBloc>().add(NodeRemoved(id));
+      }
+      _fetchMyBeNodes();
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('Node usunięty z sieci'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Błąd usuwania: %s', [e.toString()])),
+          backgroundColor: const Color(0xFFFF4444)));
+    }
   }
 
   Future<void> _fetchBeData(String deviceId) async {
@@ -143,7 +215,7 @@ class _NodesScreenState extends State<NodesScreen> {
                       builder: (_) => const NodeManagerScreen()))),
           ],
         ),
-        body: nodes.isEmpty ? _buildEmpty() :
+        body: nodes.isEmpty && _myBeNodes.isEmpty ? _buildEmpty() :
           RefreshIndicator(
             onRefresh: _refresh,
             color: AppTheme.teal,
@@ -153,11 +225,66 @@ class _NodesScreenState extends State<NodesScreen> {
                 _buildGlobalStats(),
                 const SizedBox(height: 16),
                 ...nodes.map((n) => _buildCard(n)),
+                ..._buildMyBeSection(nodes),
               ],
             ),
           ),
       );
     });
+  }
+
+  // ── Moje nody w sieci (BE, po wallecie) ───────────────────
+  List<Widget> _buildMyBeSection(List<SavedNode> localNodes) {
+    if (_myBeNodes.isEmpty) return const [];
+    final localIds = localNodes.map((n) => n.id).toSet();
+    return [
+      const SizedBox(height: 20),
+      Text(tr('Moje nody w sieci'),
+          style: const TextStyle(color: AppTheme.text, fontSize: 16, fontWeight: FontWeight.bold)),
+      Text(tr('Wszystkie nody zarejestrowane na Twój wallet (wg SENSMOS)'),
+          style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+      const SizedBox(height: 8),
+      ..._myBeNodes.map((n) {
+        final id     = n['device_id'] as String;
+        final short  = id.length > 8 ? id.substring(0, 8) : id;
+        final status = n['status'] as String? ?? '?';
+        final onList = localIds.contains(id);
+        final secs   = n['seconds_since_ping'];
+        final ago    = secs == null ? '—' : _ago(double.tryParse(secs.toString()) ?? 0);
+        final color  = status == 'online' ? AppTheme.teal
+                     : status == 'offline' ? Colors.amber.shade700 : AppTheme.muted;
+        final label  = status == 'online' ? tr('online')
+                     : status == 'offline' ? '${tr('cisza')} $ago' : tr('nieaktywny');
+        return Card(
+          child: ListTile(
+            dense: true,
+            onTap: () {
+              Clipboard.setData(ClipboardData(text: id));
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(tr('ID skopiowane: %s', [id])),
+                  duration: const Duration(seconds: 2)));
+            },
+            leading: Icon(Icons.circle, color: color, size: 12),
+            title: Row(children: [
+              Text('sensmos-$short',
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              const SizedBox(width: 6),
+              const Icon(Icons.copy, color: AppTheme.muted, size: 13),
+            ]),
+            subtitle: Text(
+                '${n['city'] ?? '—'} · fw ${n['firmware'] ?? '?'} · $label'
+                '${onList ? '' : ' · ${tr('brak w tej apce')}'}'
+                '${n['trusted'] == true ? ' · ✓' : ''}',
+                style: const TextStyle(color: AppTheme.muted, fontSize: 11.5)),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_forever, color: Color(0xFFFF4444)),
+              tooltip: tr('Usuń node z sieci (permanentnie)'),
+              onPressed: () => _deleteFromNetwork(n),
+            ),
+          ),
+        );
+      }),
+    ];
   }
 
   // ── Statystyki globalne ───────────────────────────────────
