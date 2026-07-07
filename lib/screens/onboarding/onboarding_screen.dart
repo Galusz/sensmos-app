@@ -12,9 +12,14 @@ import '../node/node_manager_screen.dart';
 class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
-  void _openNodeManager(BuildContext context, int tab) {
+  void _addNew(BuildContext context) {
     Navigator.push(context, MaterialPageRoute(
-        builder: (_) => NodeManagerScreen(initialTab: tab, lanOnly: tab == 1)));
+        builder: (_) => const NodeManagerScreen(addOnly: true)));
+  }
+
+  void _findExisting(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(
+        builder: (_) => const NodeManagerScreen(existingOnly: true)));
   }
 
   Future<void> _importWallet(BuildContext context) async {
@@ -91,7 +96,7 @@ class OnboardingScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
-                  onPressed: () => _openNodeManager(context, 0),
+                  onPressed: () => _addNew(context),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppTheme.teal,
                     foregroundColor: AppTheme.bg,
@@ -119,7 +124,7 @@ class OnboardingScreen extends StatelessWidget {
               _secondary(
                 icon: Icons.wifi_find,
                 label: tr('Wyszukaj moje nody w sieci WiFi'),
-                onTap: () => _openNodeManager(context, 1),
+                onTap: () => _findExisting(context),
               ),
               const SizedBox(height: 12),
               _secondary(

@@ -13,10 +13,11 @@ import '../setup/setup_screen.dart';
 import '../../l10n.dart';
 
 class NodeManagerScreen extends StatefulWidget {
-  const NodeManagerScreen({super.key, this.popOnActivate = false, this.initialTab, this.lanOnly = false});
+  const NodeManagerScreen({super.key, this.popOnActivate = false,
+      this.addOnly = false, this.existingOnly = false});
   final bool popOnActivate;
-  final int? initialTab;   // 0=Dodaj 1=Szukaj 2=Ręcznie (z ekranu welcome)
-  final bool lanOnly;      // wejscie 'Wyszukaj moje nody w WiFi' — tylko skan LAN, bez zakladek/BT
+  final bool addOnly;       // 'Dodaj node' — tylko BLE onboarding (tworzy/odzyskuje portfel), bez zakladek
+  final bool existingOnly;  // 'Wyszukaj moje nody' — istniejacy node: Szukaj + Recznie (bez BLE-add)
   @override State<NodeManagerScreen> createState() => _NodeManagerScreenState();
 }
 
@@ -29,7 +30,7 @@ class _FoundNode {
 }
 
 class _NodeManagerScreenState extends State<NodeManagerScreen> {
-  late _Tab _tab = _Tab.values[widget.initialTab ?? 0];
+  late _Tab _tab = widget.existingOnly ? _Tab.search : _Tab.add;
   bool    _busy    = false;
   String  _status  = '';
   String? _error;
@@ -61,10 +62,11 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr(widget.lanOnly ? 'Wyszukaj moje nody' : 'Nody')),
-          automaticallyImplyLeading: widget.lanOnly),
+      appBar: AppBar(
+          title: Text(tr(widget.existingOnly ? 'Wyszukaj moje nody'
+              : widget.addOnly ? 'Dodaj node' : 'Nody'))),
       body: Column(children: [
-        if (!widget.lanOnly) _buildTabs(),
+        if (!widget.addOnly) _buildTabs(),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: switch (_tab) {
@@ -77,11 +79,16 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
     );
   }
 
-  Widget _buildTabs() => Row(children: [
-    _tabBtn(Icons.add_circle_outline, tr('Dodaj'), _Tab.add),
-    _tabBtn(Icons.wifi_find,     tr('Szukaj'),  _Tab.search),
-    _tabBtn(Icons.edit_outlined, tr('Ręcznie'), _Tab.manual),
-  ]);
+  Widget _buildTabs() => Row(children: widget.existingOnly
+    ? [
+        _tabBtn(Icons.wifi_find,     tr('Szukaj'),  _Tab.search),
+        _tabBtn(Icons.edit_outlined, tr('Ręcznie'), _Tab.manual),
+      ]
+    : [
+        _tabBtn(Icons.add_circle_outline, tr('Dodaj'), _Tab.add),
+        _tabBtn(Icons.wifi_find,     tr('Szukaj'),  _Tab.search),
+        _tabBtn(Icons.edit_outlined, tr('Ręcznie'), _Tab.manual),
+      ]);
 
   Widget _tabBtn(IconData icon, String label, _Tab t) => Expanded(
     child: GestureDetector(
