@@ -239,6 +239,8 @@ const Map<String, String> _enMap = {
   "Aplikacja nie ma przypisanego portfela": "The app has no wallet assigned",
   "Zaimportuj go z klucza (zakladka Portfel) lub z noda (rozwin swoj node ponizej -> Importuj portfel z noda).": "Import it from a key (Wallet tab) or from a node (expand your node below -> Import wallet from node).",
   "import z klucza": "import from key",
+  "Klucz portfela (zaawansowane)": "Wallet key (advanced)",
+  "import / eksport klucza prywatnego": "import / export private key",
   "Brak portfela w apce. Odzyskaj kopię zapisaną na tym nodzie.": "No wallet in the app. Recover the copy saved on this node.",
   "Importuj portfel z noda": "Import wallet from node",
   "Dodaj node": "Add node",

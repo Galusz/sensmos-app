@@ -24,6 +24,7 @@ class WalletScreen extends StatefulWidget {
 class _WalletScreenState extends State<WalletScreen> {
   bool _loading = true;
   bool _busy = false;
+  bool _keysOpen = false;
   String? _address;
 
   // saldo z BE (GALU, human)
@@ -255,9 +256,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       const SizedBox(height: 16),
                       _onchainCard(),
                       const SizedBox(height: 16),
-                      _exportTile(),
-                      const SizedBox(height: 12),
-                      _importTile(),
+                      _keysSection(),
                     ],
                   ),
                   if (_busy)
@@ -426,28 +425,45 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       );
 
-  Widget _exportTile() => Card(
-        child: ListTile(
-          leading: const Icon(Icons.key_outlined, color: AppTheme.amber),
-          title: Text(tr('Eksportuj klucz (MetaMask)'),
-              style: const TextStyle(color: AppTheme.text)),
-          subtitle: Text(tr('wymaga PIN-u dowolnego Twojego noda'),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-          trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
-          onTap: _busy ? null : _exportKey,
-        ),
+  // Klucz portfela — zwinięte pod jeden kafel (zaawansowane, rzadko potrzebne)
+  Widget _keysSection() => Card(
+        child: Column(children: [
+          ListTile(
+            leading: const Icon(Icons.vpn_key_outlined, color: AppTheme.muted),
+            title: Text(tr('Klucz portfela (zaawansowane)'),
+                style: const TextStyle(color: AppTheme.text)),
+            subtitle: Text(tr('import / eksport klucza prywatnego'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            trailing: Icon(_keysOpen ? Icons.expand_less : Icons.expand_more,
+                color: AppTheme.muted),
+            onTap: () => setState(() => _keysOpen = !_keysOpen),
+          ),
+          if (_keysOpen) ...[
+            const Divider(color: AppTheme.border, height: 1),
+            _exportTile(),
+            _importTile(),
+          ],
+        ]),
       );
 
-  Widget _importTile() => Card(
-        child: ListTile(
-          leading: const Icon(Icons.download_outlined, color: AppTheme.amber),
-          title: Text(tr('Importuj klucz prywatny'),
-              style: const TextStyle(color: AppTheme.text)),
-          subtitle: Text(tr('wklej klucz z MetaMask (0x… lub 64 hex)'),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-          trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
-          onTap: _busy ? null : _importKey,
-        ),
+  Widget _exportTile() => ListTile(
+        leading: const Icon(Icons.key_outlined, color: AppTheme.amber),
+        title: Text(tr('Eksportuj klucz (MetaMask)'),
+            style: const TextStyle(color: AppTheme.text)),
+        subtitle: Text(tr('wymaga PIN-u dowolnego Twojego noda'),
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
+        onTap: _busy ? null : _exportKey,
+      );
+
+  Widget _importTile() => ListTile(
+        leading: const Icon(Icons.download_outlined, color: AppTheme.amber),
+        title: Text(tr('Importuj klucz prywatny'),
+            style: const TextStyle(color: AppTheme.text)),
+        subtitle: Text(tr('wklej klucz z MetaMask (0x… lub 64 hex)'),
+            style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
+        onTap: _busy ? null : _importKey,
       );
 
   Future<void> _importKey() async {
