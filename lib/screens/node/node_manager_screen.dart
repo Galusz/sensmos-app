@@ -13,9 +13,10 @@ import '../setup/setup_screen.dart';
 import '../../l10n.dart';
 
 class NodeManagerScreen extends StatefulWidget {
-  const NodeManagerScreen({super.key, this.popOnActivate = false, this.initialTab});
+  const NodeManagerScreen({super.key, this.popOnActivate = false, this.initialTab, this.lanOnly = false});
   final bool popOnActivate;
   final int? initialTab;   // 0=Dodaj 1=Szukaj 2=Ręcznie (z ekranu welcome)
+  final bool lanOnly;      // wejscie 'Wyszukaj moje nody w WiFi' — tylko skan LAN, bez zakladek/BT
   @override State<NodeManagerScreen> createState() => _NodeManagerScreenState();
 }
 
@@ -60,9 +61,10 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(tr('Nody')), automaticallyImplyLeading: false),
+      appBar: AppBar(title: Text(tr(widget.lanOnly ? 'Wyszukaj moje nody' : 'Nody')),
+          automaticallyImplyLeading: widget.lanOnly),
       body: Column(children: [
-        _buildTabs(),
+        if (!widget.lanOnly) _buildTabs(),
         Expanded(child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: switch (_tab) {

@@ -13,8 +13,8 @@ class OnboardingScreen extends StatelessWidget {
   const OnboardingScreen({super.key});
 
   void _openNodeManager(BuildContext context, int tab) {
-    Navigator.push(context,
-        MaterialPageRoute(builder: (_) => NodeManagerScreen(initialTab: tab)));
+    Navigator.push(context, MaterialPageRoute(
+        builder: (_) => NodeManagerScreen(initialTab: tab, lanOnly: tab == 1)));
   }
 
   Future<void> _importWallet(BuildContext context) async {

@@ -229,6 +229,7 @@ const Map<String, String> _enMap = {
   "Monitoruj sieć i internet": "Monitor your network and internet",
   "Korzystałeś już z SENSMOS?": "Already using SENSMOS?",
   "Wyszukaj moje nody w sieci WiFi": "Find my nodes on WiFi",
+  "Wyszukaj moje nody": "Find my nodes",
   "Dodaj node": "Add node",
   "tworzy nowy portfel": "creates a new wallet",
   "masz już portfel (np. w MetaMask)? odzyskaj dostęp do swoich nodów": "already have a wallet (e.g. in MetaMask)? restore access to your nodes",
