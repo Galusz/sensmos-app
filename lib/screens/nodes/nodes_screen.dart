@@ -226,6 +226,7 @@ class _NodesScreenState extends State<NodesScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 _buildGlobalStats(),
+                if (state.wallet == null) _noWalletBanner(),
                 const SizedBox(height: 16),
                 ...nodes.map((n) => _buildCard(n)),
                 ..._buildMyBeSection(nodes),
@@ -369,60 +370,39 @@ class _NodesScreenState extends State<NodesScreen> {
     );
   }
 
-  Widget _importWalletStat() => Expanded(child: InkWell(
-        onTap: _importWallet,
-        child: Column(children: [
-          const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 20),
-          const SizedBox(height: 4),
-          Text(tr('import z klucza'),
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFFFF4444),
-                  fontSize: 12, fontWeight: FontWeight.bold)),
-          Text(tr('brak portfela'),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-        ]),
-      ));
+  Widget _importWalletStat() => Expanded(child: Column(children: [
+        const Icon(Icons.account_balance_wallet_outlined,
+            color: AppTheme.muted, size: 20),
+        const SizedBox(height: 4),
+        const Text('—', style: TextStyle(
+            color: AppTheme.muted, fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(tr('brak portfela'),
+            style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+      ]));
 
-  Future<void> _importWallet() async {
-    final ctrl = TextEditingController();
-    final pk = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.card,
-        title: Text(tr('Importuj portfel'), style: const TextStyle(color: AppTheme.text)),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tr('Wklej klucz prywatny (np. z MetaMask). Rób to tylko na swoim telefonie.'),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-          const SizedBox(height: 10),
-          TextField(controller: ctrl, autofocus: true, maxLines: 2,
-            style: const TextStyle(color: AppTheme.text, fontSize: 13, fontFamily: 'monospace'),
-            decoration: const InputDecoration(hintText: '0x…', hintStyle: TextStyle(color: AppTheme.muted))),
+  Widget _noWalletBanner() => Container(
+        margin: const EdgeInsets.only(top: 12),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF4444).withOpacity(0.10),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFFF4444).withOpacity(0.35)),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.error_outline, color: Color(0xFFFF4444), size: 20),
+          const SizedBox(width: 10),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr('Aplikacja nie ma przypisanego portfela'),
+                style: const TextStyle(color: Color(0xFFFF4444),
+                    fontSize: 14, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            Text(tr('Zaimportuj go z klucza (zakladka Portfel) lub z noda '
+                    '(rozwin swoj node ponizej -> Importuj portfel z noda).'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12.5, height: 1.35)),
+          ])),
         ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Anuluj'))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: Text(tr('Importuj'), style: const TextStyle(color: Colors.black))),
-        ],
-      ),
-    );
-    if (pk == null || pk.isEmpty || !mounted) return;
-    final ws = context.read<WalletService>();
-    final bloc = context.read<CoreBloc>();
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final w = await ws.restore(pk);
-      bloc.add(WalletImported());
-      messenger.showSnackBar(SnackBar(content: Text(tr('Portfel zaimportowany: %s',
-          ['${w.address.substring(0,6)}…${w.address.substring(w.address.length-4)}']))));
-      if (mounted) setState(() {});
-    } catch (_) {
-      messenger.showSnackBar(SnackBar(
-          content: Text(tr('Nieprawidłowy klucz prywatny')),
-          backgroundColor: const Color(0xFFFF4444)));
-    }
-  }
+      );
+
 
   Widget _globalStat(IconData icon, String value, String label, {Color? valueColor}) =>
     Expanded(child: Column(children: [

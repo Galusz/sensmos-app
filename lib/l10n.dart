@@ -236,6 +236,8 @@ const Map<String, String> _enMap = {
   "Sprawdzam PIN...": "Checking PIN...",
   "Wpisz IP noda — PIN podasz, gdy urządzenie się odnajdzie.": "Enter the node IP — you'll enter the PIN once the device is found.",
   "brak portfela": "no wallet",
+  "Aplikacja nie ma przypisanego portfela": "The app has no wallet assigned",
+  "Zaimportuj go z klucza (zakladka Portfel) lub z noda (rozwin swoj node ponizej -> Importuj portfel z noda).": "Import it from a key (Wallet tab) or from a node (expand your node below -> Import wallet from node).",
   "import z klucza": "import from key",
   "Brak portfela w apce. Odzyskaj kopię zapisaną na tym nodzie.": "No wallet in the app. Recover the copy saved on this node.",
   "Importuj portfel z noda": "Import wallet from node",
