@@ -4,7 +4,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../l10n.dart';
+import '../../config.dart';
 import '../../services/node_service.dart';
+import '../../services/wallet_service.dart';
 import '../../core/core_bloc.dart';
 import '../../core/core_event.dart';
 import '../scripts/scripts_screen.dart';
@@ -136,16 +138,76 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
                 const Icon(Icons.delete_outline, color: Color(0xFFFF4444)),
             title: Text(tr('Usuń node z listy'),
                 style: const TextStyle(color: Color(0xFFFF4444))),
-            subtitle: Text(tr('Trwale usuwa node z Twoich urządzeń'),
+            subtitle: Text(tr('Usuwa node tylko z tej apki'),
                 style: const TextStyle(color: Color(0xFF888888), fontSize: 12)),
             onTap: () {
               context.read<CoreBloc>().add(NodeRemoved(node.id));
               Navigator.of(context).popUntil((r) => r.isFirst);
             },
           ),
+          ListTile(
+            leading:
+                const Icon(Icons.delete_forever, color: Color(0xFFFF4444)),
+            title: Text(tr('Usuń node z sieci (permanentnie)'),
+                style: const TextStyle(color: Color(0xFFFF4444))),
+            subtitle: Text(
+                tr('Kasuje node i wszystkie jego dane z SENSMOS. Nieodwracalne — node nie zarejestruje się ponownie bez factory resetu. Zarobione GALU zostają na Twoim wallecie.'),
+                style: const TextStyle(color: Color(0xFF888888), fontSize: 12)),
+            onTap: _deleteFromNetwork,
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _deleteFromNetwork() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Usunąć node z sieci?')),
+        content: Text(tr(
+            'Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. '
+            'Ta tożsamość nie będzie mogła się ponownie zarejestrować. '
+            'Zarobione GALU pozostają na Twoim wallecie.', [_short])),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(tr('Anuluj'))),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Usuń permanentnie'),
+                  style: const TextStyle(color: Color(0xFFFF4444)))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      final owner = context.read<CoreBloc>().state.wallet?.address;
+      final wallet = context.read<WalletService>();
+      if (owner == null) throw Exception(tr('Brak walleta'));
+      final ts = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
+      final sig = await wallet.signMessage('sensmos:delete:${node.id}:$ts');
+      final res = await http.delete(
+        Uri.parse('${Config.beUrl}/v1/nodes/${node.id}'),
+        headers: {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+        body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        final err = jsonDecode(res.body)['error'] ?? res.statusCode;
+        throw Exception('$err');
+      }
+      if (!mounted) return;
+      context.read<CoreBloc>().add(NodeRemoved(node.id));
+      Navigator.of(context).popUntil((r) => r.isFirst);
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(tr('Node usunięty z sieci'))));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('Błąd usuwania: %s', [e.toString()])),
+          backgroundColor: const Color(0xFFFF4444)));
+    }
   }
 
   Widget _tile({

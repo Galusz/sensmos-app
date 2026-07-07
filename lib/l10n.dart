@@ -206,6 +206,17 @@ const Map<String, String> _enMap = {
   "Tryb serwisowy (Bluetooth)": "Service mode (Bluetooth)",
   "zmiana WiFi / odzyskiwanie portfela": "change WiFi / recover wallet",
   "Usuń node z listy": "Remove node from list",
+  "Usuwa node tylko z tej apki": "Removes the node only from this app",
+  "Usuń node z sieci (permanentnie)": "Delete node from network (permanent)",
+  "Kasuje node i wszystkie jego dane z SENSMOS. Nieodwracalne — node nie zarejestruje się ponownie bez factory resetu. Zarobione GALU zostają na Twoim wallecie.":
+      "Deletes the node and all its data from SENSMOS. Irreversible — the node cannot re-register without a factory reset. Earned GALU stays in your wallet.",
+  "Usunąć node z sieci?": "Delete node from network?",
+  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Ta tożsamość nie będzie mogła się ponownie zarejestrować. Zarobione GALU pozostają na Twoim wallecie.":
+      "Node %s and ALL its data will be permanently deleted from SENSMOS. This identity will not be able to re-register. Earned GALU stays in your wallet.",
+  "Usuń permanentnie": "Delete permanently",
+  "Node usunięty z sieci": "Node deleted from network",
+  "Błąd usuwania: %s": "Delete error: %s",
+  "Brak walleta": "No wallet",
   "Trwale usuwa node z Twoich urządzeń": "Permanently removes the node from your devices",
   "Node POST-uje tu zdarzenia (message_received, batch_sent, sub_received, ws_connected). Puste = wyłączone.":
       "The node POSTs events here (message_received, batch_sent, sub_received, ws_connected). Empty = disabled.",
