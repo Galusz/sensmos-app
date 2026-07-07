@@ -296,13 +296,14 @@ class BleService {
   Future<String?> discoverNodeMdns({
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    final results = await discoverAllNodes(timeout: timeout);
+    final results = await discoverAllNodes(timeout: timeout, stopOnFirst: true);
     return results.isEmpty ? null : results.first['ip'];
   }
 
   // mDNS — wszyscy znalezieni nodowie
   Future<List<Map<String,String>>> discoverAllNodes({
     Duration timeout = const Duration(seconds: 12),
+    bool stopOnFirst = false,   // setup: konczy na 1. nodzie; search: skan do konca
   }) async {
     final mdns    = MDnsClient();
     final results = <Map<String,String>>[];
@@ -311,6 +312,9 @@ class BleService {
     try {
       await mdns.start();
       print('[mDNS] Socket otwarty');
+      // Zbieramy przez CAŁY timeout (bez wczesnego break) — nody odpowiadają różnym
+      // tempem, więc przerwanie po pierwszym dawało raz 2, raz 3 (wyścig). Re-query
+      // co ~2s, akumulując unikalne IP; kończymy dopiero na deadline.
       final deadline = DateTime.now().add(timeout);
       while (DateTime.now().isBefore(deadline)) {
         await for (final ptr in mdns.lookup<PtrResourceRecord>(
@@ -324,13 +328,11 @@ class BleService {
                 seen.add(ip);
                 results.add({'ip': ip, 'hostname': srv.target});
                 print('[mDNS] Znaleziono: $ip (${srv.target})');
-              } else {
-                print('[mDNS] Duplikat: $ip (pominięto)');
               }
             }
           }
         }
-        if (results.isNotEmpty) break;
+        if (stopOnFirst && results.isNotEmpty) break;
         await Future.delayed(const Duration(seconds: 2));
       }
     } catch (e) { print('[mDNS] BŁĄD: ' + e.toString()); } finally { mdns.stop(); print('[mDNS] Stop. Znaleziono: ${results.length}'); }
