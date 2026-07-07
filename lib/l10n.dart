@@ -99,7 +99,6 @@ const Map<String, String> _enMap = {
 
   // ── Skrypty ──────────────────────────────────────────────────
   "Usuń skrypt": "Delete script",
-  "Usunąć \"%s\"?": "Delete \"%s\"?",
   "Skrypty wykonywane lokalnie na nodzie — uruchamiane przez akcje wiadomości.":
       "Scripts run locally on the node — triggered by message actions.",
   "Brak skryptów. Dodaj przyciskiem +": "No scripts. Add one with +",
@@ -125,7 +124,6 @@ const Map<String, String> _enMap = {
 
   // ── Akcje wiadomości / wiadomości ────────────────────────────
   "Usuń akcję": "Delete action",
-  "Usunąć akcję dla \"%s\"?": "Delete action for \"%s\"?",
   "Brak akcji. Dodaj przyciskiem +": "No actions. Add one with +",
   "Automatyczne akcje wykonywane gdy node odbierze wiadomość o podanym ID (lub \"*\" dla wszystkich).":
       "Automatic actions run when the node receives a message with the given ID (or \"*\" for all).",
