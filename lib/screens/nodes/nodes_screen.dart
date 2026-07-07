@@ -163,16 +163,23 @@ class _NodesScreenState extends State<NodesScreen> {
   }
 
   Future<void> _fetchNode(String ip, String id, String pin) async {
-    try {
-      final res = await http.get(Uri.parse('http://$ip/info'),
-          headers: {'Authorization': 'Bearer $pin'})
-          .timeout(const Duration(seconds: 3));
-      if (!mounted) return;
-      final j = jsonDecode(res.body) as Map<String,dynamic>;
-      setState(() { _online[id] = true; _nodeData[id] = j; });
-    } catch (_) {
-      if (mounted) setState(() => _online[id] = false);
+    // 2 próby po 6 s: firmware w pętli potrafi zablokować HTTP do ~3.5 s (blokujący
+    // probe checknet/monitor), więc 3 s dawało fałszywe „niedostępny". Node online
+    // zwykle odpowie za pierwszym/drugim razem.
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final res = await http.get(Uri.parse('http://$ip/info'),
+            headers: {'Authorization': 'Bearer $pin'})
+            .timeout(const Duration(seconds: 6));
+        if (!mounted) return;
+        final j = jsonDecode(res.body) as Map<String,dynamic>;
+        setState(() { _online[id] = true; _nodeData[id] = j; });
+        return;
+      } catch (_) {
+        if (attempt == 0) await Future.delayed(const Duration(milliseconds: 500));
+      }
     }
+    if (mounted) setState(() => _online[id] = false);
   }
 
   // Statystyki globalne
