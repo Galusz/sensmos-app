@@ -163,7 +163,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
             title: Text(tr('Usuń node z sieci (permanentnie)'),
                 style: const TextStyle(color: Color(0xFFFF4444))),
             subtitle: Text(
-                tr('Kasuje node i wszystkie jego dane z SENSMOS. Nieodwracalne — node nie zarejestruje się ponownie bez factory resetu. Zarobione GALU zostają na Twoim wallecie.'),
+                tr('Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają na Twoim wallecie.'),
                 style: const TextStyle(color: Color(0xFF888888), fontSize: 12)),
             onTap: _deleteFromNetwork,
           ),
@@ -179,7 +179,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
         title: Text(tr('Usunąć node z sieci?')),
         content: Text(tr(
             'Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. '
-            'Ta tożsamość nie będzie mogła się ponownie zarejestrować. '
+            'Możesz go później dodać ponownie (onboarding przez Bluetooth). '
             'Zarobione GALU pozostają na Twoim wallecie.', [_short])),
         actions: [
           TextButton(

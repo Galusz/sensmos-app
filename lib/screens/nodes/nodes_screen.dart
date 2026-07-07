@@ -73,7 +73,7 @@ class _NodesScreenState extends State<NodesScreen> {
         title: Text(tr('Usunąć node z sieci?')),
         content: Text(tr(
             'Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. '
-            'Ta tożsamość nie będzie mogła się ponownie zarejestrować. '
+            'Możesz go później dodać ponownie (onboarding przez Bluetooth). '
             'Zarobione GALU pozostają na Twoim wallecie.', [short])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),

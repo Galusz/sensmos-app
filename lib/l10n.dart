@@ -206,11 +206,11 @@ const Map<String, String> _enMap = {
   "Usuń node z listy": "Remove node from list",
   "Usuwa node tylko z tej apki": "Removes the node only from this app",
   "Usuń node z sieci (permanentnie)": "Delete node from network (permanent)",
-  "Kasuje node i wszystkie jego dane z SENSMOS. Nieodwracalne — node nie zarejestruje się ponownie bez factory resetu. Zarobione GALU zostają na Twoim wallecie.":
-      "Deletes the node and all its data from SENSMOS. Irreversible — the node cannot re-register without a factory reset. Earned GALU stays in your wallet.",
+  "Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają na Twoim wallecie.":
+      "Removes the node and all its data from SENSMOS. You can add it back later (Bluetooth onboarding). Earned GALU stays in your wallet.",
   "Usunąć node z sieci?": "Delete node from network?",
-  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Ta tożsamość nie będzie mogła się ponownie zarejestrować. Zarobione GALU pozostają na Twoim wallecie.":
-      "Node %s and ALL its data will be permanently deleted from SENSMOS. This identity will not be able to re-register. Earned GALU stays in your wallet.",
+  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU pozostają na Twoim wallecie.":
+      "Node %s and ALL its data will be permanently removed from SENSMOS. You can add it back later (Bluetooth onboarding). Earned GALU stays in your wallet.",
   "Usuń permanentnie": "Delete permanently",
   "Node usunięty z sieci": "Node deleted from network",
   "Błąd usuwania: %s": "Delete error: %s",
@@ -225,6 +225,10 @@ const Map<String, String> _enMap = {
   "Kopiuj ID noda": "Copy node ID",
   "Kopiuj ID": "Copy ID",
   "Importuj klucz prywatny": "Import private key",
+  "Importuj portfel": "Import wallet",
+  "Dodaj node": "Add node",
+  "tworzy nowy portfel": "creates a new wallet",
+  "masz już portfel (np. w MetaMask)? odzyskaj dostęp do swoich nodów": "already have a wallet (e.g. in MetaMask)? restore access to your nodes",
   "wklej klucz z MetaMask (0x… lub 64 hex)": "paste a key from MetaMask (0x… or 64 hex)",
   "Wklej klucz prywatny (np. z MetaMask). Rób to tylko na swoim telefonie.": "Paste a private key (e.g. from MetaMask). Only do this on your own phone.",
   "Importuj": "Import",
@@ -291,7 +295,6 @@ const Map<String, String> _enMap = {
   "Dodaję...": "Adding...",
   "Panel": "Dashboard",
   "Odśwież": "Refresh",
-  "Dodaj node": "Add node",
   "GALU saldo": "GALU balance",
   "Sąsiedzi": "Neighbors",
   "Promień": "Radius",

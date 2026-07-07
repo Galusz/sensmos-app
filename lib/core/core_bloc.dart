@@ -29,8 +29,10 @@ class CoreBloc extends Bloc<CoreEvent, CoreState> {
     final wallet = await walletService.exists()
         ? await walletService.load() : null;
     final node = await nodeService.loadSaved(bleService: bleService);
+    // W srodku jestes gdy masz WALLET albo lokalny node — sam wallet wystarcza
+    // (widok mapy, Twoje nody z BE po wallecie, portfel). Welcome tylko gdy nic.
     emit(state.copyWith(
-        phase: node == null ? AppPhase.welcome : AppPhase.ready,
+        phase: (node == null && wallet == null) ? AppPhase.welcome : AppPhase.ready,
         wallet: wallet));
   }
 
@@ -46,7 +48,7 @@ class CoreBloc extends Bloc<CoreEvent, CoreState> {
   }
 
   Future<void> _onWalletImported(WalletImported e, Emitter<CoreState> emit) async {
-    emit(state.copyWith(wallet: await walletService.load()));
+    emit(state.copyWith(phase: AppPhase.ready, wallet: await walletService.load()));
   }
 
   Future<void> _onNodeRemoved(NodeRemoved e, Emitter<CoreState> emit) async {
