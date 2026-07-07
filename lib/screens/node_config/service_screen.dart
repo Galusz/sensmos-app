@@ -4,6 +4,8 @@ import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
+import '../../core/core_bloc.dart';
+import '../../core/core_event.dart';
 import '../../services/ble_service.dart';
 import '../../services/node_service.dart';
 import '../../services/wallet_service.dart';
@@ -29,11 +31,18 @@ class _ServiceScreenState extends State<ServiceScreen> {
   String? _info;
 
   BleService get _ble => context.read<BleService>();
+  BleService? _bleRef;   // cache do dispose() — context.read jest niedozwolone przy niszczeniu
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bleRef = context.read<BleService>();
+  }
 
   @override
   void dispose() {
     if (_phase == _Phase.connected || _phase == _Phase.working) {
-      _ble.disconnect();
+      _bleRef?.disconnect();
     }
     super.dispose();
   }
@@ -145,10 +154,15 @@ class _ServiceScreenState extends State<ServiceScreen> {
       }
       final w = await wallet.importEncrypted(blob, widget.node.pin);
       if (!mounted) return;
-      setState(() {
-        _phase = _Phase.connected;
-        _info = tr('Portfel odzyskany: %s', [w.short]);
-      });
+      // Powiadom apkę o odzyskanym portfelu (stan wallet) i rozłącz BLE PRZED wyjściem,
+      // żeby dispose nie próbował już nic robić po zniknięciu ekranu.
+      _bleRef?.disconnect();
+      _phase = _Phase.idle;
+      final messenger = ScaffoldMessenger.of(context);
+      final navigator = Navigator.of(context);
+      context.read<CoreBloc>().add(WalletImported());
+      messenger.showSnackBar(SnackBar(content: Text(tr('Portfel odzyskany: %s', [w.short]))));
+      navigator.popUntil((r) => r.isFirst);
     } catch (e) {
       setState(() {
         _phase = _Phase.connected;
