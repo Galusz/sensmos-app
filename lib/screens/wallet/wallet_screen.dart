@@ -9,6 +9,8 @@ import '../../config.dart';
 import '../../l10n.dart';
 import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
+import '../../core/core_event.dart';
+import '../../services/wallet_service.dart';
 import '../../services/eth_service.dart';
 import '../../services/node_service.dart';
 
@@ -254,6 +256,8 @@ class _WalletScreenState extends State<WalletScreen> {
                       _onchainCard(),
                       const SizedBox(height: 16),
                       _exportTile(),
+                      const SizedBox(height: 12),
+                      _importTile(),
                     ],
                   ),
                   if (_busy)
@@ -433,6 +437,102 @@ class _WalletScreenState extends State<WalletScreen> {
           onTap: _busy ? null : _exportKey,
         ),
       );
+
+  Widget _importTile() => Card(
+        child: ListTile(
+          leading: const Icon(Icons.download_outlined, color: AppTheme.amber),
+          title: Text(tr('Importuj klucz prywatny'),
+              style: const TextStyle(color: AppTheme.text)),
+          subtitle: Text(tr('wklej klucz z MetaMask (0x… lub 64 hex)'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
+          onTap: _busy ? null : _importKey,
+        ),
+      );
+
+  Future<void> _importKey() async {
+    final ctrl = TextEditingController();
+    final pk = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Importuj klucz prywatny'),
+            style: const TextStyle(color: AppTheme.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Wklej klucz prywatny (np. z MetaMask). Rób to tylko na swoim telefonie.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          const SizedBox(height: 10),
+          TextField(controller: ctrl, autofocus: true, maxLines: 2,
+            style: const TextStyle(color: AppTheme.text, fontSize: 13, fontFamily: 'monospace'),
+            decoration: const InputDecoration(hintText: '0x…',
+                hintStyle: TextStyle(color: AppTheme.muted))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Anuluj'))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.amber),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text(tr('Importuj'), style: const TextStyle(color: Colors.black))),
+        ],
+      ),
+    );
+    if (pk == null || pk.isEmpty) return;
+
+    // Waliduj + policz adres BEZ zapisu (podglad przed nadpisaniem)
+    final ws = context.read<WalletService>();
+    String newAddr;
+    try {
+      newAddr = await ws.addressOf(pk);
+    } catch (_) {
+      _snack(tr('Nieprawidłowy klucz prywatny'), error: true);
+      return;
+    }
+
+    final current = context.read<CoreBloc>().state.wallet?.address;
+    final sameWallet = current != null && current.toLowerCase() == newAddr.toLowerCase();
+
+    if (!sameWallet && current != null) {
+      // Inny wallet niz obecny owner nodow — ostrzez o konsekwencjach
+      final ok = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.card,
+          title: Text(tr('Inny portfel'), style: const TextStyle(color: AppTheme.text)),
+          content: Text(tr(
+              'Importujesz INNY portfel (%s) niż obecny (%s).\n\n'
+              'Twoje nody pozostaną przypisane do obecnego portfela, dopóki nie dodasz ich '
+              'ponownie przez Bluetooth (to zmieni właściciela i wymaga ponownej weryfikacji — '
+              'bez resetu urządzenia). Zarobione GALU zostają przy portfelu, który je zarobił.',
+              [_shortAddr(newAddr), _shortAddr(current)]),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.amber),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Zaimportuj mimo to'), style: const TextStyle(color: Colors.black))),
+          ],
+        ),
+      );
+      if (ok != true) return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      await ws.restore(pk);
+      if (!mounted) return;
+      context.read<CoreBloc>().add(WalletImported());
+      _snack(sameWallet
+          ? tr('Portfel zaimportowany — Twoje nody działają dalej')
+          : tr('Portfel zaimportowany: %s', [_shortAddr(newAddr)]));
+    } catch (e) {
+      if (mounted) _snack(tr('Błąd importu: %s', [e.toString()]), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String _shortAddr(String a) => a.length > 12 ? '${a.substring(0,6)}…${a.substring(a.length-4)}' : a;
 
   // ── Dialogi ─────────────────────────────────────────────────
   Future<String?> _amountDialog(String title, double maxHuman) {

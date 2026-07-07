@@ -16,3 +16,4 @@ class NodeConnected extends CoreEvent {}
 class NodeDisconnected extends CoreEvent {}
 
 class NodeRemoved   extends CoreEvent { final String deviceId; const NodeRemoved(this.deviceId); }
+class WalletImported extends CoreEvent {}   // po imporcie klucza — przeladuj wallet ze storage

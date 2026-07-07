@@ -59,6 +59,14 @@ class WalletService {
   }
 
   /// Zapisz wallet z surowego klucza (po recovery z noda)
+  // Adres z klucza BEZ zapisu do storage — podglad przed nadpisaniem walleta.
+  Future<String> addressOf(String privateKeyHex) async {
+    final clean = privateKeyHex.trim();
+    var pk = clean.startsWith('0x') ? clean.substring(2) : clean;
+    pk = pk.length > 64 ? pk.substring(pk.length - 64) : pk.padLeft(64, '0');
+    return EthPrivateKey.fromHex(pk).address.hexEip55;
+  }
+
   Future<AppWallet> restore(String privateKeyHex) async {
     final clean = privateKeyHex.trim();
     var pk = clean.startsWith('0x') ? clean.substring(2) : clean;

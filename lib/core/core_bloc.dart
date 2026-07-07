@@ -20,6 +20,7 @@ class CoreBloc extends Bloc<CoreEvent, CoreState> {
     on<NodeConnected>  (_onNodeConnected);
     on<NodeDisconnected>(_onNodeDisconnected);
     on<NodeRemoved>    (_onNodeRemoved);
+    on<WalletImported>(_onWalletImported);
   }
 
   // Portfel NIE jest tworzony przy starcie — powstaje/odzyskiwany przy dodaniu
@@ -42,6 +43,10 @@ class CoreBloc extends Bloc<CoreEvent, CoreState> {
   Future<void> _onNodeDisconnected(NodeDisconnected e, Emitter<CoreState> emit) async {
     await nodeService.disconnect();
     emit(state.copyWith(phase: AppPhase.welcome));
+  }
+
+  Future<void> _onWalletImported(WalletImported e, Emitter<CoreState> emit) async {
+    emit(state.copyWith(wallet: await walletService.load()));
   }
 
   Future<void> _onNodeRemoved(NodeRemoved e, Emitter<CoreState> emit) async {
