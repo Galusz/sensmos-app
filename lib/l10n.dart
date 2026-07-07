@@ -223,6 +223,8 @@ const Map<String, String> _enMap = {
   "nieaktywny": "inactive",
   "ID skopiowane: %s": "ID copied: %s",
   "Kopiuj ID noda": "Copy node ID",
+  "Kopiuj ID": "Copy ID",
+  "Usuń z sieci": "Delete from network",
   "Trwale usuwa node z Twoich urządzeń": "Permanently removes the node from your devices",
   "Node POST-uje tu zdarzenia (message_received, batch_sent, sub_received, ws_connected). Puste = wyłączone.":
       "The node POSTs events here (message_received, batch_sent, sub_received, ws_connected). Empty = disabled.",

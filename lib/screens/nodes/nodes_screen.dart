@@ -30,6 +30,8 @@ class _NodesScreenState extends State<NodesScreen> {
   final _scarcity  = <String, String>{};
   final _beData    = <String, Map<String,dynamic>>{};  // dane z BE per node
   List<Map<String,dynamic>> _myBeNodes = [];            // WSZYSTKIE nody walleta wg BE (tez duchy)
+  bool _beOpen = false;                                 // sekcja zwinieta domyslnie (drugorzedna)
+  final _beRowOpen = <String>{};                        // rozwiniete wiersze (dopiero tam kosz)
   String? _balance;
 
   @override
@@ -234,56 +236,105 @@ class _NodesScreenState extends State<NodesScreen> {
   }
 
   // ── Moje nody w sieci (BE, po wallecie) ───────────────────
+  // Kompaktowa, domyslnie zwinieta (mniej wazna niz lokalna lista wyzej).
+  // Kosz dopiero po rozwinieciu wiersza — destrukcja nie na pierwszym tapnieciu.
   List<Widget> _buildMyBeSection(List<SavedNode> localNodes) {
     if (_myBeNodes.isEmpty) return const [];
     final localIds = localNodes.map((n) => n.id).toSet();
-    return [
-      const SizedBox(height: 20),
-      Text(tr('Moje nody w sieci'),
-          style: const TextStyle(color: AppTheme.text, fontSize: 16, fontWeight: FontWeight.bold)),
-      Text(tr('Wszystkie nody zarejestrowane na Twój wallet (wg SENSMOS)'),
-          style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-      const SizedBox(height: 8),
-      ..._myBeNodes.map((n) {
+
+    final rows = <Widget>[];
+    if (_beOpen) {
+      for (final n in _myBeNodes) {
         final id     = n['device_id'] as String;
         final short  = id.length > 8 ? id.substring(0, 8) : id;
         final status = n['status'] as String? ?? '?';
-        final onList = localIds.contains(id);
-        final secs   = n['seconds_since_ping'];
-        final ago    = secs == null ? '—' : _ago(double.tryParse(secs.toString()) ?? 0);
         final color  = status == 'online' ? AppTheme.teal
                      : status == 'offline' ? Colors.amber.shade700 : AppTheme.muted;
-        final label  = status == 'online' ? tr('online')
-                     : status == 'offline' ? '${tr('cisza')} $ago' : tr('nieaktywny');
-        return Card(
-          child: ListTile(
-            dense: true,
-            onTap: () {
-              Clipboard.setData(ClipboardData(text: id));
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                  content: Text(tr('ID skopiowane: %s', [id])),
-                  duration: const Duration(seconds: 2)));
-            },
-            leading: Icon(Icons.circle, color: color, size: 12),
-            title: Row(children: [
+        final openRow = _beRowOpen.contains(id);
+
+        rows.add(InkWell(
+          onTap: () => setState(() =>
+              openRow ? _beRowOpen.remove(id) : _beRowOpen.add(id)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Row(children: [
+              Icon(Icons.circle, color: color, size: 9),
+              const SizedBox(width: 10),
               Text('sensmos-$short',
-                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
-              const SizedBox(width: 6),
-              const Icon(Icons.copy, color: AppTheme.muted, size: 13),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 13.5)),
+              const Spacer(),
+              Icon(openRow ? Icons.expand_less : Icons.expand_more,
+                  color: AppTheme.muted, size: 17),
             ]),
-            subtitle: Text(
-                '${n['city'] ?? '—'} · fw ${n['firmware'] ?? '?'} · $label'
-                '${onList ? '' : ' · ${tr('brak w tej apce')}'}'
-                '${n['trusted'] == true ? ' · ✓' : ''}',
-                style: const TextStyle(color: AppTheme.muted, fontSize: 11.5)),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_forever, color: Color(0xFFFF4444)),
-              tooltip: tr('Usuń node z sieci (permanentnie)'),
-              onPressed: () => _deleteFromNetwork(n),
+          ),
+        ));
+
+        if (openRow) {
+          final onList = localIds.contains(id);
+          final secs   = n['seconds_since_ping'];
+          final ago    = secs == null ? '—' : _ago(double.tryParse(secs.toString()) ?? 0);
+          final label  = status == 'online' ? tr('online')
+                       : status == 'offline' ? '${tr('cisza')} $ago' : tr('nieaktywny');
+          rows.add(Padding(
+            padding: const EdgeInsets.fromLTRB(33, 0, 14, 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  '${n['city'] ?? '—'} · fw ${n['firmware'] ?? '?'} · $label'
+                  '${onList ? '' : ' · ${tr('brak w tej apce')}'}'
+                  '${n['trusted'] == true ? ' · ✓' : ''}',
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 11.5)),
+              Row(children: [
+                TextButton.icon(
+                  onPressed: () {
+                    Clipboard.setData(ClipboardData(text: id));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(tr('ID skopiowane: %s', [id])),
+                        duration: const Duration(seconds: 2)));
+                  },
+                  icon: const Icon(Icons.copy, size: 13, color: AppTheme.muted),
+                  label: Text(tr('Kopiuj ID'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () => _deleteFromNetwork(n),
+                  icon: const Icon(Icons.delete_forever,
+                      size: 15, color: Color(0xFFFF4444)),
+                  label: Text(tr('Usuń z sieci'),
+                      style: const TextStyle(color: Color(0xFFFF4444), fontSize: 12)),
+                ),
+              ]),
+            ]),
+          ));
+        }
+      }
+    }
+
+    return [
+      const SizedBox(height: 16),
+      Card(
+        child: Column(children: [
+          InkWell(
+            onTap: () => setState(() => _beOpen = !_beOpen),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+              child: Row(children: [
+                const Icon(Icons.cloud_outlined, color: AppTheme.muted, size: 15),
+                const SizedBox(width: 8),
+                Text(tr('Moje nody w sieci'),
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12.5)),
+                const SizedBox(width: 6),
+                Text('(${_myBeNodes.length})',
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                const Spacer(),
+                Icon(_beOpen ? Icons.expand_less : Icons.expand_more,
+                    color: AppTheme.muted, size: 17),
+              ]),
             ),
           ),
-        );
-      }),
+          ...rows,
+        ]),
+      ),
     ];
   }
 
