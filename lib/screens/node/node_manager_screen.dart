@@ -37,7 +37,6 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
   final   _found   = <_FoundNode>[];
   final   _onlineStatus = <String, bool>{};  // nodeId -> online
   final   _ipCtrl  = TextEditingController();
-  final   _pinCtrl = TextEditingController(text: '123456');
 
   @override
   void initState() {
@@ -252,13 +251,11 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
   // ── RĘCZNIE ───────────────────────────────────────────────
   Widget _buildManual() => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-    Text(tr('Wpisz IP i PIN gdy znasz adres noda.'),
+    Text(tr('Wpisz IP noda — PIN podasz, gdy urządzenie się odnajdzie.'),
         style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
     const SizedBox(height: 20),
     _field(tr('Adres IP noda'), Icons.router_outlined, _ipCtrl,
         type: TextInputType.number),
-    const SizedBox(height: 12),
-    _field('PIN', Icons.pin_outlined, _pinCtrl, type: TextInputType.number),
     const SizedBox(height: 16),
     if (_busy) ...[
       Row(children: [
@@ -274,26 +271,28 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
       onPressed: _busy ? null : _connectManual,
       style: FilledButton.styleFrom(
           backgroundColor: AppTheme.teal, foregroundColor: AppTheme.bg),
-      child: Text(tr('Połącz i dodaj')),
+      child: Text(tr('Szukaj')),
     ),
   ]);
 
   Future<void> _connectManual() async {
-    final ip  = _ipCtrl.text.trim();
-    final pin = _pinCtrl.text.trim();
+    final ip = _ipCtrl.text.trim();
     if (ip.isEmpty) { setState(() => _error = tr('Wpisz adres IP')); return; }
-    setState(() { _busy = true; _status = tr('Łączę...'); _error = null; });
+    setState(() { _busy = true; _status = tr('Szukam noda...'); _error = null; });
+    String deviceId;
     try {
       final res = await http.get(Uri.parse('http://$ip/info'))
           .timeout(const Duration(seconds: 5));
-      final j   = jsonDecode(res.body) as Map<String, dynamic>;
-      await _doConnect(ip, pin, j['device_id'] ?? '');
+      deviceId = (jsonDecode(res.body) as Map<String, dynamic>)['device_id'] ?? '';
     } catch (_) {
-      if (mounted) setState(() {
-        _busy = false; _status = '';
-        _error = tr('Brak odpowiedzi z %s.', [ip]);
-      });
+      if (mounted) setState(() { _busy = false; _status = ''; _error = tr('Brak odpowiedzi z %s.', [ip]); });
+      return;
     }
+    if (!mounted) return;
+    setState(() { _busy = false; _status = ''; });
+    final pin = await _askPin();          // PIN dopiero po znalezieniu noda
+    if (pin == null || !mounted) return;
+    await _doConnect(ip, pin, deviceId);
   }
 
   Future<void> _doConnect(String ip, String pin, String deviceId) async {
@@ -309,6 +308,19 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
             finalId = j['device_id'] as String;
           }
         } catch (_) {}
+      }
+      // Weryfikacja PINu: /config wymaga Bearer PIN — 200 = OK, inaczej zly PIN.
+      setState(() => _status = tr('Sprawdzam PIN...'));
+      try {
+        final vr = await http.get(Uri.parse('http://$ip/config'),
+            headers: {'Authorization': 'Bearer $pin'}).timeout(const Duration(seconds: 5));
+        if (vr.statusCode != 200) {
+          if (mounted) setState(() { _busy = false; _status = ''; _error = tr('Zły PIN'); });
+          return;
+        }
+      } catch (_) {
+        if (mounted) setState(() { _busy = false; _status = ''; _error = tr('Brak odpowiedzi z %s.', [ip]); });
+        return;
       }
       if (!mounted) return;
       final ns        = context.read<NodeService>();
@@ -379,5 +391,5 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
     );
 
   @override
-  void dispose() { _ipCtrl.dispose(); _pinCtrl.dispose(); super.dispose(); }
+  void dispose() { _ipCtrl.dispose(); super.dispose(); }
 }
