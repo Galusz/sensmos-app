@@ -150,14 +150,32 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
                 style: const TextStyle(color: Color(0xFFFF4444))),
             subtitle: Text(tr('Usuwa node tylko z tej apki'),
                 style: const TextStyle(color: Color(0xFF888888), fontSize: 12)),
-            onTap: () {
-              context.read<CoreBloc>().add(NodeRemoved(node.id));
-              Navigator.of(context).popUntil((r) => r.isFirst);
-            },
+            onTap: _removeFromApp,
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _removeFromApp() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Usunąć z tej apki?')),
+        content: Text(tr('Node zniknie tylko z tego telefonu - pozostaje w sieci '
+            'i nalicza nagrody. Aby usunac go z sieci, uzyj Usun z sieci.')),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Usuń z apki'),
+                  style: const TextStyle(color: Color(0xFFFF4444)))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    context.read<CoreBloc>().add(NodeRemoved(node.id));
+    Navigator.of(context).popUntil((r) => r.isFirst);
   }
 
   Widget _tile({
