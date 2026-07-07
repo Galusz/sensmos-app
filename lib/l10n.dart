@@ -230,6 +230,7 @@ const Map<String, String> _enMap = {
   "Korzystałeś już z SENSMOS?": "Already using SENSMOS?",
   "Wyszukaj moje nody w sieci WiFi": "Find my nodes on WiFi",
   "Wyszukaj moje nody": "Find my nodes",
+  "Node dodany": "Node added",
   "Dodaj node": "Add node",
   "tworzy nowy portfel": "creates a new wallet",
   "masz już portfel (np. w MetaMask)? odzyskaj dostęp do swoich nodów": "already have a wallet (e.g. in MetaMask)? restore access to your nodes",

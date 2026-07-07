@@ -305,11 +305,14 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
         } catch (_) {}
       }
       if (!mounted) return;
-      final ns   = context.read<NodeService>();
-      final bloc = context.read<CoreBloc>();
+      final ns        = context.read<NodeService>();
+      final bloc      = context.read<CoreBloc>();
+      final navigator = Navigator.of(context);
+      final messenger = ScaffoldMessenger.of(context);
       await ns.addNode(ip, pin, finalId);
-      bloc.add(NodeConnected());
-      if (mounted) setState(() { _tab = _Tab.add; _busy = false; });
+      messenger.showSnackBar(SnackBar(content: Text(tr('Node dodany'))));
+      bloc.add(NodeConnected());          // przełącza na ekran główny (phase=ready)
+      navigator.popUntil((r) => r.isFirst);
     } catch (e) {
       if (mounted) setState(() { _busy = false; _error = tr('Błąd: %s', [e]); });
     }
