@@ -84,12 +84,16 @@ class BleService {
   // Telefony ubijają bezczynne linki GATT (oszczędzanie energii, zakłócenia 2.4GHz) —
   // np. gdy user wypełnia formularz. FW wznawia advertising po zerwaniu, więc
   // wystarczy po cichu połączyć się ponownie zamiast wywalać PlatformException.
-  Future<void> _ensureConnected() async {
+  Future<void> _ensureConnected({bool force = false}) async {
     final d = _device;
     if (d == null) throw Exception(tr('Nie połączono'));
-    if (d.isConnected && _charWrite != null) return;
+    // isConnected bywa NIEAKTUALNE na martwym łączu (stan aktualizuje się async) —
+    // po nieudanym zapisie reconnect musi być wymuszony, nie warunkowy.
+    if (!force && d.isConnected && _charWrite != null) return;
     print('[BLE] Połączenie zerwane — łączę ponownie…');
     _charWrite = null; _charRead = null;
+    try { await d.disconnect(); } catch (_) {}
+    await Future.delayed(const Duration(milliseconds: 400));
     await connect(d);
   }
 
@@ -124,8 +128,8 @@ class BleService {
     try {
       await _charWrite!.write(utf8.encode(jsonEncode(cmd)), withoutResponse: false);
     } catch (_) {
-      // link padł między sprawdzeniem a zapisem — jedna cicha ponowna próba
-      await _ensureConnected();
+      // link padł między sprawdzeniem a zapisem — wymuszony reconnect + ponowna próba
+      await _ensureConnected(force: true);
       await _charWrite!.write(utf8.encode(jsonEncode(cmd)), withoutResponse: false);
     }
     print('[BLE] → $expected');
