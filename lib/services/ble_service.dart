@@ -6,6 +6,7 @@ import 'package:multicast_dns/multicast_dns.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import '../l10n.dart';
+import '../log.dart';
 import 'attest_service.dart';
 
 class BleService {
@@ -186,7 +187,7 @@ class BleService {
     final obsName = remoteName ?? '';
     int? obsRssi;
     if (attest != null && signAttest != null) {
-      print('[Setup] Trust: pobieram seed z BE...');
+      Log.i('attest', 'pobieram seed (${deviceId.substring(0, 8)}…)');
       final seedResp = await attest.fetchSeed(deviceId, ownerAddress);
       if (seedResp != null) {
         seed = seedResp['seed'] as String?;
@@ -196,13 +197,13 @@ class BleService {
           trustEv = await attest.runCeremony(
               ble: this, seed: seed!, owner: ownerAddress, rounds: nRounds,
               gpsLat: gpsLat, gpsLon: gpsLon);
-          print('[Setup] Trust: ceremonia OK (${trustEv.rounds.length} rund)');
+          Log.i('attest', 'ceremonia OK (${trustEv.rounds.length} rund, pk ${trustEv.pubkeyEsp.substring(0, 12)}…)');
         } catch (e) {
-          print('[Setup] Trust: ceremonia nieudana: $e');
+          Log.e('attest', 'ceremonia nieudana: $e');
           trustEv = null;
         }
       } else {
-        print('[Setup] Trust: BE niedostępny — pomijam (re-atestacja później)');
+        Log.w('attest', 'seed z BE niedostępny — pomijam atestację');
       }
     }
 
@@ -288,9 +289,13 @@ class BleService {
           ev: trustEv, sigWallet: sigWallet,
           bleName: obsName, bleMac: obsMac, rssi: obsRssi,
         );
-        print('[Setup] Trust: ${ok ? "node zaufany ✓" : "weryfikacja: $msg"}');
+        if (ok) {
+          Log.i('attest', 'node zaufany ✓');
+        } else {
+          Log.e('attest', 'BE odrzucił atestację: $msg');   // <-- powód: pubkey_mismatch / seed_* / invalid_esp_signature …
+        }
       } catch (e) {
-        print('[Setup] Trust submit error: $e');
+        Log.e('attest', 'submit error: $e');
       }
     }
 
