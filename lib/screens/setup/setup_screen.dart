@@ -144,6 +144,7 @@ class _SetupScreenState extends State<SetupScreen> {
     final nodeService   = context.read<NodeService>();
     final coreBloc      = context.read<CoreBloc>();
     final navigator     = Navigator.of(context);
+    String? restoreBleName;   // przy restore node zwraca nową nazwę BLE (SENSMOS-<nowe ID>)
 
     setState(() { _step = _Step.connecting; _error = null; _status = tr('Łączenie przez BLE...'); });
 
@@ -181,7 +182,8 @@ class _SetupScreenState extends State<SetupScreen> {
               [r['msg']?.toString() ?? '?']));
         }
         _authDeviceId = (r['device_id'] as String?) ?? _restoreFrom!.id;
-        print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}…');
+        restoreBleName = r['ble_name'] as String?;   // node zmienił nazwę BLE na nowe ID
+        print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}… ble_name=$restoreBleName');
       }
 
       // 2. Rozstrzygnięcie portfela: istniejący / recovery / nowy
@@ -253,6 +255,7 @@ class _SetupScreenState extends State<SetupScreen> {
         walletAddr:      ownerAddress,
         gpsLat:          gpsLat,
         gpsLon:          gpsLon,
+        bleNameOverride: restoreBleName,
       );
 
       setState(() => _status = tr('Łączę z nodem przez sieć...'));

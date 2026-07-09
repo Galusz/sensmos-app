@@ -179,12 +179,16 @@ class BleService {
     String? walletAddr,
     String? gpsLat,   // GPS telefonu (przy nodzie) → atest v2 (lokalizacja + trust naraz)
     String? gpsLon,
+    String? bleNameOverride,   // restore: node zmienił nazwę na SENSMOS-<nowe ID> (z set_device_id)
   }) async {
     // ── Ceremonia trust — PRZED register (register restartuje node) ──
     String? seed;
     TrustEvidence? trustEv;
     final obsMac  = remoteId  ?? '';
-    final obsName = remoteName ?? '';
+    // Przy restore nazwa BLE zmienia się na nowe ID (node ją zwrócił) — używamy nowej,
+    // inaczej BE odrzuca atest na SENSMOS-<stare ID> (ble_name_mismatch).
+    final obsName = (bleNameOverride != null && bleNameOverride.isNotEmpty)
+        ? bleNameOverride : (remoteName ?? '');
     int? obsRssi;
     if (attest != null && signAttest != null) {
       Log.i('attest', 'pobieram seed (${deviceId.substring(0, 8)}…)');
