@@ -3,6 +3,7 @@ import '../../theme.dart';
 import '../../l10n.dart';
 import 'nodes_location_screen.dart';
 import 'push_screen.dart';
+import 'logs_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -40,9 +41,27 @@ class SettingsScreen extends StatelessWidget {
           _section(tr('Aplikacja')),
           Card(child: Column(children: [
             ListTile(
+              leading: const Icon(Icons.language, color: AppTheme.teal),
+              title: Text(tr('Język'), style: const TextStyle(color: AppTheme.text)),
+              subtitle: Text(tr('wymuś język aplikacji'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+              trailing: Text(_langLabel(),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+              onTap: () => _pickLang(context),
+            ),
+            const Divider(color: AppTheme.border, height: 1),
+            _tile(
+              context,
+              icon: Icons.article_outlined,
+              title: tr('Logi'),
+              sub: tr('błędy i zdarzenia aplikacji'),
+              builder: (_) => const LogsScreen(),
+            ),
+            const Divider(color: AppTheme.border, height: 1),
+            ListTile(
               leading: const Icon(Icons.info_outline, color: AppTheme.muted),
               title: Text(tr('Wersja'), style: const TextStyle(color: AppTheme.text)),
-              trailing: const Text('1.3.0',
+              trailing: const Text('1.4.1',
                   style: TextStyle(color: AppTheme.muted, fontSize: 13)),
             ),
             const Divider(color: AppTheme.border, height: 1),
@@ -75,6 +94,38 @@ class SettingsScreen extends StatelessWidget {
         onTap: () =>
             Navigator.push(context, MaterialPageRoute(builder: builder)),
       );
+
+  String _langLabel() => switch (L10n.mode) {
+        'pl' => 'Polski',
+        'en' => 'English',
+        _    => tr('Systemowy'),
+      };
+
+  void _pickLang(BuildContext context) => showDialog(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          backgroundColor: AppTheme.card,
+          title: Text(tr('Język'), style: const TextStyle(color: AppTheme.text)),
+          children: [
+            _langOption(ctx, 'system', tr('Systemowy')),
+            _langOption(ctx, 'pl', 'Polski'),
+            _langOption(ctx, 'en', 'English'),
+          ],
+        ),
+      );
+
+  Widget _langOption(BuildContext ctx, String mode, String label) {
+    final sel = L10n.mode == mode;
+    return SimpleDialogOption(
+      onPressed: () { L10n.setMode(mode); Navigator.pop(ctx); },
+      child: Row(children: [
+        Icon(sel ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            size: 20, color: sel ? AppTheme.teal : AppTheme.muted),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(color: AppTheme.text)),
+      ]),
+    );
+  }
 
   Widget _section(String label) => Padding(
         padding: const EdgeInsets.only(bottom: 8),

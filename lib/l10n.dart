@@ -1,7 +1,10 @@
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Lekka lokalizacja: klucz = polski tekst źródłowy, mapa nadpisań EN.
-/// Język z systemu (pl → polski, inne → angielski), fallback na klucz (PL).
+/// Domyślnie język z systemu (pl → polski, inne → angielski); użytkownik może
+/// wymusić w ustawieniach (tryb 'pl'/'en'/'system'). Fallback na klucz (PL).
 /// Interpolacja: w kluczu `%s`, podmieniane kolejno z [args].
 ///
 /// Użycie:
@@ -9,12 +12,38 @@ import 'dart:ui';
 ///   tr('Saldo: %s GALU', [balance])     → "Balance: 12 GALU"
 class L10n {
   static bool _en = false;
+  static String _mode = 'system';                       // 'system' | 'pl' | 'en'
+  static final ValueNotifier<int> notifier = ValueNotifier(0);  // wymusza rebuild UI
 
-  static void init() {
-    _en = PlatformDispatcher.instance.locale.languageCode != 'pl';
+  static Future<void> init() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      _mode = p.getString('lang') ?? 'system';
+    } catch (_) { _mode = 'system'; }
+    _apply();
   }
 
-  static bool get isEn => _en;
+  static void _apply() {
+    _en = switch (_mode) {
+      'pl' => false,
+      'en' => true,
+      _    => PlatformDispatcher.instance.locale.languageCode != 'pl',
+    };
+  }
+
+  static String get mode => _mode;
+  static bool   get isEn => _en;
+
+  static Future<void> setMode(String mode) async {
+    if (mode == _mode) return;
+    _mode = mode;
+    _apply();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('lang', mode);
+    } catch (_) {}
+    notifier.value++;   // przebuduj całą apkę
+  }
 }
 
 String tr(String pl, [List<Object?> args = const []]) {
@@ -46,6 +75,17 @@ const Map<String, String> _enMap = {
   "Łączę...": "Connecting...",
   "JAK TO DZIAŁA": "HOW IT WORKS",
   "Ustawienia": "Settings",
+  "Język": "Language",
+  "wymuś język aplikacji": "force app language",
+  "Systemowy": "System",
+  "Logi": "Logs",
+  "błędy i zdarzenia aplikacji": "app errors and events",
+  "Skopiowano logi": "Logs copied",
+  "Brak logów": "No logs",
+  "Nie odpowiada (offline?)": "Not responding (offline?)",
+  "Poza siecią": "Off network",
+  "Błędna odpowiedź noda": "Bad node response",
+  "Niedostępny": "Unavailable",
   "Nody": "Nodes",
   "Encje": "Entities",
   "Skrypty": "Scripts",

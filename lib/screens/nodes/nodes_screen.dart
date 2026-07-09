@@ -11,6 +11,7 @@ import '../../core/core_event.dart';
 import '../../services/wallet_service.dart';
 import '../../services/node_service.dart';
 import '../../services/ble_service.dart';
+import '../../log.dart';
 import '../node_config/node_config_screen.dart';
 import '../node_config/trust_screen.dart';
 import '../node_config/service_screen.dart';
@@ -232,7 +233,7 @@ class _NodesScreenState extends State<NodesScreen> {
     try {
       fresh = await _bleRef?.discoverByHostname(
           hostname: 'sensmos-$short.local', timeout: const Duration(seconds: 5));
-    } catch (e) { _nodeErr[id] = 'mdns: $e'; }
+    } catch (e) { Log.w('node', 'mDNS sensmos-$short: $e'); }
     // 3) mDNS znalazł nowe IP → zaktualizuj zapis i spróbuj po nim.
     if (fresh != null && fresh.isNotEmpty && fresh != ip) {
       if (mounted) await context.read<NodeService>().updateNodeIp(id, fresh);
@@ -254,11 +255,24 @@ class _NodesScreenState extends State<NodesScreen> {
         setState(() { _online[id] = true; _nodeData[id] = j; _nodeErr.remove(id); });
         return true;
       } catch (e) {
-        _nodeErr[id] = '$ip → ${e.toString().split('\n').first}';
+        Log.w('node', '/info $ip: ${e.toString().split('\n').first}');
+        _nodeErr[id] = _simpleErr(e);
         if (attempt == 0) await Future.delayed(const Duration(milliseconds: 400));
       }
     }
     return false;
+  }
+
+  // Prosty komunikat dla usera — techniczny szczegół idzie do logów.
+  String _simpleErr(Object e) {
+    final s = e.toString().toLowerCase();
+    if (s.contains('timeout')) return tr('Nie odpowiada (offline?)');
+    if (s.contains('socketexception') || s.contains('refused') ||
+        s.contains('unreachable') || s.contains('failed host')) {
+      return tr('Poza siecią');
+    }
+    if (s.contains('formatexception')) return tr('Błędna odpowiedź noda');
+    return tr('Niedostępny');
   }
 
   // Statystyki globalne
@@ -556,7 +570,7 @@ class _NodesScreenState extends State<NodesScreen> {
                       color: healthColor, fontSize: 11)),
                   if (online == false && _nodeErr[n.id] != null)
                     Text(_nodeErr[n.id]!, style: const TextStyle(
-                        color: AppTheme.red, fontSize: 10)),
+                        color: AppTheme.muted, fontSize: 10)),
                 ],
               )),
               // Łączność lokalna — czy telefon jest w sieci noda (można konfigurować), NIE zdrowie noda

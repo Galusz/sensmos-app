@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'theme.dart';
 import 'l10n.dart';
+import 'log.dart';
 import 'core/core_bloc.dart';
 import 'core/core_event.dart';
 import 'core/core_state.dart';
@@ -24,7 +25,8 @@ Future<void> _fcmBackground(RemoteMessage message) async {}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  L10n.init();
+  await L10n.init();
+  await Log.load();
   // Firebase opcjonalny — apka działa też bez google-services.json
   try {
     await Firebase.initializeApp();
@@ -63,17 +65,21 @@ class SensmosApp extends StatelessWidget {
           nodeService: nodeService,
           bleService: bleService,
         )..add(AppStarted()),
-        child: MaterialApp(
-          title: 'SENSMOS',
-          debugShowCheckedModeBanner: false,
-          theme: AppTheme.dark,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [Locale('en'), Locale('pl')],
-          home: const AppRouter(),
+        child: ValueListenableBuilder<int>(
+          valueListenable: L10n.notifier,
+          builder: (context, _, __) => MaterialApp(
+            title: 'SENSMOS',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.dark,
+            locale: L10n.isEn ? const Locale('en') : const Locale('pl'),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [Locale('en'), Locale('pl')],
+            home: const AppRouter(),
+          ),
         ),
       ),
     );
