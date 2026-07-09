@@ -39,18 +39,15 @@ class _SetupScreenState extends State<SetupScreen> {
   bool    _waitingReset = false;
   int     _doneCountdown = 3;
 
-  // Odtwarzanie ID: node o znanym BLE MAC (był już na liście = był przypisany do
-  // tego portfela) może po reflashu odzyskać poprzednie device_id (FW ≥ 0.46).
-  // Selektor ręczny: dowolny node z listy, ale TYLKO offline wg BE — nadpisanie ID
-  // żywego noda odcięłoby go od sieci (zmiana pubkey → jego identify odrzucany).
+  // Odtwarzanie ID (FW ≥ 0.46): user wybiera z selektora offline'owy node swojego
+  // walleta (lista z BE — działa też po reinstalacji apki) i ta płytka przejmuje jego
+  // device_id. Tylko offline wg BE — nadpisanie ID żywego noda odcięłoby go od sieci
+  // (zmiana pubkey → jego identify odrzucany).
   SavedNode? _restoreFrom;
-  bool       _restoreId = true;
+  bool       _restoreId = false;
   List<SavedNode> _restoreCandidates = [];
 
   late final BleService _ble = context.read<BleService>();
-
-  SavedNode? _knownByMac(ScanResult r) =>
-      context.read<NodeService>().findByMac(r.device.remoteId.str);
 
   // Kandydaci do odtworzenia = WSZYSTKIE offline (>1h) fizyczne nody TEGO walleta wg BE
   // („z systemu" — działa też po reinstalacji apki, gdy lokalna lista przepadła).
@@ -102,10 +99,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _connect(ScanResult r) async {
     await _ble.stopScan();
-    final known = _knownByMac(r);
     setState(() {
       _selected = r; _step = _Step.form; _error = null;
-      _restoreFrom = known; _restoreId = known != null;
+      _restoreFrom = null; _restoreId = false;
     });
     _loadRestoreCandidates();   // async — selektor doładuje się w tle
   }
@@ -237,9 +233,7 @@ class _SetupScreenState extends State<SetupScreen> {
 
       setState(() => _status = tr('Łączę z nodem przez sieć...'));
       // /node/confirm już wysłany w setupNode → watchdog wyłączony
-      // MAC z BLE → apka rozpozna ten sprzęt po ewentualnym reflashu (odtwarzanie ID)
-      await nodeService.saveNode(_nodeIp!, nodePin, _authDeviceId,
-          mac: _selected?.device.remoteId.str);
+      await nodeService.saveNode(_nodeIp!, nodePin, _authDeviceId);
 
       setState(() { _step = _Step.done; _doneCountdown = 3; });
       for (int i = 3; i >= 0; i--) {
@@ -319,17 +313,10 @@ class _SetupScreenState extends State<SetupScreen> {
                   final r = _results[i];
                   final name = r.advertisementData.advName.isNotEmpty
                       ? r.advertisementData.advName : r.device.platformName;
-                  final known = _knownByMac(r);
                   return Card(child: ListTile(
-                    leading: Icon(known != null ? Icons.history : Icons.sensors, color: AppTheme.teal),
+                    leading: const Icon(Icons.sensors, color: AppTheme.teal),
                     title: Text(name, style: const TextStyle(color: AppTheme.text)),
-                    subtitle: Text(
-                        known != null
-                            ? tr('Ten node był już przypisany do Twojego portfela — możesz odtworzyć jego ID')
-                            : 'RSSI ${r.rssi} dBm',
-                        style: TextStyle(
-                            color: known != null ? AppTheme.teal : AppTheme.muted,
-                            fontSize: 12)),
+                    subtitle: Text('RSSI ${r.rssi} dBm', style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                     trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
                     onTap: () => _connect(r),
                   ));
@@ -367,10 +354,7 @@ class _SetupScreenState extends State<SetupScreen> {
               border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                  _restoreFrom != null && _restoreId
-                      ? tr('Ten node był już przypisany do Twojego portfela')
-                      : tr('To istniejący node po reflashu? Odtwórz jego ID'),
+              Text(tr('To istniejący node po reflashu? Odtwórz jego ID'),
                   style: const TextStyle(color: AppTheme.teal, fontSize: 13)),
               DropdownButtonFormField<SavedNode?>(
                 value: _restoreId ? _restoreFrom : null,
