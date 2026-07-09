@@ -76,13 +76,14 @@ class NodeService {
     return _tryConnect(s, bleService: bleService);
   }
 
-  Future<void> addNode(String ip, String pin, String deviceId, {String? label}) async {
+  Future<void> addNode(String ip, String pin, String deviceId, {String? label, String? mac}) async {
     final short = deviceId.length >= 6
         ? deviceId.substring(0,6).toLowerCase() : deviceId.toLowerCase();
     final hn  = 'sensmos-$short.local';
-    final s   = SavedNode(id: deviceId, ip: ip, pin: pin, hostname: hn,
-        label: label ?? 'Node');
     final idx = _nodes.indexWhere((n) => n.id == deviceId);
+    final s   = SavedNode(id: deviceId, ip: ip, pin: pin, hostname: hn,
+        label: label ?? 'Node',
+        mac: mac ?? (idx >= 0 ? _nodes[idx].mac : ''));   // nie gub MAC przy update bez mac
     if (idx >= 0) _nodes[idx] = s; else _nodes.add(s);
     await _saveList();
     final p = await _prefs;
@@ -109,8 +110,19 @@ class NodeService {
   }
 
   Future<void> disconnect() async { _activeNode = null; _activePin = null; }
-  Future<void> saveNode(String ip, String pin, String deviceId) =>
-      addNode(ip, pin, deviceId);
+  Future<void> saveNode(String ip, String pin, String deviceId, {String? mac}) =>
+      addNode(ip, pin, deviceId, mac: mac);
+
+  /// Node zapisany wcześniej z tym samym BLE MAC (ten sam sprzęt po reflashu) —
+  /// kandydat do odtworzenia device_id przy ponownym dodawaniu.
+  SavedNode? findByMac(String? mac) {
+    if (mac == null || mac.isEmpty) return null;
+    final m = mac.toUpperCase();
+    for (final n in _nodes) {
+      if (n.mac.toUpperCase() == m) return n;
+    }
+    return null;
+  }
 
   String? get activePin => _activePin;
 
@@ -121,7 +133,7 @@ class NodeService {
     final old = _nodes[idx];
     _nodes[idx] = SavedNode(
         id: old.id, ip: old.ip, pin: newPin,
-        hostname: old.hostname, label: old.label);
+        hostname: old.hostname, label: old.label, mac: old.mac);
     await _saveList();
     if (_activeNode?.deviceId == deviceId) _activePin = newPin;
   }
@@ -147,12 +159,13 @@ class NodeService {
 
 class SavedNode {
   final String id, pin, hostname, label;
+  final String mac;   // BLE MAC z onboardingu — pozwala rozpoznać ten sam sprzęt po reflashu
   String ip;
   SavedNode({required this.id, required this.ip, required this.pin,
-      required this.hostname, required this.label});
+      required this.hostname, required this.label, this.mac = ''});
   factory SavedNode.fromJson(Map<String,dynamic> j) => SavedNode(
       id: j['id']??'', ip: j['ip']??'', pin: j['pin']??'',
-      hostname: j['hostname']??'', label: j['label']??'Node');
+      hostname: j['hostname']??'', label: j['label']??'Node', mac: j['mac']??'');
   Map<String,dynamic> toJson() =>
-      {'id':id,'ip':ip,'pin':pin,'hostname':hostname,'label':label};
+      {'id':id,'ip':ip,'pin':pin,'hostname':hostname,'label':label,'mac':mac};
 }

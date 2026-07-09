@@ -47,6 +47,55 @@ class _NodesScreenState extends State<NodesScreen> {
     // Pobierz saldo GALU z pierwszego dostępnego noda
     if (ns.nodes.isNotEmpty) _fetchBalance(ns.nodes.first.ip, ns.nodes.first.pin);
     _fetchMyBeNodes();
+    _pruneStale();
+  }
+
+  // Po reflashu node dostaje zwykle to samo IP (DHCP po MAC) — stary wpis (martwe ID)
+  // wskazuje ten sam adres i wygląda na online (odpowiada URZĄDZENIE, nie tamta tożsamość).
+  // Rozstrzyga BE: z wpisów dzielących IP zostaje ten z najświeższym last_ping; reszta
+  // (offline > 1h, gdy zwycięzca żywy < 10 min) wylatuje z lokalnej listy.
+  Future<void> _pruneStale() async {
+    final ns = context.read<NodeService>();
+    final coreBloc = context.read<CoreBloc>();
+    final byIp = <String, List<SavedNode>>{};
+    for (final n in ns.nodes) {
+      if (n.ip.isEmpty) continue;
+      byIp.putIfAbsent(n.ip, () => []).add(n);
+    }
+    for (final group in byIp.values.where((g) => g.length > 1)) {
+      final ping = <String, DateTime?>{};
+      for (final n in group) {
+        try {
+          final res = await http.get(Uri.parse('${Config.beUrl}/v1/nodes/${n.id}'))
+              .timeout(const Duration(seconds: 5));
+          final dev = (jsonDecode(res.body) as Map<String,dynamic>)['device']
+              as Map<String,dynamic>? ?? {};
+          ping[n.id] = DateTime.tryParse(dev['last_ping']?.toString() ?? '');
+        } catch (_) { ping[n.id] = null; }
+      }
+      SavedNode? winner;
+      for (final n in group) {
+        final p = ping[n.id];
+        if (p == null) continue;
+        if (winner == null || p.isAfter(ping[winner.id]!)) winner = n;
+      }
+      if (winner == null) continue;                                  // wszyscy martwi → nie ruszaj
+      final now = DateTime.now().toUtc();
+      final wAge = now.difference(ping[winner.id]!.toUtc());
+      if (wAge > const Duration(minutes: 10)) continue;              // zwycięzca też nieświeży → nie ruszaj
+      for (final n in group) {
+        if (n.id == winner.id) continue;
+        final p = ping[n.id];
+        final stale = p == null || now.difference(p.toUtc()) > const Duration(hours: 1);
+        if (!stale) continue;
+        print('[Prune] usuwam martwy duplikat ${n.id.substring(0,8)}… (IP ${n.ip} przejęte przez ${winner.id.substring(0,8)}…)');
+        coreBloc.add(NodeRemoved(n.id));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(
+              tr('Usunięto nieaktywny wpis %s (node po reflashu)', [n.id.substring(0,8)]))));
+        }
+      }
+    }
   }
 
   // Moje nody wg BE (po owner wallet) — źródło prawdy o sieci: pokazuje też nody,

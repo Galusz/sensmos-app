@@ -37,7 +37,15 @@ class _SetupScreenState extends State<SetupScreen> {
   bool    _waitingReset = false;
   int     _doneCountdown = 3;
 
+  // Odtwarzanie ID: node o znanym BLE MAC (był już na liście = był przypisany do
+  // tego portfela) może po reflashu odzyskać poprzednie device_id (FW ≥ 0.46).
+  SavedNode? _restoreFrom;
+  bool       _restoreId = true;
+
   late final BleService _ble = context.read<BleService>();
+
+  SavedNode? _knownByMac(ScanResult r) =>
+      context.read<NodeService>().findByMac(r.device.remoteId.str);
 
   @override
   void initState() { super.initState(); _startScan(); }
@@ -59,7 +67,11 @@ class _SetupScreenState extends State<SetupScreen> {
 
   Future<void> _connect(ScanResult r) async {
     await _ble.stopScan();
-    setState(() { _selected = r; _step = _Step.form; _error = null; });
+    final known = _knownByMac(r);
+    setState(() {
+      _selected = r; _step = _Step.form; _error = null;
+      _restoreFrom = known; _restoreId = known != null;
+    });
   }
 
 
@@ -96,6 +108,25 @@ class _SetupScreenState extends State<SetupScreen> {
       final nonce = authResp['nonce'] as String? ?? '';
       _authDeviceId = authResp['device_id'] as String? ?? '';
       if (nonce.isEmpty) throw Exception(tr('Brak nonce — aktualizuj firmware'));
+
+      // Odtworzenie poprzedniego ID (FW ≥ 0.46): MUSI być przed register — sig/proof
+      // noda budowane z jego device_id. Stary FW odpowie błędem → jedziemy z nowym ID.
+      if (_restoreFrom != null && _restoreId && _restoreFrom!.id != _authDeviceId) {
+        setState(() => _status = tr('Odtwarzam poprzednie ID noda...'));
+        try {
+          final r = await _ble.sendCommand(
+              {'cmd': 'set_device_id', 'id': _restoreFrom!.id},
+              timeout: const Duration(seconds: 6));
+          if (r['status'] == 'ok') {
+            _authDeviceId = (r['device_id'] as String?) ?? _restoreFrom!.id;
+            print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}…');
+          } else {
+            print('[Setup] set_device_id odrzucone: ${r['error']} — kontynuuję z nowym ID');
+          }
+        } catch (e) {
+          print('[Setup] set_device_id niedostępne (stary FW?): $e — kontynuuję z nowym ID');
+        }
+      }
 
       // 2. Rozstrzygnięcie portfela: istniejący / recovery / nowy
       setState(() => _status = tr('Sprawdzam portfel...'));
@@ -170,7 +201,9 @@ class _SetupScreenState extends State<SetupScreen> {
 
       setState(() => _status = tr('Łączę z nodem przez sieć...'));
       // /node/confirm już wysłany w setupNode → watchdog wyłączony
-      await nodeService.saveNode(_nodeIp!, nodePin, _authDeviceId);
+      // MAC z BLE → apka rozpozna ten sprzęt po ewentualnym reflashu (odtwarzanie ID)
+      await nodeService.saveNode(_nodeIp!, nodePin, _authDeviceId,
+          mac: _selected?.device.remoteId.str);
 
       setState(() { _step = _Step.done; _doneCountdown = 3; });
       for (int i = 3; i >= 0; i--) {
@@ -250,10 +283,17 @@ class _SetupScreenState extends State<SetupScreen> {
                   final r = _results[i];
                   final name = r.advertisementData.advName.isNotEmpty
                       ? r.advertisementData.advName : r.device.platformName;
+                  final known = _knownByMac(r);
                   return Card(child: ListTile(
-                    leading: const Icon(Icons.sensors, color: AppTheme.teal),
+                    leading: Icon(known != null ? Icons.history : Icons.sensors, color: AppTheme.teal),
                     title: Text(name, style: const TextStyle(color: AppTheme.text)),
-                    subtitle: Text('RSSI ${r.rssi} dBm', style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                    subtitle: Text(
+                        known != null
+                            ? tr('Ten node był już przypisany do Twojego portfela — możesz odtworzyć jego ID')
+                            : 'RSSI ${r.rssi} dBm',
+                        style: TextStyle(
+                            color: known != null ? AppTheme.teal : AppTheme.muted,
+                            fontSize: 12)),
                     trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
                     onTap: () => _connect(r),
                   ));
@@ -281,6 +321,26 @@ class _SetupScreenState extends State<SetupScreen> {
         _field(tr('Hasło WiFi'), Icons.lock_outline, _passCtrl, obscure: true),
         const SizedBox(height: 12),
         _field(tr('PIN noda (zapisany w urządzeniu)'), Icons.pin_outlined, _pinCtrl, type: TextInputType.number),
+        if (_restoreFrom != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            decoration: BoxDecoration(
+              color: AppTheme.teal.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
+            ),
+            child: SwitchListTile(
+              value: _restoreId,
+              onChanged: (v) => setState(() => _restoreId = v),
+              activeColor: AppTheme.teal,
+              title: Text(tr('Odtwórz poprzednie ID noda'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  '${_restoreFrom!.id.substring(0, 8)}… — ${tr('node zachowa historię w sieci')}',
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: 12),
           Container(
