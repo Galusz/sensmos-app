@@ -68,6 +68,9 @@ class SensmosApp extends StatelessWidget {
         child: ValueListenableBuilder<int>(
           valueListenable: L10n.notifier,
           builder: (context, _, __) => MaterialApp(
+            // Klucz zależny od języka: zmiana wymusza pełną przebudowę drzewa,
+            // inaczej const-owe ekrany (IndexedStack) zostają w starym języku.
+            key: ValueKey('lang-${L10n.mode}'),
             title: 'SENSMOS',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.dark,
