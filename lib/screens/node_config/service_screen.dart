@@ -96,6 +96,7 @@ class _ServiceScreenState extends State<ServiceScreen> {
     }
 
     if (device == null) {
+      if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
         _error = tr('Nie znalazłem noda przez Bluetooth.\n'
@@ -108,9 +109,11 @@ class _ServiceScreenState extends State<ServiceScreen> {
       await _ble.connect(device);
       final auth = await _ble.sendCommand({'cmd': 'auth', 'pin': widget.node.pin});
       if (auth['status'] != 'ok') throw Exception(tr('Błędny PIN'));
+      if (!mounted) return;
       setState(() { _phase = _Phase.connected; _status = ''; });
     } catch (e) {
       try { await _ble.disconnect(); } catch (_) {}
+      if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
         _error = e.toString().replaceAll('Exception: ', '');

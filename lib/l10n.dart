@@ -173,6 +173,16 @@ const Map<String, String> _enMap = {
   "PIN noda (zapisany w urządzeniu)": "Node PIN (set on the device)",
   "Konfiguruj": "Configure",
   "← Wróć do skanowania": "← Back to scanning",
+  // ── Odtwarzanie ID noda (po reflashu) ──
+  "Odtwórz ID noda": "Restore node ID",
+  "Ta płytka przejmie ID i historię wybranego noda offline (np. po reflashu).":
+      "This board takes over the ID and history of the selected offline node (e.g. after a reflash).",
+  "Odtwarzam poprzednie ID noda...": "Restoring the node's previous ID...",
+  "Ta płytka ma za stary firmware, żeby odtworzyć ID. Zaflashuj najnowszy firmware na sensmos.com/flash i spróbuj ponownie.":
+      "This board's firmware is too old to restore an ID. Flash the latest firmware at sensmos.com/flash and try again.",
+  "Ta płytka nie umie odtworzyć ID (firmware: %s). Zaflashuj najnowszy firmware na sensmos.com/flash i spróbuj ponownie.":
+      "This board can't restore an ID (firmware: %s). Flash the latest firmware at sensmos.com/flash and try again.",
+  "Usunięto nieaktywny wpis %s (node po reflashu)": "Removed stale entry %s (reflashed node)",
   "Nie udało się zarejestrować noda": "Failed to register node",
   "Urządzenie się resetuje — zaczekaj i spróbuj ponownie.": "The device is resetting — wait and try again.",
   "Może potrwać do 30 sekund": "May take up to 30 seconds",

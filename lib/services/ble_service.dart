@@ -50,7 +50,23 @@ class BleService {
   Future<void> connect(BluetoothDevice device) async {
     _device = device;
     try { await device.clearGattCache(); } catch (_) {}
-    await device.connect(timeout: const Duration(seconds: 15));
+    // Android często rzuca code 62 (ConnectionFailedToBeEstablished) / 133 na 1. próbie —
+    // flaky GATT. Ponów kilka razy z narastającą przerwą; między próbami rozłącz i wyczyść.
+    Object? lastErr;
+    for (int attempt = 0; attempt < 4; attempt++) {
+      try {
+        await device.connect(timeout: const Duration(seconds: 15));
+        lastErr = null;
+        break;
+      } catch (e) {
+        lastErr = e;
+        print('[BLE] connect próba ${attempt + 1} padła: $e');
+        try { await device.disconnect(); } catch (_) {}
+        try { await device.clearGattCache(); } catch (_) {}
+        await Future.delayed(Duration(milliseconds: 500 * (attempt + 1)));
+      }
+    }
+    if (lastErr != null) throw lastErr;
     try { await device.requestMtu(512); } catch (_) {}
 
     final services = await device.discoverServices();

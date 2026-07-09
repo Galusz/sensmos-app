@@ -325,10 +325,16 @@ class _SetupScreenState extends State<SetupScreen> {
       const SizedBox(height: 16),
       Expanded(
         child: _results.isEmpty
-            ? Center(child: Text(
-                _scanning ? tr('Skanowanie...') : tr('Brak urządzeń.\nUpewnij się że node jest w trybie konfiguracji.'),
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: AppTheme.muted)))
+            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                if (_scanning) ...[
+                  const CircularProgressIndicator(color: AppTheme.teal),
+                  const SizedBox(height: 16),
+                ],
+                Text(
+                    _scanning ? tr('Skanowanie...') : tr('Brak urządzeń.\nUpewnij się że node jest w trybie konfiguracji.'),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppTheme.muted)),
+              ]))
             : ListView.builder(
                 itemCount: _results.length,
                 itemBuilder: (_, i) {
