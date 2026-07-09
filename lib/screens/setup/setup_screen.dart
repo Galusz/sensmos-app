@@ -52,22 +52,33 @@ class _SetupScreenState extends State<SetupScreen> {
   SavedNode? _knownByMac(ScanResult r) =>
       context.read<NodeService>().findByMac(r.device.remoteId.str);
 
-  // Kandydaci do odtworzenia = zapisane nody OFFLINE wg BE (>1h bez pingu / brak w BE).
+  // Kandydaci do odtworzenia = WSZYSTKIE offline (>1h) fizyczne nody TEGO walleta wg BE
+  // („z systemu" — działa też po reinstalacji apki, gdy lokalna lista przepadła).
+  // BE niedostępny → puste (zostaje ew. MAC-match z lokalnej listy).
   Future<void> _loadRestoreCandidates() async {
-    final all = context.read<NodeService>().nodes;
+    final ns = context.read<NodeService>();
+    final owner = context.read<CoreBloc>().state.wallet?.address;
+    if (owner == null) return;
     final out = <SavedNode>[];
-    for (final n in all) {
-      try {
-        final res = await http.get(Uri.parse('${Config.beUrl}/v1/nodes/${n.id}'))
-            .timeout(const Duration(seconds: 5));
-        final dev = (jsonDecode(res.body) as Map<String,dynamic>)['device']
-            as Map<String,dynamic>? ?? {};
-        final p = DateTime.tryParse(dev['last_ping']?.toString() ?? '');
-        final offline = p == null ||
-            DateTime.now().toUtc().difference(p.toUtc()) > const Duration(hours: 1);
-        if (offline) out.add(n);
-      } catch (_) { out.add(n); }              // BE niedostępny/404 → traktuj jak offline
-    }
+    try {
+      final res = await http.get(
+        Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
+        headers: const {'X-App-Key': 'sensmos2025'},
+      ).timeout(const Duration(seconds: 6));
+      final list = (jsonDecode(res.body) as Map<String,dynamic>)['nodes'] as List? ?? [];
+      for (final raw in list) {
+        final n = raw as Map<String,dynamic>;
+        final id = n['device_id']?.toString() ?? '';
+        if (id.length < 8) continue;
+        if ((n['kind']?.toString() ?? 'real') != 'real') continue;   // virtualne nie są ESP
+        final secs = (n['seconds_since_ping'] as num?)?.toDouble();
+        if (secs != null && secs < 3600) continue;                   // żywy → nie nadpisuj
+        final local = ns.nodes.where((x) => x.id == id).toList();
+        out.add(local.isNotEmpty ? local.first
+            : SavedNode(id: id, ip: '', pin: '', hostname: '',
+                label: 'Node ${id.substring(0, 6)}'));
+      }
+    } catch (_) { /* BE niedostępny → tylko MAC-match */ }
     if (mounted) setState(() => _restoreCandidates = out);
   }
 
