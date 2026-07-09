@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
@@ -39,13 +41,35 @@ class _SetupScreenState extends State<SetupScreen> {
 
   // Odtwarzanie ID: node o znanym BLE MAC (był już na liście = był przypisany do
   // tego portfela) może po reflashu odzyskać poprzednie device_id (FW ≥ 0.46).
+  // Selektor ręczny: dowolny node z listy, ale TYLKO offline wg BE — nadpisanie ID
+  // żywego noda odcięłoby go od sieci (zmiana pubkey → jego identify odrzucany).
   SavedNode? _restoreFrom;
   bool       _restoreId = true;
+  List<SavedNode> _restoreCandidates = [];
 
   late final BleService _ble = context.read<BleService>();
 
   SavedNode? _knownByMac(ScanResult r) =>
       context.read<NodeService>().findByMac(r.device.remoteId.str);
+
+  // Kandydaci do odtworzenia = zapisane nody OFFLINE wg BE (>1h bez pingu / brak w BE).
+  Future<void> _loadRestoreCandidates() async {
+    final all = context.read<NodeService>().nodes;
+    final out = <SavedNode>[];
+    for (final n in all) {
+      try {
+        final res = await http.get(Uri.parse('${Config.beUrl}/v1/nodes/${n.id}'))
+            .timeout(const Duration(seconds: 5));
+        final dev = (jsonDecode(res.body) as Map<String,dynamic>)['device']
+            as Map<String,dynamic>? ?? {};
+        final p = DateTime.tryParse(dev['last_ping']?.toString() ?? '');
+        final offline = p == null ||
+            DateTime.now().toUtc().difference(p.toUtc()) > const Duration(hours: 1);
+        if (offline) out.add(n);
+      } catch (_) { out.add(n); }              // BE niedostępny/404 → traktuj jak offline
+    }
+    if (mounted) setState(() => _restoreCandidates = out);
+  }
 
   @override
   void initState() { super.initState(); _startScan(); }
@@ -72,6 +96,7 @@ class _SetupScreenState extends State<SetupScreen> {
       _selected = r; _step = _Step.form; _error = null;
       _restoreFrom = known; _restoreId = known != null;
     });
+    _loadRestoreCandidates();   // async — selektor doładuje się w tle
   }
 
 
@@ -321,24 +346,47 @@ class _SetupScreenState extends State<SetupScreen> {
         _field(tr('Hasło WiFi'), Icons.lock_outline, _passCtrl, obscure: true),
         const SizedBox(height: 12),
         _field(tr('PIN noda (zapisany w urządzeniu)'), Icons.pin_outlined, _pinCtrl, type: TextInputType.number),
-        if (_restoreFrom != null) ...[
+        if (_restoreFrom != null || _restoreCandidates.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             decoration: BoxDecoration(
               color: AppTheme.teal.withOpacity(0.08),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
             ),
-            child: SwitchListTile(
-              value: _restoreId,
-              onChanged: (v) => setState(() => _restoreId = v),
-              activeColor: AppTheme.teal,
-              title: Text(tr('Odtwórz poprzednie ID noda'),
-                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
-              subtitle: Text(
-                  '${_restoreFrom!.id.substring(0, 8)}… — ${tr('node zachowa historię w sieci')}',
-                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                  _restoreFrom != null && _restoreId
+                      ? tr('Ten node był już przypisany do Twojego portfela')
+                      : tr('To istniejący node po reflashu? Odtwórz jego ID'),
+                  style: const TextStyle(color: AppTheme.teal, fontSize: 13)),
+              DropdownButtonFormField<SavedNode?>(
+                value: _restoreId ? _restoreFrom : null,
+                isExpanded: true,
+                dropdownColor: AppTheme.card,
+                decoration: const InputDecoration(border: InputBorder.none),
+                items: [
+                  DropdownMenuItem<SavedNode?>(value: null,
+                      child: Text(tr('Nie — zarejestruj jako nowy node'),
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 13))),
+                  // MAC-match + wszystkie OFFLINE nody z listy (bez duplikatów)
+                  ...{
+                    if (_restoreFrom != null) _restoreFrom!.id: _restoreFrom!,
+                    for (final n in _restoreCandidates) n.id: n,
+                  }.values.map((n) => DropdownMenuItem<SavedNode?>(value: n,
+                      child: Text('${n.label} · ${n.id.substring(0, 8)}…',
+                          style: const TextStyle(color: AppTheme.text, fontSize: 13)))),
+                ],
+                onChanged: (v) => setState(() { _restoreFrom = v; _restoreId = v != null; }),
+              ),
+              if (_restoreId && _restoreFrom != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(tr('Node zachowa swoje ID i historię w sieci (wymaga FW 0.46+)'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                ),
+            ]),
           ),
         ],
         if (_error != null) ...[

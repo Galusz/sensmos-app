@@ -223,6 +223,9 @@ class _NodesScreenState extends State<NodesScreen> {
         if (!mounted) return;
         final j = jsonDecode(res.body) as Map<String,dynamic>;
         setState(() { _online[id] = true; _nodeData[id] = j; });
+        // FW ≥ 0.47 podaje ble_mac → uzupełnij zapis (restore ID po reflashu bez re-onboardingu)
+        final mac = j['ble_mac'] as String? ?? '';
+        if (mac.isNotEmpty) context.read<NodeService>().updateNodeMac(id, mac);
         return;
       } catch (_) {
         if (attempt == 0) await Future.delayed(const Duration(milliseconds: 500));

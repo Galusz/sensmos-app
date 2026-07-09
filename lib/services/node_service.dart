@@ -113,6 +113,18 @@ class NodeService {
   Future<void> saveNode(String ip, String pin, String deviceId, {String? mac}) =>
       addNode(ip, pin, deviceId, mac: mac);
 
+  /// Backfill MAC dla nodów dodanych starą apką: /info (FW ≥ 0.47) zwraca ble_mac,
+  /// lista uzupełnia się sama przy odświeżaniu — restore ID działa bez re-onboardingu.
+  Future<void> updateNodeMac(String deviceId, String mac) async {
+    if (mac.isEmpty) return;
+    final idx = _nodes.indexWhere((n) => n.id == deviceId);
+    if (idx < 0 || _nodes[idx].mac.toUpperCase() == mac.toUpperCase()) return;
+    final old = _nodes[idx];
+    _nodes[idx] = SavedNode(id: old.id, ip: old.ip, pin: old.pin,
+        hostname: old.hostname, label: old.label, mac: mac.toUpperCase());
+    await _saveList();
+  }
+
   /// Node zapisany wcześniej z tym samym BLE MAC (ten sam sprzęt po reflashu) —
   /// kandydat do odtworzenia device_id przy ponownym dodawaniu.
   SavedNode? findByMac(String? mac) {
