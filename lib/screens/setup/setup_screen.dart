@@ -46,12 +46,24 @@ class _SetupScreenState extends State<SetupScreen> {
   SavedNode? _restoreFrom;
   bool       _restoreId = false;
   List<SavedNode> _restoreCandidates = [];
+  final Map<String, double?> _restoreAge = {};   // device_id → sekund od ostatniego pingu (null = brak)
 
   late final BleService _ble = context.read<BleService>();
 
-  // Kandydaci do odtworzenia = WSZYSTKIE offline (>1h) fizyczne nody TEGO walleta wg BE
-  // („z systemu" — działa też po reinstalacji apki, gdy lokalna lista przepadła).
-  // BE niedostępny → puste (zostaje ew. MAC-match z lokalnej listy).
+  bool _isLive(String id) { final s = _restoreAge[id]; return s != null && s < 300; }
+  String _ageLabel(String id) {
+    final s = _restoreAge[id];
+    if (s == null) return tr('offline');
+    if (s < 300)   return tr('online');
+    if (s < 3600)  return 'offline ${(s / 60).round()}m';
+    if (s < 86400) return 'offline ${(s / 3600).round()}h';
+    return 'offline ${(s / 86400).round()}d';
+  }
+
+  // Kandydaci do odtworzenia = WSZYSTKIE fizyczne nody TEGO walleta wg BE (nie tylko lokalne
+  // — działa po reinstalacji apki). NIE odsiewamy po czasie: świeżo sflashowany node ma stare
+  // ID pingujące jeszcze sprzed chwili, więc filtr „>1h offline" chował właśnie ten przypadek.
+  // Status pokazujemy w dropdownie, a przy wyborze ŻYWEGO ostrzegamy (import odetnie tamten node).
   Future<void> _loadRestoreCandidates() async {
     final ns = context.read<NodeService>();
     final owner = context.read<CoreBloc>().state.wallet?.address;
@@ -68,14 +80,14 @@ class _SetupScreenState extends State<SetupScreen> {
         final id = n['device_id']?.toString() ?? '';
         if (id.length < 8) continue;
         if ((n['kind']?.toString() ?? 'real') != 'real') continue;   // virtualne nie są ESP
-        final secs = (n['seconds_since_ping'] as num?)?.toDouble();
-        if (secs != null && secs < 3600) continue;                   // żywy → nie nadpisuj
+        _restoreAge[id] = (n['seconds_since_ping'] as num?)?.toDouble();
         final local = ns.nodes.where((x) => x.id == id).toList();
         out.add(local.isNotEmpty ? local.first
             : SavedNode(id: id, ip: '', pin: '', hostname: '',
                 label: 'Node ${id.substring(0, 6)}'));
       }
-    } catch (_) { /* BE niedostępny → tylko MAC-match */ }
+      out.sort((a, b) => (_restoreAge[b.id] ?? 9e9).compareTo(_restoreAge[a.id] ?? 9e9)); // najdłużej offline pierwsze
+    } catch (_) { /* BE niedostępny → box się nie pokaże */ }
     if (mounted) setState(() => _restoreCandidates = out);
   }
 
@@ -344,7 +356,7 @@ class _SetupScreenState extends State<SetupScreen> {
         _field(tr('Hasło WiFi'), Icons.lock_outline, _passCtrl, obscure: true),
         const SizedBox(height: 12),
         _field(tr('PIN noda (zapisany w urządzeniu)'), Icons.pin_outlined, _pinCtrl, type: TextInputType.number),
-        if (_restoreFrom != null || _restoreCandidates.isNotEmpty) ...[
+        if (_restoreCandidates.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -365,22 +377,23 @@ class _SetupScreenState extends State<SetupScreen> {
                   DropdownMenuItem<SavedNode?>(value: null,
                       child: Text(tr('Nie — zarejestruj jako nowy node'),
                           style: const TextStyle(color: AppTheme.muted, fontSize: 13))),
-                  // MAC-match + wszystkie OFFLINE nody z listy (bez duplikatów)
-                  ...{
-                    if (_restoreFrom != null) _restoreFrom!.id: _restoreFrom!,
-                    for (final n in _restoreCandidates) n.id: n,
-                  }.values.map((n) => DropdownMenuItem<SavedNode?>(value: n,
-                      child: Text('${n.label} · ${n.id.substring(0, 8)}…',
+                  ..._restoreCandidates.map((n) => DropdownMenuItem<SavedNode?>(value: n,
+                      child: Text('${n.label} · ${n.id.substring(0, 8)}… · ${_ageLabel(n.id)}',
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(color: AppTheme.text, fontSize: 13)))),
                 ],
                 onChanged: (v) => setState(() { _restoreFrom = v; _restoreId = v != null; }),
               ),
-              if (_restoreId && _restoreFrom != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(tr('Node zachowa swoje ID i historię w sieci (wymaga FW 0.46+)'),
-                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-                ),
+              if (_restoreId && _restoreFrom != null) Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                    _isLive(_restoreFrom!.id)
+                        ? tr('⚠ Ten node wygląda na AKTYWNY — odtworzenie ID odetnie działający egzemplarz od sieci')
+                        : tr('Node przejmie to ID i historię w sieci (płytka wymaga FW 0.46+)'),
+                    style: TextStyle(
+                        color: _isLive(_restoreFrom!.id) ? AppTheme.amber : AppTheme.muted,
+                        fontSize: 11)),
+              ),
             ]),
           ),
         ],
