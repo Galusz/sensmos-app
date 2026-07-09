@@ -112,6 +112,18 @@ class NodeService {
   Future<void> saveNode(String ip, String pin, String deviceId) =>
       addNode(ip, pin, deviceId);
 
+  /// Aktualizuj zapisane IP noda (DHCP je zmienia) — reszta pól bez zmian.
+  Future<void> updateNodeIp(String deviceId, String ip) async {
+    final idx = _nodes.indexWhere((n) => n.id == deviceId);
+    if (idx < 0 || ip.isEmpty || _nodes[idx].ip == ip) return;
+    _nodes[idx].ip = ip;
+    if (_activeNode?.deviceId == deviceId) {
+      _activeNode = DeviceNode(deviceId: deviceId, ip: ip,
+          online: _activeNode!.online, label: _activeNode!.label);
+    }
+    await _saveList();
+  }
+
   String? get activePin => _activePin;
 
   /// Zaktualizuj zapisany PIN noda po zmianie na firmware

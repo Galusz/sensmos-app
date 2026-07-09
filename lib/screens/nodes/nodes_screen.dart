@@ -10,6 +10,7 @@ import '../../core/core_state.dart';
 import '../../core/core_event.dart';
 import '../../services/wallet_service.dart';
 import '../../services/node_service.dart';
+import '../../services/ble_service.dart';
 import '../node_config/node_config_screen.dart';
 import '../node_config/trust_screen.dart';
 import '../node_config/service_screen.dart';
@@ -48,6 +49,32 @@ class _NodesScreenState extends State<NodesScreen> {
     if (ns.nodes.isNotEmpty) _fetchBalance(ns.nodes.first.ip, ns.nodes.first.pin);
     _fetchMyBeNodes();
     _pruneStale();
+    _remapIps(ns);   // mDNS w tle: popraw nieaktualne IP (DHCP) → koniec fałszywego „Zdalnie"
+  }
+
+  // DHCP zmienia IP nodów; zapisane IP staje się martwe → /info pada → „Zdalnie" mimo że
+  // node jest w tej samej sieci. Jeden skan mDNS mapuje hostname (sensmos-<6>) → aktualne IP,
+  // aktualizuje zapis i re-fetchuje. Robimy PO wstępnym fetchu (online pokazują się od razu).
+  Future<void> _remapIps(NodeService ns) async {
+    final ble = context.read<BleService>();
+    List<Map<String,String>> found;
+    try {
+      found = await ble.discoverAllNodes(timeout: const Duration(seconds: 6));
+    } catch (_) { return; }
+    if (found.isEmpty || !mounted) return;
+    for (final n in ns.nodes) {
+      final short = n.id.length >= 6 ? n.id.substring(0, 6).toLowerCase() : n.id.toLowerCase();
+      final hit = found.where((f) => (f['hostname'] ?? '').toLowerCase().startsWith('sensmos-$short'));
+      if (hit.isEmpty) continue;
+      final ip = hit.first['ip'];
+      if (ip == null || ip.isEmpty) continue;
+      if (ip != n.ip) {
+        await ns.updateNodeIp(n.id, ip);
+        _fetchNode(ip, n.id, n.pin);            // poprawne IP → odśwież status
+      } else if (_online[n.id] == false) {
+        _fetchNode(n.ip, n.id, n.pin);          // IP ok, ale było offline → spróbuj ponownie
+      }
+    }
   }
 
   // Po reflashu node dostaje zwykle to samo IP (DHCP po MAC) — stary wpis (martwe ID)
