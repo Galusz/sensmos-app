@@ -44,19 +44,17 @@ class _SetupScreenState extends State<SetupScreen> {
   // device_id. Tylko offline wg BE — nadpisanie ID żywego noda odcięłoby go od sieci
   // (zmiana pubkey → jego identify odrzucany).
   SavedNode? _restoreFrom;
-  bool       _restoreId = false;
-  List<SavedNode> _restoreCandidates = [];
-  final Map<String, double?> _restoreAge = {};   // device_id → sekund od ostatniego pingu (null = brak)
+  bool       _restoreId = false;                 // przełącznik „Odtwórz ID" (jak fuzz GPS)
+  List<SavedNode> _restoreCandidates = [];       // TYLKO offline nody walleta (kandydaci do przejęcia ID)
+  final Map<String, double?> _restoreAge = {};   // device_id → sekund od ostatniego pingu
 
   late final BleService _ble = context.read<BleService>();
 
-  bool _isLive(String id) { final s = _restoreAge[id]; return s != null && s < 300; }
   String _ageLabel(String id) {
     final s = _restoreAge[id];
-    if (s == null) return tr('offline');
-    if (s < 300)   return tr('online');
-    if (s < 3600)  return 'offline ${(s / 60).round()}m';
-    if (s < 86400) return 'offline ${(s / 3600).round()}h';
+    if (s == null)  return tr('offline');
+    if (s < 3600)   return 'offline ${(s / 60).round()}m';
+    if (s < 86400)  return 'offline ${(s / 3600).round()}h';
     return 'offline ${(s / 86400).round()}d';
   }
 
@@ -66,21 +64,27 @@ class _SetupScreenState extends State<SetupScreen> {
   // Status pokazujemy w dropdownie, a przy wyborze ŻYWEGO ostrzegamy (import odetnie tamten node).
   Future<void> _loadRestoreCandidates() async {
     final ns = context.read<NodeService>();
-    final owner = context.read<CoreBloc>().state.wallet?.address;
+    // Wallet z WalletService (źródło prawdy) — CoreBloc.state bywa pusty podczas onboardingu.
+    final owner = (await context.read<WalletService>().load())?.address
+        ?? context.read<CoreBloc>().state.wallet?.address;
     if (owner == null) return;
     final out = <SavedNode>[];
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
         headers: const {'X-App-Key': 'sensmos2025'},
-      ).timeout(const Duration(seconds: 6));
+      ).timeout(const Duration(seconds: 8));
       final list = (jsonDecode(res.body) as Map<String,dynamic>)['nodes'] as List? ?? [];
       for (final raw in list) {
         final n = raw as Map<String,dynamic>;
         final id = n['device_id']?.toString() ?? '';
         if (id.length < 8) continue;
         if ((n['kind']?.toString() ?? 'real') != 'real') continue;   // virtualne nie są ESP
-        _restoreAge[id] = (n['seconds_since_ping'] as num?)?.toDouble();
+        // Postgres NUMERIC (EXTRACT EPOCH) przychodzi jako STRING → parsuj bezpiecznie
+        final sp = n['seconds_since_ping'];
+        final secs = sp == null ? null : double.tryParse(sp.toString());
+        if (secs != null && secs < 300) continue;   // TYLKO offline (>5 min) — nie odcinamy żywego noda
+        _restoreAge[id] = secs;
         final local = ns.nodes.where((x) => x.id == id).toList();
         out.add(local.isNotEmpty ? local.first
             : SavedNode(id: id, ip: '', pin: '', hostname: '',
@@ -92,7 +96,7 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
   @override
-  void initState() { super.initState(); _startScan(); }
+  void initState() { super.initState(); _startScan(); _loadRestoreCandidates(); }
 
   Future<void> _startScan() async {
     setState(() { _scanning = true; _error = null; _results.clear(); });
@@ -153,23 +157,29 @@ class _SetupScreenState extends State<SetupScreen> {
       _authDeviceId = authResp['device_id'] as String? ?? '';
       if (nonce.isEmpty) throw Exception(tr('Brak nonce — aktualizuj firmware'));
 
-      // Odtworzenie poprzedniego ID (FW ≥ 0.46): MUSI być przed register — sig/proof
-      // noda budowane z jego device_id. Stary FW odpowie błędem → jedziemy z nowym ID.
+      // Odtworzenie poprzedniego ID: MUSI być przed register (sig/proof budowane z device_id).
+      // Sama komenda jest testem FW — jak node ją przyjmie, umie; jak nie (stary FW → timeout/
+      // błąd), PRZERYWAMY z prośbą o reflash zamiast po cichu robić nowy ID (user chciał restore).
       if (_restoreFrom != null && _restoreId && _restoreFrom!.id != _authDeviceId) {
         setState(() => _status = tr('Odtwarzam poprzednie ID noda...'));
+        Map<String, dynamic> r;
         try {
-          final r = await _ble.sendCommand(
+          r = await _ble.sendCommand(
               {'cmd': 'set_device_id', 'id': _restoreFrom!.id},
               timeout: const Duration(seconds: 6));
-          if (r['status'] == 'ok') {
-            _authDeviceId = (r['device_id'] as String?) ?? _restoreFrom!.id;
-            print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}…');
-          } else {
-            print('[Setup] set_device_id odrzucone: ${r['error']} — kontynuuję z nowym ID');
-          }
-        } catch (e) {
-          print('[Setup] set_device_id niedostępne (stary FW?): $e — kontynuuję z nowym ID');
+        } catch (_) {
+          throw Exception(tr('Ta płytka ma za stary firmware, żeby odtworzyć ID. '
+              'Zaflashuj najnowszy firmware na sensmos.com/flash i spróbuj ponownie.'));
         }
+        // Stary FW (<0.46) na nieznaną komendę odsyła {status:error, msg:unknown} → to samo:
+        // reflash. (Poprawny id z listy nie da innego błędu.)
+        if (r['status'] != 'ok') {
+          throw Exception(tr('Ta płytka nie umie odtworzyć ID (firmware: %s). '
+              'Zaflashuj najnowszy firmware na sensmos.com/flash i spróbuj ponownie.',
+              [r['msg']?.toString() ?? '?']));
+        }
+        _authDeviceId = (r['device_id'] as String?) ?? _restoreFrom!.id;
+        print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}…');
       }
 
       // 2. Rozstrzygnięcie portfela: istniejący / recovery / nowy
@@ -359,41 +369,40 @@ class _SetupScreenState extends State<SetupScreen> {
         if (_restoreCandidates.isNotEmpty) ...[
           const SizedBox(height: 12),
           Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             decoration: BoxDecoration(
               color: AppTheme.teal.withOpacity(0.08),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.teal.withOpacity(0.3)),
             ),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr('To istniejący node po reflashu? Odtwórz jego ID'),
-                  style: const TextStyle(color: AppTheme.teal, fontSize: 13)),
-              DropdownButtonFormField<SavedNode?>(
-                value: _restoreId ? _restoreFrom : null,
-                isExpanded: true,
-                dropdownColor: AppTheme.card,
-                decoration: const InputDecoration(border: InputBorder.none),
-                items: [
-                  DropdownMenuItem<SavedNode?>(value: null,
-                      child: Text(tr('Nie — zarejestruj jako nowy node'),
-                          style: const TextStyle(color: AppTheme.muted, fontSize: 13))),
-                  ..._restoreCandidates.map((n) => DropdownMenuItem<SavedNode?>(value: n,
-                      child: Text('${n.label} · ${n.id.substring(0, 8)}… · ${_ageLabel(n.id)}',
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: AppTheme.text, fontSize: 13)))),
-                ],
-                onChanged: (v) => setState(() { _restoreFrom = v; _restoreId = v != null; }),
+              SwitchListTile(
+                value: _restoreId,
+                onChanged: (v) => setState(() { _restoreId = v; if (!v) _restoreFrom = null; }),
+                activeColor: AppTheme.teal,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+                secondary: const Icon(Icons.history, color: AppTheme.muted),
+                title: Text(tr('Odtwórz ID noda'),
+                    style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+                subtitle: Text(
+                    tr('Ta płytka przejmie ID i historię wybranego noda offline (np. po reflashu).'),
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
               ),
-              if (_restoreId && _restoreFrom != null) Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                    _isLive(_restoreFrom!.id)
-                        ? tr('⚠ Ten node wygląda na AKTYWNY — odtworzenie ID odetnie działający egzemplarz od sieci')
-                        : tr('Node przejmie to ID i historię w sieci (płytka wymaga FW 0.46+)'),
-                    style: TextStyle(
-                        color: _isLive(_restoreFrom!.id) ? AppTheme.amber : AppTheme.muted,
-                        fontSize: 11)),
-              ),
+              if (_restoreId) ...[
+                const Divider(height: 1, color: AppTheme.border),
+                ..._restoreCandidates.map((n) => RadioListTile<SavedNode>(
+                  value: n,
+                  groupValue: _restoreFrom,
+                  onChanged: (v) => setState(() => _restoreFrom = v),
+                  activeColor: AppTheme.teal,
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  title: Text('${n.label} · ${n.id.substring(0, 8)}…',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: AppTheme.text, fontSize: 13)),
+                  subtitle: Text(_ageLabel(n.id),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                )),
+              ],
             ]),
           ),
         ],
