@@ -34,46 +34,31 @@ class _NodesScreenState extends State<NodesScreen> {
   List<Map<String,dynamic>> _myBeNodes = [];            // WSZYSTKIE nody walleta wg BE (tez duchy)
   bool _beOpen = false;                                 // sekcja zwinieta domyslnie (drugorzedna)
   final _beRowOpen = <String>{};                        // rozwiniete wiersze (dopiero tam kosz)
+  final _nodeErr   = <String, String>{};                // ostatni błąd /info per node (diagnostyka)
   String? _balance;
+  BleService? _bleRef;
 
   @override
   void initState() { super.initState(); _refresh(); }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bleRef = context.read<BleService>();
+  }
+
   Future<void> _refresh() async {
     final ns = context.read<NodeService>();
-    for (final n in ns.nodes) {
-      _fetchNode(n.ip, n.id, n.pin);
-      _fetchBeData(n.id);
-    }
-    // Pobierz saldo GALU z pierwszego dostępnego noda
+    // Dane z BE (inny host) i saldo mogą lecieć równolegle.
+    for (final n in ns.nodes) { _fetchBeData(n.id); }
     if (ns.nodes.isNotEmpty) _fetchBalance(ns.nodes.first.ip, ns.nodes.first.pin);
     _fetchMyBeNodes();
     _pruneStale();
-    _remapIps(ns);   // mDNS w tle: popraw nieaktualne IP (DHCP) → koniec fałszywego „Zdalnie"
-  }
-
-  // DHCP zmienia IP nodów; zapisane IP staje się martwe → /info pada → „Zdalnie" mimo że
-  // node jest w tej samej sieci. Jeden skan mDNS mapuje hostname (sensmos-<6>) → aktualne IP,
-  // aktualizuje zapis i re-fetchuje. Robimy PO wstępnym fetchu (online pokazują się od razu).
-  Future<void> _remapIps(NodeService ns) async {
-    final ble = context.read<BleService>();
-    List<Map<String,String>> found;
-    try {
-      found = await ble.discoverAllNodes(timeout: const Duration(seconds: 6));
-    } catch (_) { return; }
-    if (found.isEmpty || !mounted) return;
+    // Node lokalny: ESP32 obsługuje JEDNO połączenie HTTP naraz. Przy duplikatach po
+    // reflashu (kilka wpisów → to samo IP) równoległe /info zabija wszystkie oprócz
+    // jednego → fałszywe „Zdalnie". Dlatego odpytujemy SEKWENCYJNIE.
     for (final n in ns.nodes) {
-      final short = n.id.length >= 6 ? n.id.substring(0, 6).toLowerCase() : n.id.toLowerCase();
-      final hit = found.where((f) => (f['hostname'] ?? '').toLowerCase().startsWith('sensmos-$short'));
-      if (hit.isEmpty) continue;
-      final ip = hit.first['ip'];
-      if (ip == null || ip.isEmpty) continue;
-      if (ip != n.ip) {
-        await ns.updateNodeIp(n.id, ip);
-        _fetchNode(ip, n.id, n.pin);            // poprawne IP → odśwież status
-      } else if (_online[n.id] == false) {
-        _fetchNode(n.ip, n.id, n.pin);          // IP ok, ale było offline → spróbuj ponownie
-      }
+      await _fetchNode(n.ip, n.id, n.pin);
     }
   }
 
@@ -239,23 +224,41 @@ class _NodesScreenState extends State<NodesScreen> {
   }
 
   Future<void> _fetchNode(String ip, String id, String pin) async {
-    // 2 próby po 6 s: firmware w pętli potrafi zablokować HTTP do ~3.5 s (blokujący
-    // probe checknet/monitor), więc 3 s dawało fałszywe „niedostępny". Node online
-    // zwykle odpowie za pierwszym/drugim razem.
+    // 1) Masz IP → wal po IP.
+    if (await _tryInfo(ip, id, pin)) return;
+    // 2) IP nie odpowiada → odpytaj mDNS o hostname (DHCP mógł zmienić adres).
+    final short = id.length >= 6 ? id.substring(0, 6).toLowerCase() : id.toLowerCase();
+    String? fresh;
+    try {
+      fresh = await _bleRef?.discoverByHostname(
+          hostname: 'sensmos-$short.local', timeout: const Duration(seconds: 5));
+    } catch (e) { _nodeErr[id] = 'mdns: $e'; }
+    // 3) mDNS znalazł nowe IP → zaktualizuj zapis i spróbuj po nim.
+    if (fresh != null && fresh.isNotEmpty && fresh != ip) {
+      if (mounted) await context.read<NodeService>().updateNodeIp(id, fresh);
+      if (await _tryInfo(fresh, id, pin)) return;
+    }
+    if (mounted) setState(() => _online[id] = false);
+  }
+
+  /// Jedno odpytanie /info po IP (2 próby). Zwraca true = node odpowiedział.
+  /// Firmware w pętli potrafi zablokować HTTP do ~3.5 s, stąd timeout 6 s.
+  Future<bool> _tryInfo(String ip, String id, String pin) async {
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
         final res = await http.get(Uri.parse('http://$ip/info'),
             headers: {'Authorization': 'Bearer $pin'})
             .timeout(const Duration(seconds: 6));
-        if (!mounted) return;
+        if (!mounted) return true;
         final j = jsonDecode(res.body) as Map<String,dynamic>;
-        setState(() { _online[id] = true; _nodeData[id] = j; });
-        return;
-      } catch (_) {
-        if (attempt == 0) await Future.delayed(const Duration(milliseconds: 500));
+        setState(() { _online[id] = true; _nodeData[id] = j; _nodeErr.remove(id); });
+        return true;
+      } catch (e) {
+        _nodeErr[id] = '$ip → ${e.toString().split('\n').first}';
+        if (attempt == 0) await Future.delayed(const Duration(milliseconds: 400));
       }
     }
-    if (mounted) setState(() => _online[id] = false);
+    return false;
   }
 
   // Statystyki globalne
@@ -551,6 +554,9 @@ class _NodesScreenState extends State<NodesScreen> {
                       color: AppTheme.muted, fontSize: 12)),
                   Text(healthText, style: TextStyle(
                       color: healthColor, fontSize: 11)),
+                  if (online == false && _nodeErr[n.id] != null)
+                    Text(_nodeErr[n.id]!, style: const TextStyle(
+                        color: AppTheme.red, fontSize: 10)),
                 ],
               )),
               // Łączność lokalna — czy telefon jest w sieci noda (można konfigurować), NIE zdrowie noda
