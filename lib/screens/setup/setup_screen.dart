@@ -53,7 +53,6 @@ class _SetupScreenState extends State<SetupScreen> {
   String _ageLabel(String id) {
     final s = _restoreAge[id];
     if (s == null)  return tr('offline');
-    if (s < 300)    return tr('online (żywy!)');   // ostrzeżenie: import odetnie tamten node
     if (s < 3600)   return 'offline ${(s / 60).round()}m';
     if (s < 86400)  return 'offline ${(s / 3600).round()}h';
     return 'offline ${(s / 86400).round()}d';
@@ -84,8 +83,7 @@ class _SetupScreenState extends State<SetupScreen> {
         // Postgres NUMERIC (EXTRACT EPOCH) przychodzi jako STRING → parsuj bezpiecznie
         final sp = n['seconds_since_ping'];
         final secs = sp == null ? null : double.tryParse(sp.toString());
-        // Online też pokazujemy (etykieta „online (żywy!)") — do testów restore bez czekania
-        // aż node zejdzie. Ostrzeżenie przy wyborze żywego jest w etykiecie.
+        if (secs != null && secs < 300) continue;   // TYLKO offline (>5 min) — nie odcinamy żywego noda
         _restoreAge[id] = secs;
         final local = ns.nodes.where((x) => x.id == id).toList();
         out.add(local.isNotEmpty ? local.first

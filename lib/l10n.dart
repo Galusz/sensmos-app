@@ -86,7 +86,6 @@ const Map<String, String> _enMap = {
   "Poza siecią": "Off network",
   "Błędna odpowiedź noda": "Bad node response",
   "Niedostępny": "Unavailable",
-  "online (żywy!)": "online (live!)",
   "Nody": "Nodes",
   "Encje": "Entities",
   "Skrypty": "Scripts",
