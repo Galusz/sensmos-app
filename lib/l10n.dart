@@ -115,6 +115,7 @@ const Map<String, String> _enMap = {
   "SALDO W SIECI (GALU)": "NETWORK BALANCE (GALU)",
   "Do wydania na nody": "Available for nodes",
   "Do odebrania (claim)": "Claimable",
+  "Wypłata w toku": "Claim in progress",
   "Zdeponowane": "Deposited",
   "Odebrano": "Claimed",
   "Odbierz (Claim)": "Claim",

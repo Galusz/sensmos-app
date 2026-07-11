@@ -32,6 +32,7 @@ class _WalletScreenState extends State<WalletScreen> {
   double _pending = 0;
   double _deposited = 0;
   double _claimed = 0;
+  double _claimPending = 0;   // hold claim-intent (wypłata w toku, czeka na event on-chain)
 
   // saldo on-chain (wei)
   BigInt _dhv = BigInt.zero;
@@ -67,10 +68,11 @@ class _WalletScreenState extends State<WalletScreen> {
       _available = _d(j['available']);
       _deposited = _d(j['total_deposited']);
       _claimed = _d(j['claimed_galu']);
+      _claimPending = _d(j['claim_pending']);
     } catch (_) {}
   }
 
-  // v9: „Do odebrania" = cumulative (lifetime entitlement z /proof) − już odebrane.
+  // v9: „Do odebrania" = cumulative (lifetime entitlement z /proof) − odebrane − w toku.
   Future<void> _loadPending(String addr) async {
     try {
       final res = await http
@@ -82,7 +84,8 @@ class _WalletScreenState extends State<WalletScreen> {
       }
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final cumulative = _d(j['cumulative']);
-      _pending = (cumulative - _claimed).clamp(0, double.infinity).toDouble();
+      _pending =
+          (cumulative - _claimed - _claimPending).clamp(0, double.infinity).toDouble();
     } catch (_) {
       _pending = 0;
     }
@@ -148,6 +151,9 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   // ── Claim ───────────────────────────────────────────────────
+  // Dwufazowy: podpisany claim-intent do BE (hold → available spada OD RAZU, proof w
+  // odpowiedzi), potem tx na kontrakt. Finalizuje event on-chain; brak tx → BE zwalnia
+  // hold do 2h. Fallback na stary GET /proof gdy intent niedostępny (stary BE/offline).
   Future<void> _claim() async {
     final addr = _address;
     final pk = context.read<CoreBloc>().state.wallet?.privateKeyHex;
@@ -155,9 +161,23 @@ class _WalletScreenState extends State<WalletScreen> {
 
     setState(() => _busy = true);
     try {
-      final res = await http
-          .get(Uri.parse('${Config.beUrl}/v1/wallet/$addr/proof'))
-          .timeout(const Duration(seconds: 8));
+      http.Response res;
+      try {
+        final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        final sig =
+            _eth.signIntent(pk, 'sensmos-claim:${addr.toLowerCase()}:$ts');
+        res = await http
+            .post(Uri.parse(
+                '${Config.beUrl}/v1/wallet/${addr.toLowerCase()}/claim-intent'),
+                headers: const {'Content-Type': 'application/json'},
+                body: jsonEncode({'ts': ts, 'sig': sig}))
+            .timeout(const Duration(seconds: 8));
+        if (res.statusCode == 401) throw Exception('intent rejected');
+      } catch (_) {
+        res = await http
+            .get(Uri.parse('${Config.beUrl}/v1/wallet/$addr/proof'))
+            .timeout(const Duration(seconds: 8));
+      }
       if (res.statusCode != 200) {
         final msg = (jsonDecode(res.body) as Map)['error'] ?? tr('Brak nagród');
         _snack('$msg', error: true);
@@ -326,6 +346,7 @@ class _WalletScreenState extends State<WalletScreen> {
               _bigRow(tr('Do wydania na nody'), _available, AppTheme.teal),
               const Divider(color: AppTheme.border, height: 20),
               _smallRow(tr('Do odebrania (claim)'), _pending),
+              if (_claimPending > 0) _smallRow(tr('Wypłata w toku'), _claimPending),
               _smallRow(tr('Zdeponowane'), _deposited),
               _smallRow(tr('Odebrano'), _claimed),
             ],

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:web3dart/web3dart.dart';
@@ -34,6 +35,15 @@ class EthService {
   // Ile dany adres już odebrał łącznie (lifetime). Porównaj z cumulative z /proof.
   Future<BigInt> claimedTotal(String addr) =>
       _readUint(_rp, 'claimedTotal', [EthereumAddress.fromHex(addr)]);
+
+  /// Personal-sign (EIP-191) wiadomości kluczem walleta — dla claim-intent na BE
+  /// (BE odzyskuje adres ethers.verifyMessage; zgodne z signPersonalMessage).
+  String signIntent(String pkHex, String message) {
+    final key = EthPrivateKey.fromHex(pkHex);
+    final sig = key.signPersonalMessageToUint8List(
+        Uint8List.fromList(utf8.encode(message)));
+    return bytesToHex(sig, include0x: true);
+  }
 
   Future<BigInt> _readUint(
       DeployedContract c, String fn, List<dynamic> params) async {
