@@ -61,7 +61,7 @@ class SettingsScreen extends StatelessWidget {
             ListTile(
               leading: const Icon(Icons.info_outline, color: AppTheme.muted),
               title: Text(tr('Wersja'), style: const TextStyle(color: AppTheme.text)),
-              trailing: const Text('1.4.1',
+              trailing: const Text('1.4.2',
                   style: TextStyle(color: AppTheme.muted, fontSize: 13)),
             ),
             const Divider(color: AppTheme.border, height: 1),
