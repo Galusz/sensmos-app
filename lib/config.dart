@@ -1,7 +1,7 @@
 /// SENSMOS — konfiguracja globalna
 class Config {
   // Wersja aplikacji — trzymać w zgodzie z pubspec.yaml (version:)
-  static const String appVersion = '1.4.6';
+  static const String appVersion = '1.4.7';
   // Manifest aktualizacji (wersja + changelog + URL APK) — public/app/manifest.json na BE
   static const String updateManifestUrl = 'https://api.sensmos.com/app/manifest.json';
 

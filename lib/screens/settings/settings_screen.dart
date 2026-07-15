@@ -109,6 +109,7 @@ class SettingsScreen extends StatelessWidget {
   String _langLabel() => switch (L10n.mode) {
         'pl' => 'Polski',
         'en' => 'English',
+        'de' => 'Deutsch',
         _    => tr('Systemowy'),
       };
 
@@ -121,6 +122,7 @@ class SettingsScreen extends StatelessWidget {
             _langOption(ctx, 'system', tr('Systemowy')),
             _langOption(ctx, 'pl', 'Polski'),
             _langOption(ctx, 'en', 'English'),
+            _langOption(ctx, 'de', 'Deutsch'),
           ],
         ),
       );

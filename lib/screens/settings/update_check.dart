@@ -31,7 +31,7 @@ Future<void> checkForUpdate(BuildContext context) async {
         .where((v) => _cmpVer(v, Config.appVersion) > 0)
         .toList()
       ..sort((a, b) => _cmpVer(b, a));
-    final lang = L10n.isEn ? 'en' : 'pl';
+    final lang = L10n.lang;   // notki w języku apki; brak tej wersji językowej w manifeście → fallback EN
 
     showDialog(
       context: context,
@@ -51,7 +51,8 @@ Future<void> checkForUpdate(BuildContext context) async {
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
-                for (final line in ((notes[v] as Map<String, dynamic>?)?[lang]
+                for (final line in (((notes[v] as Map<String, dynamic>?)?[lang] ??
+                        (notes[v] as Map<String, dynamic>?)?['en'])
                         as List<dynamic>? ??
                     []))
                   Padding(
