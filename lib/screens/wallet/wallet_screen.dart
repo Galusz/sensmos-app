@@ -30,9 +30,11 @@ class _WalletScreenState extends State<WalletScreen> {
   // saldo z BE (GALU, human)
   double _available = 0;
   double _pending = 0;
+  double _earned = 0;
   double _deposited = 0;
   double _claimed = 0;
   double _claimPending = 0;   // hold claim-intent (wypłata w toku, czeka na event on-chain)
+  double _depositPending = 0; // wpłata potwierdzona on-chain, czeka aż listener BE zaksięguje event Deposited
 
   // saldo on-chain (wei)
   BigInt _dhv = BigInt.zero;
@@ -66,6 +68,7 @@ class _WalletScreenState extends State<WalletScreen> {
           .timeout(const Duration(seconds: 6));
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       _available = _d(j['available']);
+      _earned = _d(j['total_earned']);
       _deposited = _d(j['total_deposited']);
       _claimed = _d(j['claimed_galu']);
       _claimPending = _d(j['claim_pending']);
@@ -126,6 +129,7 @@ class _WalletScreenState extends State<WalletScreen> {
     }
 
     setState(() => _busy = true);
+    final depBefore = _deposited;   // do wykrycia zaksięgowania wpłaty przez listener BE
     try {
       final allowance = await _eth.allowance(_address!);
       if (allowance < wei) {
@@ -143,6 +147,20 @@ class _WalletScreenState extends State<WalletScreen> {
       _snack(ok ? tr('Wpłacono %s GALU', [amount]) : tr('Deposit zrewertowany'),
           error: !ok);
       await _load();
+      // Wpłata potwierdzona on-chain, ale saldo kredytuje dopiero listener BE z eventu Deposited
+      // (~15-30 s). „Wpłata w toku" + odpytujemy BE aż total_deposited urośnie o tę kwotę.
+      // NIC nie doliczamy sami — kwota zawsze z BE (blokada RPC nie doda GALU, napis by tylko wisiał).
+      if (ok && mounted) {
+        final amtNum = _d(amount);
+        setState(() => _depositPending = amtNum);
+        for (int i = 0; i < 8 && mounted; i++) {
+          await Future.delayed(const Duration(seconds: 5));
+          await _loadBe(_address!);
+          if (_deposited >= depBefore + amtNum - 0.01) break;
+          if (mounted) setState(() {});
+        }
+        if (mounted) setState(() => _depositPending = 0);
+      }
     } catch (e) {
       _snack(tr('Błąd: %s', [e]), error: true);
     } finally {
@@ -162,6 +180,7 @@ class _WalletScreenState extends State<WalletScreen> {
     setState(() => _busy = true);
     try {
       http.Response res;
+      bool viaIntent = false;
       try {
         final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
         final sig =
@@ -173,6 +192,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 body: jsonEncode({'ts': ts, 'sig': sig}))
             .timeout(const Duration(seconds: 8));
         if (res.statusCode == 401) throw Exception('intent rejected');
+        if (res.statusCode == 200) viaIntent = true;
       } catch (_) {
         res = await http
             .get(Uri.parse('${Config.beUrl}/v1/wallet/$addr/proof'))
@@ -186,6 +206,14 @@ class _WalletScreenState extends State<WalletScreen> {
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       final cumulativeWei = BigInt.parse(j['cumulativeWei'].toString());
       final proof = (j['proof'] as List).map((e) => e.toString()).toList();
+
+      // claim-intent zdjął już z available na BE (hold) → pokaż OD RAZU (available spada,
+      // „do odebrania"→0, „wypłata w toku"→kwota), nie czekając na potwierdzenie tx on-chain (~20-30 s).
+      if (viaIntent) {
+        await _loadBe(addr);
+        await _loadPending(addr);
+        if (mounted) setState(() {});
+      }
 
       // Cumulative: jeśli już odebrano całość (claimedTotal >= cumulative) — nic do claim.
       final already = await _eth.claimedTotal(addr);
@@ -345,9 +373,12 @@ class _WalletScreenState extends State<WalletScreen> {
               const SizedBox(height: 12),
               _bigRow(tr('Do wydania na nody'), _available, AppTheme.teal),
               const Divider(color: AppTheme.border, height: 20),
+              _smallRow(tr('Zarobione (nagrody)'), _earned),
+              _smallRow(tr('Wpłacone (Twój kapitał)'), _deposited),
+              if (_depositPending > 0) _smallRow(tr('Wpłata w toku'), _depositPending),
+              const Divider(color: AppTheme.border, height: 20),
               _smallRow(tr('Do odebrania (claim)'), _pending),
               if (_claimPending > 0) _smallRow(tr('Wypłata w toku'), _claimPending),
-              _smallRow(tr('Zdeponowane'), _deposited),
               _smallRow(tr('Odebrano'), _claimed),
             ],
           ),
