@@ -56,6 +56,14 @@ String tr(String pl, [List<Object?> args = const []]) {
 
 /// Nadpisania angielskie. Brak wpisu → pokazujemy klucz (PL).
 const Map<String, String> _enMap = {
+  // ── Self-update ──────────────────────────────────────────────
+  "Sprawdź aktualizację": "Check for updates",
+  "nowa wersja i lista zmian": "new version and changelog",
+  "Masz najnowszą wersję (%s)": "You're on the latest version (%s)",
+  "Dostępna aktualizacja %s": "Update %s available",
+  "Później": "Later",
+  "Pobierz": "Download",
+  "Nie udało się sprawdzić aktualizacji": "Couldn't check for updates",
   // ── Wspólne ──────────────────────────────────────────────────
   "Anuluj": "Cancel",
   "Zapisz": "Save",
@@ -116,6 +124,9 @@ const Map<String, String> _enMap = {
   "Do wydania na nody": "Available for nodes",
   "Do odebrania (claim)": "Claimable",
   "Wypłata w toku": "Claim in progress",
+  "Wpłata w toku": "Deposit in progress",
+  "Zarobione (nagrody)": "Earned (rewards)",
+  "Wpłacone (Twój kapitał)": "Deposited (your funds)",
   "Zdeponowane": "Deposited",
   "Odebrano": "Claimed",
   "Odbierz (Claim)": "Claim",

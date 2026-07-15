@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../config.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
 import 'nodes_location_screen.dart';
 import 'push_screen.dart';
 import 'logs_screen.dart';
+import 'update_check.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -59,9 +61,18 @@ class SettingsScreen extends StatelessWidget {
             ),
             const Divider(color: AppTheme.border, height: 1),
             ListTile(
+              leading: const Icon(Icons.system_update_alt, color: AppTheme.teal),
+              title: Text(tr('Sprawdź aktualizację'),
+                  style: const TextStyle(color: AppTheme.text)),
+              subtitle: Text(tr('nowa wersja i lista zmian'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+              onTap: () => checkForUpdate(context),
+            ),
+            const Divider(color: AppTheme.border, height: 1),
+            ListTile(
               leading: const Icon(Icons.info_outline, color: AppTheme.muted),
               title: Text(tr('Wersja'), style: const TextStyle(color: AppTheme.text)),
-              trailing: const Text('1.4.2',
+              trailing: const Text(Config.appVersion,
                   style: TextStyle(color: AppTheme.muted, fontSize: 13)),
             ),
             const Divider(color: AppTheme.border, height: 1),
