@@ -154,6 +154,16 @@ class _SetupScreenState extends State<SetupScreen> {
       final nodePin = _pinCtrl.text.trim().isNotEmpty ? _pinCtrl.text.trim() : '123456';
       setState(() => _status = tr('Autoryzacja BLE...'));
       final authResp = await _ble.sendCommand({'cmd': 'auth', 'pin': nodePin});
+      // Zły PIN → node zwraca {status:error, msg:wrong_pin} BEZ nonce. Rozpoznaj to, zanim
+      // potraktujemy brak nonce jako „stary firmware" — to zwykle po prostu zły PIN.
+      if (authResp['status'] == 'error') {
+        final m = authResp['msg']?.toString() ?? '';
+        throw Exception(m == 'wrong_pin'
+            ? tr('Zły PIN — sprawdź kod ustawiony na urządzeniu')
+            : m == 'missing_pin'
+                ? tr('Wpisz PIN urządzenia')
+                : '${tr('Autoryzacja nieudana')}: $m');
+      }
       final nonce = authResp['nonce'] as String? ?? '';
       _authDeviceId = authResp['device_id'] as String? ?? '';
       if (nonce.isEmpty) throw Exception(tr('Brak nonce — aktualizuj firmware'));
@@ -271,9 +281,16 @@ class _SetupScreenState extends State<SetupScreen> {
       navigator.popUntil((r) => r.isFirst);
 
     } catch (e) {
-      final msg = e.toString()
+      var msg = e.toString()
           .replaceAll('Exception: ', '')
           .replaceAll('TimeoutException: ', '');
+      // Surowy błąd nawiązania Bluetooth (FlutterBluePlus) → ludzka rada. Częsty przypadek:
+      // ktoś zrobił factory-reset przy otwartym ekranie → node ma nową nazwę, stary wybór martwy.
+      final low = msg.toLowerCase();
+      if (low.contains('flutterblueplus') || low.contains('fbp-code') ||
+          (low.contains('connect') && low.contains('timed out'))) {
+        msg = tr('Nie udało się połączyć z nodem przez Bluetooth. Upewnij się, że node jest w trybie konfiguracji (przytrzymaj przycisk ~3 s), podejdź bliżej i przełącz Bluetooth. Jeśli resetowałeś node — wróć do skanowania, bo ma teraz nową nazwę.');
+      }
       try { await _ble.disconnect(); } catch (_) {}
       // Błąd BE = watchdog zresetuje node za ~60s
       if (msg.contains('rejestracja_backend_niedostepny')) {
