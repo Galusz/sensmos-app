@@ -5,6 +5,8 @@
 The Sensmos companion app — onboard nodes over Bluetooth, watch the live map, and manage your self-custody **GALU** wallet. Built with Flutter (Android; iOS-ready), in English and Polish (follows the system language).
 
 > Sensmos is a DePIN sensor network: cheap ESP32 nodes measure the real world, publish to a shared map, trade data peer-to-peer, and earn GALU. This app is how you run and own your part of it — no cloud, your keys stay with you.
+>
+> The network powers **[UpFromWhere](https://upfromwhere.com)** — uptime monitoring as seen from real home connections.
 
 ## Features
 
