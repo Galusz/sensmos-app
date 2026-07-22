@@ -240,23 +240,11 @@ class BleService {
     await disconnect();
     print('[Setup] 2/5 BLE rozłączone');
 
-    // Szukaj KONKRETNEGO noda po hostname (sensmos-<6 znaków device_id>) —
-    // przy wielu nodach w sieci ogólne skanowanie łapie pierwszy z brzegu
-    final shortId = deviceId.length >= 6 ? deviceId.substring(0, 6).toLowerCase() : '';
-    print('[Setup] 3/5 Szukam noda sensmos-$shortId przez mDNS (30s)...');
-    String? ip;
-    if (shortId.isNotEmpty) {
-      ip = await discoverByHostname(
-          hostname: 'sensmos-$shortId', timeout: const Duration(seconds: 30));
-    }
-    ip ??= await discoverNodeMdns(timeout: const Duration(seconds: 10));
-    if (ip == null) {
-      print('[Setup] 3/5 BŁĄD: mDNS nie znalazł noda');
-      throw Exception(tr('Node nie pojawił się w sieci.\nSprawdź SSID i hasło WiFi.'));
-    }
-    print('[Setup] 3/5 Node znaleziony: $ip');
-
-    print('[Setup] 4/5 Rejestruję w backendzie: ${Config.beUrl}/v1/register');
+    // ── Rejestracja w BE PRZED szukaniem noda w LAN — wszystko, czego potrzebuje
+    // (podpisy/proof/pubkey), mamy już z BLE. Node za extenderem/w innej podsieci
+    // (mDNS głuchy) jest dzięki temu zarejestrowany i kopie, a pada tylko lokalne
+    // parowanie. FW ≥ 0.64 rozbraja watchdog po udanym WS identify.
+    print('[Setup] 3/5 Rejestruję w backendzie: ${Config.beUrl}/v1/register');
     if (regResp['sig_esp'] != null) {
       try {
         final message = '{"device_id":"$deviceId","owner":"$ownerAddress",'
@@ -272,12 +260,12 @@ class BleService {
             'proof':      regResp['proof'],
           }),
         ).timeout(const Duration(seconds: 8));
-        print('[Setup] 4/5 BE: ' + beRes.statusCode.toString() + ' ' + beRes.body);
+        print('[Setup] 3/5 BE: ' + beRes.statusCode.toString() + ' ' + beRes.body);
         if (beRes.statusCode != 200 && beRes.statusCode != 409) {
           throw Exception('rejestracja_backend_niedostepny');
         }
       } catch (e) {
-        print('[Setup] 4/5 BE BLAD: ' + e.toString());
+        print('[Setup] 3/5 BE BLAD: ' + e.toString());
         throw Exception('rejestracja_backend_niedostepny');
       }
     }
@@ -302,6 +290,24 @@ class BleService {
         Log.e('attest', 'submit error: $e');
       }
     }
+
+    // Szukaj KONKRETNEGO noda po hostname (sensmos-<6 znaków device_id>) —
+    // przy wielu nodach w sieci ogólne skanowanie łapie pierwszy z brzegu
+    final shortId = deviceId.length >= 6 ? deviceId.substring(0, 6).toLowerCase() : '';
+    print('[Setup] 4/5 Szukam noda sensmos-$shortId przez mDNS (30s)...');
+    String? ip;
+    if (shortId.isNotEmpty) {
+      ip = await discoverByHostname(
+          hostname: 'sensmos-$shortId', timeout: const Duration(seconds: 30));
+    }
+    ip ??= await discoverNodeMdns(timeout: const Duration(seconds: 10));
+    if (ip == null) {
+      // Node jest już zarejestrowany w BE — to NIE jest porażka onboardingu, tylko
+      // brak lokalnego parowania (typowo: telefon w innej sieci WiFi niż node).
+      print('[Setup] 4/5 mDNS nie znalazł noda — node zarejestrowany, brak parowania w LAN');
+      throw Exception(tr('Node jest skonfigurowany i zarejestrowany, ale apka nie widzi go w tej sieci WiFi.\nTelefon jest prawdopodobnie w innej sieci niż node. Połącz telefon z tą samą siecią WiFi i dodaj node ręcznie (Szukaj nodów w sieci).'));
+    }
+    print('[Setup] 4/5 Node znaleziony: $ip');
 
     await Future.delayed(const Duration(seconds: 2));
     try {

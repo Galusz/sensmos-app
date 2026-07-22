@@ -489,6 +489,8 @@ const Map<String, String> _enMap = {
   "Nie połączono": "Not connected",
   "Node nie pojawił się w sieci.\nSprawdź SSID i hasło WiFi.":
       "Node didn't appear on the network.\nCheck the SSID and WiFi password.",
+  "Node jest skonfigurowany i zarejestrowany, ale apka nie widzi go w tej sieci WiFi.\nTelefon jest prawdopodobnie w innej sieci niż node. Połącz telefon z tą samą siecią WiFi i dodaj node ręcznie (Szukaj nodów w sieci).":
+      "The node is set up and registered, but the app can't see it on this WiFi network.\nYour phone is probably on a different network than the node. Connect the phone to the same WiFi and add the node manually (Search for nodes).",
   "Błędny PIN lub uszkodzona kopia": "Wrong PIN or corrupted backup",
 
   // ── Lokalizacja / weryfikacja / prywatność ───────────────────
@@ -964,6 +966,8 @@ const Map<String, String> _deMap = {
   "Nie połączono": "Nicht verbunden",
   "Node nie pojawił się w sieci.\nSprawdź SSID i hasło WiFi.":
       "Der Node ist nicht im Netzwerk erschienen.\nPrüfe SSID und WLAN-Passwort.",
+  "Node jest skonfigurowany i zarejestrowany, ale apka nie widzi go w tej sieci WiFi.\nTelefon jest prawdopodobnie w innej sieci niż node. Połącz telefon z tą samą siecią WiFi i dodaj node ręcznie (Szukaj nodów w sieci).":
+      "Der Node ist eingerichtet und registriert, aber die App sieht ihn in diesem WLAN nicht.\nDein Telefon ist vermutlich in einem anderen Netzwerk als der Node. Verbinde das Telefon mit demselben WLAN und füge den Node manuell hinzu (Nodes im Netzwerk suchen).",
   "Błędny PIN lub uszkodzona kopia": "Falsche PIN oder beschädigte Sicherung",
 
   // ── Lokalizacja / weryfikacja / prywatność ───────────────────
