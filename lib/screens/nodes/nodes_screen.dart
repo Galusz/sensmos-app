@@ -49,7 +49,7 @@ class _NodesScreenState extends State<NodesScreen> {
     super.initState();
     _refresh();
     // częste odświeżanie statusu online (ws_online z BE = żywy WS, nie próg 10 min)
-    _poll = Timer.periodic(const Duration(seconds: 15), (_) { if (mounted) _fetchMyBeNodes(); });
+    _poll = Timer.periodic(const Duration(seconds: 10), (_) { if (mounted) _fetchMyBeNodes(); });
   }
 
   @override
@@ -335,7 +335,10 @@ class _NodesScreenState extends State<NodesScreen> {
     final secs = _beSecs(be);
     final healthColor = wsOnline ? AppTheme.teal
         : (secs != null && secs < 3600) ? Colors.amber.shade700 : AppTheme.muted;
-    final healthText = wsOnline ? tr('online')
+    // „online" = żywe połączenie WS. Gdy node jest cichy (>3 min bez sygnału mimo połączenia)
+    // dopisujemy kiedy ostatnio się odezwał — żeby „online" nie było gołym twierdzeniem.
+    final healthText = wsOnline
+        ? (secs != null && secs > 180 ? '${tr('online')} · ${_ago(secs)}' : tr('online'))
         : secs != null ? '${tr('cisza')} ${_ago(secs)}' : tr('brak danych z chmury');
 
     // Osiągalność lokalna (do akcji lokalnych)
@@ -407,13 +410,17 @@ class _NodesScreenState extends State<NodesScreen> {
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: FilledButton.icon(
-                  onPressed: context.read<CoreBloc>().state.wallet == null
+                  // terminal tylko gdy node jest realnie online (ws_online) i mamy portfel
+                  onPressed: (context.read<CoreBloc>().state.wallet == null || !wsOnline)
                       ? null
                       : () => Navigator.push(context, MaterialPageRoute(
                           builder: (_) => TerminalScreen(deviceId: id, label: name))),
                   icon: const Icon(Icons.terminal, size: 16),
                   label: Text(tr('Zdalny terminal')),
-                  style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.teal, foregroundColor: Colors.black,
+                      disabledBackgroundColor: AppTheme.muted.withOpacity(0.15),
+                      disabledForegroundColor: AppTheme.muted),
                 )),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -425,6 +432,11 @@ class _NodesScreenState extends State<NodesScreen> {
                       side: const BorderSide(color: Color(0x55FF6666))),
                 ),
               ]),
+              if (!wsOnline) Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(tr('Terminal wymaga noda online (połączonego z chmurą).'),
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+              ),
               const SizedBox(height: 16),
 
               // ── Sieć lokalna (tylko w domu) ──
