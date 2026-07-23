@@ -1,7 +1,7 @@
 name: sensmos_app
 description: SENSMOS — sieć inteligentnych czujników
 publish_to: 'none'
-version: 1.4.9+33
+version: 1.5.0+34
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -19,6 +19,10 @@ dependencies:
   # Networking
   http: ^1.2.0
   web_socket_channel: ^2.4.0
+
+  # RemoteTerminal (SSH przez tunel noda + emulator terminala)
+  dartssh2: ^2.9.0
+  xterm: ^4.0.0
 
   # BLE + discovery
   flutter_blue_plus: ^1.31.15
