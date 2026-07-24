@@ -20,6 +20,10 @@ import '../entities/entities_screen.dart';
 import '../setup/setup_screen.dart';
 import '../node/node_manager_screen.dart';
 import '../terminal/terminal_screen.dart';
+import '../integrations/ha_panel_screen.dart';
+import '../integrations/ha_settings_screen.dart';
+import '../../services/integrations/integration_kind.dart';
+import '../../services/integrations/integration_store.dart';
 import '../../l10n.dart';
 
 /// Panel — JEDNA lista nodów, źródło prawdy = BE (owned by wallet), działa wszędzie.
@@ -38,6 +42,7 @@ class _NodesScreenState extends State<NodesScreen> {
   final _nodeData = <String, Map<String, dynamic>>{}; // /info z noda (entity_count itd.)
   final _scarcity = <String, String>{};
   final _beData = <String, Map<String, dynamic>>{}; // /v1/nodes/:id (sąsiedzi/promień/saldo)
+  final _kinds = <String, Set<String>>{}; // podpięte integracje per node (opt-in)
   List<Map<String, dynamic>> _myBeNodes = []; // WSZYSTKIE nody walleta wg BE — PRYMARNE źródło
   final _nodeErr = <String, String>{};
   String? _balance;
@@ -49,7 +54,11 @@ class _NodesScreenState extends State<NodesScreen> {
     super.initState();
     _refresh();
     // częste odświeżanie statusu online (ws_online z BE = żywy WS, nie próg 10 min)
-    _poll = Timer.periodic(const Duration(seconds: 10), (_) { if (mounted) _fetchMyBeNodes(); });
+    _poll = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      _fetchMyBeNodes();
+      _probeAllLocal();
+    });
   }
 
   @override
@@ -67,8 +76,9 @@ class _NodesScreenState extends State<NodesScreen> {
   Future<void> _refresh() async {
     final ns = context.read<NodeService>();
     _fetchMyBeNodes();
+    _probeAllLocal();
     _pruneStale();
-    if (ns.nodes.isNotEmpty) _fetchBalance(ns.nodes.first.ip, ns.nodes.first.pin);
+    _fetchBalance();
     for (final n in ns.nodes) { _fetchBeData(n.id); }
   }
 
@@ -215,10 +225,13 @@ class _NodesScreenState extends State<NodesScreen> {
     } catch (e) { Log.w('nodes', 'beData: $e'); }
   }
 
-  Future<void> _fetchBalance(String ip, String pin) async {
+  // 0.73: saldo z BE wprost (publiczne, po adresie właściciela) — koniec proxy przez noda.
+  Future<void> _fetchBalance() async {
+    final addr = context.read<CoreBloc>().state.wallet?.address;
+    if (addr == null) return;
     try {
-      final res = await http.get(Uri.parse('http://$ip/wallet/balance'),
-          headers: {'Authorization': 'Bearer $pin'}).timeout(const Duration(seconds: 5));
+      final res = await http.get(Uri.parse('${Config.beUrl}/v1/wallet/$addr'))
+          .timeout(const Duration(seconds: 6));
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       if (mounted) {
         final bal = j['available'] ?? j['total_earned'];
@@ -240,6 +253,25 @@ class _NodesScreenState extends State<NodesScreen> {
       if (await _tryInfo(fresh, n.id, n.pin)) return;
     }
     if (mounted) setState(() => _online[n.id] = false);
+  }
+
+  void _probeAllLocal() {
+    for (final n in context.read<NodeService>().nodes) { _probeLocalQuick(n); }
+  }
+
+  // Lekki, okresowy test osiągalności lokalnej (bez mDNS/retry) — żeby badge „W tej sieci"/„Zdalnie"
+  // odświeżał się sam z pollingu, a nie dopiero po rozwinięciu karty.
+  Future<void> _probeLocalQuick(SavedNode n) async {
+    if (n.ip.isEmpty) { if (mounted && _online[n.id] != false) setState(() => _online[n.id] = false); return; }
+    try {
+      final res = await http.get(Uri.parse('http://${n.ip}/info'),
+          headers: {'Authorization': 'Bearer ${n.pin}'}).timeout(const Duration(seconds: 3));
+      if (!mounted) return;
+      final j = jsonDecode(res.body) as Map<String, dynamic>;
+      setState(() { _online[n.id] = true; _nodeData[n.id] = j; _nodeErr.remove(n.id); });
+    } catch (_) {
+      if (mounted && _online[n.id] != false) setState(() => _online[n.id] = false);
+    }
   }
 
   Future<bool> _tryInfo(String ip, String id, String pin) async {
@@ -318,6 +350,116 @@ class _NodesScreenState extends State<NodesScreen> {
     });
   }
 
+  // RemoteTerminal (on-demand tunel + PIN gate) jest dopiero od FW > 0.70 — na starszych ukryj wejście.
+  bool _fwGt(dynamic fw, double min) {
+    final v = double.tryParse(fw?.toString() ?? '');
+    return v != null && v > min;
+  }
+
+  Future<void> _loadKinds(String id) async {
+    final k = await IntegrationStore.enabledKinds(id);
+    if (mounted) setState(() => _kinds[id] = k);
+  }
+
+  // Rząd integracji: podpięte (tap → otwórz, long-press → odepnij) + „Dodaj".
+  Widget _integrationsRow(String id, String name, Map<String, dynamic>? be, bool wsOnline) {
+    final enabled = _kinds[id] ?? const <String>{};
+    final fwOk = _fwGt(be?['firmware'], 0.70);
+    final canOpen = wsOnline && context.read<CoreBloc>().state.wallet != null && fwOk;
+    final hasAddable = IntegrationKind.values.any((k) => !enabled.contains(k.id));
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      for (final kid in enabled)
+        if (IntegrationKindX.fromId(kid) case final k?)
+          OutlinedButton.icon(
+            onPressed: canOpen ? () => _openIntegration(k, id, name) : null,
+            onLongPress: () => _removeIntegration(id, k),
+            icon: Icon(k.icon, size: 16),
+            label: Text(tr(k.labelKey)),
+            style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.teal,
+                side: BorderSide(color: AppTheme.teal.withOpacity(0.5))),
+          ),
+      // „Dodaj" tylko gdy jest jeszcze co dodać (wszystko podpięte → chowamy)
+      if (hasAddable)
+        OutlinedButton.icon(
+          onPressed: () => _addIntegration(id, name, be),
+          icon: const Icon(Icons.add, size: 16),
+          label: Text(tr('Dodaj')),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.muted),
+        ),
+    ]);
+  }
+
+  void _openIntegration(IntegrationKind k, String id, String name) {
+    final screen = switch (k) {
+      IntegrationKind.terminal => TerminalScreen(deviceId: id, label: name),
+      IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
+    };
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  Future<void> _addIntegration(String id, String name, Map<String, dynamic>? be) async {
+    final fwOk = _fwGt(be?['firmware'], 0.70);
+    final enabled = _kinds[id] ?? const <String>{};
+    final addable = IntegrationKind.values.where((k) => !enabled.contains(k.id)).toList();
+    final chosen = await showModalBottomSheet<IntegrationKind>(
+      context: context,
+      backgroundColor: AppTheme.surface,
+      builder: (_) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(tr('Dodaj integrację'),
+                style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600, fontSize: 15)),
+          ),
+          for (final k in addable)
+            ListTile(
+              leading: Icon(k.icon, color: AppTheme.teal),
+              title: Text(tr(k.labelKey), style: const TextStyle(color: AppTheme.text)),
+              subtitle: (k.needsTunnel && !fwOk)
+                  ? Text(tr('Wymaga FW > 0.70'), style: const TextStyle(color: AppTheme.amber, fontSize: 12))
+                  : null,
+              enabled: !(k.needsTunnel && !fwOk),
+              onTap: () => Navigator.pop(context, k),
+            ),
+          if (addable.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(tr('Wszystko już podpięte'), style: const TextStyle(color: AppTheme.muted)),
+            ),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+    if (chosen == null) return;
+    if (chosen.needsConfig) {
+      final saved = await Navigator.push<bool>(context, MaterialPageRoute(
+          builder: (_) => HaSettingsScreen(deviceId: id, label: name)));
+      if (saved != true) return; // anulował konfigurację → nie podpinaj
+    }
+    await IntegrationStore.setKind(id, chosen.id, true);
+    await _loadKinds(id);
+  }
+
+  Future<void> _removeIntegration(String id, IntegrationKind k) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Odpiąć integrację?'), style: const TextStyle(color: AppTheme.text)),
+        content: Text(tr(k.labelKey), style: const TextStyle(color: AppTheme.muted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Odepnij'))),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    await IntegrationStore.setKind(id, k.id, false);
+    if (k == IntegrationKind.homeAssistant) await IntegrationStore.remove(id); // wyczyść binding HA
+    await _loadKinds(id);
+  }
+
   // ── Karta noda (zunifikowana) ──
   Widget _buildCard(_UnifiedNode u) {
     final be = u.be;
@@ -354,6 +496,7 @@ class _NodesScreenState extends State<NodesScreen> {
             setState(() => _expanded[id] = !expanded);
             if (!expanded) {
               _fetchBeData(id);
+              _loadKinds(id);
               if (saved != null) _probeLocal(saved);
             }
           },
@@ -405,38 +548,24 @@ class _NodesScreenState extends State<NodesScreen> {
               ]),
               const SizedBox(height: 14),
 
-              // ── Dostępne zawsze (przez BE/relay) ──
-              _groupLabel(Icons.public, tr('Dostępne zawsze')),
+              // ── Integracje (opt-in: user dodaje tylko to, czego potrzebuje) ──
+              _groupLabel(Icons.extension_outlined, tr('Integracje')),
               const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: FilledButton.icon(
-                  // terminal tylko gdy node jest realnie online (ws_online) i mamy portfel
-                  onPressed: (context.read<CoreBloc>().state.wallet == null || !wsOnline)
-                      ? null
-                      : () => Navigator.push(context, MaterialPageRoute(
-                          builder: (_) => TerminalScreen(deviceId: id, label: name))),
-                  icon: const Icon(Icons.terminal, size: 16),
-                  label: Text(tr('Zdalny terminal')),
-                  style: FilledButton.styleFrom(
-                      backgroundColor: AppTheme.teal, foregroundColor: Colors.black,
-                      disabledBackgroundColor: AppTheme.muted.withOpacity(0.15),
-                      disabledForegroundColor: AppTheme.muted),
-                )),
-                const SizedBox(width: 8),
-                OutlinedButton.icon(
-                  onPressed: () => _deleteFromNetwork(id),
-                  icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Usuń')),
-                  style: OutlinedButton.styleFrom(
-                      foregroundColor: const Color(0xFFFF6666),
-                      side: const BorderSide(color: Color(0x55FF6666))),
-                ),
-              ]),
+              _integrationsRow(id, name, be, wsOnline),
               if (!wsOnline) Padding(
                 padding: const EdgeInsets.only(top: 6),
-                child: Text(tr('Terminal wymaga noda online (połączonego z chmurą).'),
+                child: Text(tr('Integracje wymagają noda online (połączonego z chmurą).'),
                     style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
               ),
+              const SizedBox(height: 14),
+              SizedBox(width: double.infinity, child: OutlinedButton.icon(
+                onPressed: () => _deleteFromNetwork(id),
+                icon: const Icon(Icons.delete_outline, size: 16),
+                label: Text(tr('Usuń node z sieci')),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFFF6666),
+                    side: const BorderSide(color: Color(0x55FF6666))),
+              )),
               const SizedBox(height: 16),
 
               // ── Sieć lokalna (tylko w domu) ──

@@ -22,6 +22,8 @@ class TerminalRelay {
 
   final _events = StreamController<String>.broadcast(); // "state:<st>:<msg>" / "error:<msg>"
   Stream<String> get events => _events.stream;
+  StreamSubscription? _sub;
+  void _emit(String s) { if (!_events.isClosed) _events.add(s); }
 
   Completer<void>? _auth;
   Completer<SSHSocket>? _open;
@@ -34,7 +36,7 @@ class TerminalRelay {
   Future<void> connect() async {
     _auth = Completer<void>();
     _ch = WebSocketChannel.connect(Uri.parse(_wsUrl));
-    _ch!.stream.listen(_onMessage,
+    _sub = _ch!.stream.listen(_onMessage,
         onError: (e) => _fail('connection error: $e'), onDone: () => _fail('connection closed'));
     final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final sig = await signMessage('sensmos:term:$deviceId:$ts');
@@ -59,7 +61,9 @@ class TerminalRelay {
         onTimeout: () => throw Exception('tunnel open timeout'));
   }
 
-  void _send(Map<String, dynamic> m) => _ch?.sink.add(jsonEncode(m));
+  // sink bywa zamknięty (dispose/rozłączenie), a dartssh2 przy zamykaniu dopina jeszcze
+  // pakiet „disconnect" → add po close rzucał „Cannot add event after closing" i wywalał apkę
+  void _send(Map<String, dynamic> m) { try { _ch?.sink.add(jsonEncode(m)); } catch (_) {} }
 
   void _onMessage(dynamic raw) {
     Map<String, dynamic> m;
@@ -77,10 +81,12 @@ class TerminalRelay {
         break;
       case 'tun_state':
         final st = m['st'] ?? '';
-        _events.add('state:$st:${m['msg'] ?? ''}');
+        _emit('state:$st:${m['msg'] ?? ''}');
         if (st == 'open') {
           _sock = _RelaySocket(
-            onSend: (data) => _send({'type': 'data', 'd': base64Encode(data)}),
+            // chunk już ≤1024B (chunkowanie + paceowanie robi _RelaySocket._pumpOut) — node dekoduje
+            // do bufora TUN_CHUNK=1024B; pace chroni przed przepełnieniem s_toLan przy długiej linii
+            onSend: (chunk) => _send({'type': 'data', 'd': base64Encode(chunk)}),
             onClose: () => _send({'type': 'close'}),
           );
           if (_open != null && !_open!.isCompleted) _open!.complete(_sock!);
@@ -101,12 +107,13 @@ class TerminalRelay {
   }
 
   void _fail(String msg) {
-    _events.add('error:$msg');
+    _emit('down:$msg');   // FATALNE: transport/auth padł (odróżnia od błędów pojedynczej operacji)
     if (_auth != null && !_auth!.isCompleted) _auth!.completeError(Exception(msg));
     if (_open != null && !_open!.isCompleted) _open!.completeError(Exception(msg));
   }
 
   void dispose() {
+    try { _sub?.cancel(); } catch (_) {}   // NAJPIERW — inaczej onDone woła _fail po zamknięciu _events (crash)
     try { _sock?.destroy(); } catch (_) {}
     try { _ch?.sink.close(); } catch (_) {}
     if (!_events.isClosed) _events.close();
@@ -121,8 +128,29 @@ class _RelaySocket implements SSHSocket {
   final _outgoing = StreamController<List<int>>();
   final _done = Completer<void>();
 
+  StreamSubscription? _outSub;
+  final _outBuf = <int>[];
+  bool _pumping = false, _closed = false;
+
   _RelaySocket({required this.onSend, required this.onClose}) {
-    _outgoing.stream.listen(onSend);
+    _outSub = _outgoing.stream.listen((data) { _outBuf.addAll(data); _pumpOut(); });
+  }
+
+  // Paceowanie app→LAN: dartssh2 zrzuca długą linię/paste jako kilka KB naraz. Node dekoduje do
+  // bufora s_toLan (głęb. 6) i pisze do LAN — blast >6 chunków przepełnia go szybciej niż zdąży
+  // zapisać → drop → SSH MAC fail → serwer wypisuje „Error" i rozłącza. Wysyłamy po 1024B z
+  // mikro-oddechem, żeby node zdrenował do LAN między chunkami (małe wpisy i tak lecą od razu).
+  Future<void> _pumpOut() async {
+    if (_pumping) return;
+    _pumping = true;
+    while (_outBuf.isNotEmpty && !_closed) {
+      final n = _outBuf.length < 1024 ? _outBuf.length : 1024;
+      final chunk = Uint8List.fromList(_outBuf.sublist(0, n));
+      _outBuf.removeRange(0, n);
+      onSend(chunk);
+      if (_outBuf.isNotEmpty) await Future.delayed(const Duration(milliseconds: 3));
+    }
+    _pumping = false;
   }
 
   void feed(Uint8List data) { if (!_incoming.isClosed) _incoming.add(data); }
@@ -140,8 +168,11 @@ class _RelaySocket implements SSHSocket {
   void destroy() { onClose(); _finish(); }
 
   void _finish() {
+    _closed = true;      // zatrzymaj pompę pace
+    _outSub?.cancel();   // stop pompowania wychodzących; NIE zamykamy _outgoing — dartssh2 przy teardown
+    _outSub = null;      // bywa dopina jeszcze pakiet, a add-after-close = crash. Reszta idzie w próżnię.
+    _outBuf.clear();
     if (!_incoming.isClosed) _incoming.close();
-    if (!_outgoing.isClosed) _outgoing.close();
     if (!_done.isCompleted) _done.complete();
   }
 }

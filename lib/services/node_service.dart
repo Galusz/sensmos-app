@@ -143,12 +143,7 @@ class NodeService {
     if (_activePin != null) 'Authorization': 'Bearer $_activePin',
   };
 
-  Future<Map<String,dynamic>> walletBalance() async =>
-      jsonDecode((await http.get(Uri.parse('http://${_activeNode!.ip}/wallet/balance'),
-          headers: _headers)).body);
-  Future<Map<String,dynamic>> walletProof() async =>
-      jsonDecode((await http.get(Uri.parse('http://${_activeNode!.ip}/wallet/proof'),
-          headers: _headers)).body);
+  // walletBalance/walletProof usunięte (0.73) — apka czyta BE /v1/wallet/:address wprost.
   Future<bool> setConfig(Map<String,dynamic> cfg) async =>
       (await http.post(Uri.parse('http://${_activeNode!.ip}/config'),
           headers: _headers, body: jsonEncode(cfg))).statusCode == 200;

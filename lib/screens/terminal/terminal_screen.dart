@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,6 +8,7 @@ import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/wallet_service.dart';
 import '../../services/terminal_relay.dart';
+import '../../util/pin_gate.dart';
 
 /// RemoteTerminal — zdalny terminal do LAN-u noda przez tunel. Node = głupia rura, SSH E2E w apce.
 /// Bierze device_id + etykietę (NIE SavedNode) — działa też dla nodów widocznych tylko z BE
@@ -27,6 +29,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
   String _status = '';
   TerminalRelay? _relay;
   SSHClient? _ssh;
+  SSHSession? _session;
+  Timer? _resizeDebounce;
+  int _rw = 0, _rh = 0;
 
   final _terminal = Terminal(maxLines: 10000);
   final _host = TextEditingController(text: '192.168.1.1');
@@ -42,6 +47,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Future<void> _connect() async {
+    _relay?.dispose(); _relay = null;   // retry: bez tego każda próba zostawia martwy WS + dubluje listener
     setState(() { _phase = _Phase.connecting; _status = tr('Łączę z relayem…'); });
     try {
       final wallet = await context.read<WalletService>().load();
@@ -51,15 +57,17 @@ class _TerminalScreenState extends State<TerminalScreen> {
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
       );
+      _relay = relay;                   // track wcześnie → dispose posprząta też gdy connect rzuci
       relay.events.listen(_onEvent);
       await relay.connect();
       if (!mounted) return;
-      setState(() {
-        _relay = relay;
-        _remoteOn = relay.remoteEnabled;
-        _phase = _Phase.form;
-        _status = relay.nodeOnline ? '' : tr('Node offline — połącz go z siecią');
-      });
+      _remoteOn = relay.remoteEnabled;
+      if (!relay.nodeOnline) {
+        // node nie ma żywego połączenia z chmurą — bez niego tunel nie ruszy
+        setState(() { _phase = _Phase.error; _status = tr('Node jest offline — nie połączysz się z nim, dopóki nie wróci do sieci.'); });
+        return;
+      }
+      setState(() { _phase = _Phase.form; _status = ''; });
     } catch (e) {
       if (!mounted) return;
       setState(() { _phase = _Phase.error; _status = e.toString().replaceFirst('Exception: ', ''); });
@@ -67,10 +75,15 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   void _onEvent(String ev) {
-    // "state:<st>:<msg>" / "error:<msg>" — pokazujemy w pasku statusu
-    if (ev.startsWith('error:') && mounted) {
+    if (!mounted) return;
+    // "down:<msg>" = transport/auth PADŁ (fatalne) → ekran błędu z „Spróbuj ponownie".
+    // Bez tego sesyjny widok (sam TerminalView, brak paska statusu) wisi w miejscu i user
+    // myśli, że apka zamarła — nie wie, że trzeba wyjść i wejść od nowa.
+    if (ev.startsWith('down:')) {
+      setState(() { _phase = _Phase.error; _status = tr('Połączenie zerwane — dotknij „Spróbuj ponownie".'); });
+    } else if (ev.startsWith('error:')) {
       setState(() => _status = ev.substring(6));
-    } else if (ev.startsWith('state:') && mounted) {
+    } else if (ev.startsWith('state:')) {
       final parts = ev.split(':');
       final st = parts.length > 1 ? parts[1] : '';
       if (st == 'error' || st == 'closed') {
@@ -80,7 +93,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
   }
 
   Future<void> _toggleRemote(bool on) async {
+    if (on && !await confirmNodePin(context, widget.deviceId)) {
+      if (!mounted) return;
+      setState(() => _status = tr('Zły PIN — remote access nie włączony'));
+      return;
+    }
     _relay?.setRemote(on);
+    if (!mounted) return;
     setState(() {
       _remoteOn = on;
       _status = on
@@ -95,7 +114,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
     final ip = _host.text.trim();
     final port = int.tryParse(_port.text.trim()) ?? 22;
     if (ip.isEmpty) return;
-    setState(() { _phase = _Phase.connecting; _status = tr('Otwieram tunel → $ip:$port…'); });
+    setState(() { _phase = _Phase.connecting; _status = tr('Otwieram tunel → %s:%s…', [ip, port]); });
     try {
       final socket = await relay.openTunnel(ip, port);
       final ssh = SSHClient(
@@ -107,8 +126,17 @@ class _TerminalScreenState extends State<TerminalScreen> {
       final session = await ssh.shell(
         pty: SSHPtyConfig(width: _terminal.viewWidth, height: _terminal.viewHeight),
       );
+      _session = session;
       _terminal.onOutput = (data) => session.write(utf8.encode(data));
-      _terminal.onResize = (w, h, pw, ph) => session.resizeTerminal(w, h);
+      // Dynamiczny resize (htop skaluje się do ekranu). Debounce 300ms — chowanie klawiatury sypie
+      // serią resize, wysyłamy tylko końcowy (jeden SIGWINCH zamiast lawiny).
+      _terminal.onResize = (w, h, pw, ph) {
+        if (w <= 0 || h <= 0) return;
+        _rw = w; _rh = h;
+        _resizeDebounce?.cancel();
+        _resizeDebounce = Timer(const Duration(milliseconds: 300),
+            () { try { _session?.resizeTerminal(_rw, _rh); } catch (_) {} });
+      };
       session.stdout.listen((d) => _terminal.write(utf8.decode(d, allowMalformed: true)));
       session.stderr.listen((d) => _terminal.write(utf8.decode(d, allowMalformed: true)));
       session.done.then((_) {
@@ -132,6 +160,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   @override
   void dispose() {
+    _resizeDebounce?.cancel();
     try { _ssh?.close(); } catch (_) {}
     _relay?.dispose();
     _host.dispose(); _port.dispose(); _user.dispose(); _pass.dispose();

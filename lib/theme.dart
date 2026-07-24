@@ -46,6 +46,28 @@ class AppTheme {
             style: _btn().copyWith(side: WidgetStatePropertyAll(
                 const BorderSide(color: border)))),
         textButtonTheme: TextButtonThemeData(style: _btn(pad: 12)),
+        // Jednolite pola tekstowe w CAŁEJ apce: ten sam fill/label/ikony i to samo teal-owe
+        // podświetlenie na focusie. Wcześniej każdy TextField miał własną dekorację → różne
+        // kolory/ramki/podświetlenia. Pola mogą nadpisać label/icon, resztę dziedziczą stąd.
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: card,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+          hintStyle: const TextStyle(color: muted),
+          labelStyle: const TextStyle(color: muted),
+          floatingLabelStyle: const TextStyle(color: teal),
+          prefixIconColor: muted,
+          suffixIconColor: muted,
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: teal, width: 1.5)),
+        ),
+        textSelectionTheme: const TextSelectionThemeData(cursorColor: teal, selectionColor: border),
       );
 
   static ButtonStyle _btn({double pad = 14}) => ButtonStyle(
