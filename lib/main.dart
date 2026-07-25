@@ -80,7 +80,7 @@ class SensmosApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            supportedLocales: const [Locale('en'), Locale('pl'), Locale('de')],
+            supportedLocales: const [Locale('en'), Locale('pl'), Locale('de'), Locale('pt')],
             home: const AppRouter(),
           ),
         ),

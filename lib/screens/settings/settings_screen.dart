@@ -110,6 +110,7 @@ class SettingsScreen extends StatelessWidget {
         'pl' => 'Polski',
         'en' => 'English',
         'de' => 'Deutsch',
+        'pt' => 'Português (BR)',
         _    => tr('Systemowy'),
       };
 
@@ -123,6 +124,7 @@ class SettingsScreen extends StatelessWidget {
             _langOption(ctx, 'pl', 'Polski'),
             _langOption(ctx, 'en', 'English'),
             _langOption(ctx, 'de', 'Deutsch'),
+            _langOption(ctx, 'pt', 'Português (BR)'),
           ],
         ),
       );

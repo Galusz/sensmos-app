@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'l10n_pt.dart';
 
 /// Lekka lokalizacja: klucz = polski tekst źródłowy, mapy nadpisań per język.
 /// Domyślnie język z systemu (pl → polski, de → niemiecki, inne → angielski);
@@ -29,10 +30,11 @@ class L10n {
 
   static void _apply() {
     _lang = switch (_mode) {
-      'pl' || 'en' || 'de' => _mode,
+      'pl' || 'en' || 'de' || 'pt' => _mode,
       _ => switch (PlatformDispatcher.instance.locale.languageCode) {
              'pl' => 'pl',
              'de' => 'de',
+             'pt' => 'pt',
              _    => 'en',
            },
     };
@@ -54,7 +56,7 @@ class L10n {
   }
 }
 
-const Map<String, Map<String, String>> _langMaps = {'en': _enMap, 'de': _deMap};
+const Map<String, Map<String, String>> _langMaps = {'en': _enMap, 'de': _deMap, 'pt': ptMap};
 
 String tr(String pl, [List<Object?> args = const []]) {
   var s = L10n.lang == 'pl' ? pl : (_langMaps[L10n.lang]?[pl] ?? _enMap[pl] ?? pl);
