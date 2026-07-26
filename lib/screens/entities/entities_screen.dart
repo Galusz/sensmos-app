@@ -5,6 +5,16 @@ import 'package:http/http.dart' as http;
 import '../../theme.dart';
 import '../../l10n.dart';
 
+// Telemetria noda (kategoria NET) — zamknięty zbiór. FW ≥0.75 wysyła ją w tablicy "mon",
+// starsze trzymają w "pub"; dedupe pub↔mon idzie WYŁĄCZNIE po tych kluczach.
+const _kMonKeys = {
+  'wifi_rssi', 'wifi_nets', 'uptime_s',
+  'net_ping', 'net_jitter', 'net_loss',
+  'node_ping', 'node_peers',
+  'link_ping', 'link_jitter', 'link_loss',
+  'net_score',
+};
+
 class EntitiesScreen extends StatefulWidget {
   final String ip;
   final String pin;
@@ -16,6 +26,7 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
   bool   _loading = true;
   String? _error;
   List<dynamic> _pub  = [];
+  List<dynamic> _mon  = [];   // telemetria NET (FW 0.75+); starsze FW jej nie mają
   List<dynamic> _own  = [];
   List<dynamic> _pool = [];
 
@@ -30,8 +41,16 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
         headers: {'Authorization': 'Bearer ${widget.pin}'},
       ).timeout(const Duration(seconds: 5));
       final j = jsonDecode(res.body) as Map<String,dynamic>;
+      final mon = j['mon'] as List? ?? [];
+      // Do FW 0.74 telemetria siedziała w pub[] — gdyby node przysłał ją w obu
+      // tablicach, pokaż raz (mon. wygrywa; goła nazwa w bazie i tak ta sama).
+      // Dedupe TYLKO po zamkniętej liście telemetrii NET — inaczej mon.<klucz usera>
+      // (np. wepchnięty POST-em /data) ukryłby realną encję pub.<ten sam klucz>.
+      final monKeys = mon.map(_baseId).where(_kMonKeys.contains).toSet();
       setState(() {
-        _pub     = j['pub']  as List? ?? [];
+        _mon     = mon;
+        _pub     = (j['pub'] as List? ?? [])
+                       .where((e) => !monKeys.contains(_baseId(e))).toList();
         _own     = j['own']  as List? ?? [];
         _pool    = j['pool'] as List? ?? [];
         _loading = false;
@@ -57,7 +76,7 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text(tr('Błąd: %s', [_error]),
                       style: const TextStyle(color: AppTheme.red))))
-              : _pub.isEmpty && _own.isEmpty && _pool.isEmpty
+              : _pub.isEmpty && _mon.isEmpty && _own.isEmpty && _pool.isEmpty
                   ? Center(child: Text(tr('Brak encji'),
                       style: const TextStyle(color: AppTheme.muted)))
                   : ListView(
@@ -77,6 +96,11 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
                           _sectionHeader(
                               '${tr('Zewnętrzne')} (sub./get./msg.)', _pool.length),
                           ..._pool.map(_buildTile),
+                          const SizedBox(height: 16),
+                        ],
+                        if (_mon.isNotEmpty) ...[
+                          _sectionHeader('${tr('Telemetria')} (mon.*)', _mon.length),
+                          ..._mon.map(_buildTile),
                         ],
                       ],
                     ),
@@ -100,6 +124,13 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
       ),
     ]),
   );
+
+  // goła nazwa encji bez prefiksu (mon.wifi_rssi → wifi_rssi)
+  String _baseId(dynamic e) {
+    final id = e['entity_id']?.toString() ?? '';
+    final i = id.indexOf('.');
+    return i < 0 ? id : id.substring(i + 1);
+  }
 
   Widget _buildTile(dynamic e) {
     final id    = e['entity_id']?.toString() ?? '?';
@@ -144,6 +175,9 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
     if (s.contains('press'))   return Icons.compress;
     if (s.contains('co2') || s.contains('gas')) return Icons.air;
     if (s.contains('light') || s.contains('lux')) return Icons.light_mode_outlined;
+    if (s.contains('uptime')) return Icons.schedule;
+    if (s.contains('ping') || s.contains('jitter')) return Icons.network_check;
+    if (s.contains('loss') || s.contains('peers') || s.contains('nets')) return Icons.network_check;
     return Icons.sensors;
   }
 }

@@ -432,6 +432,7 @@ const Map<String, String> ptMap = {
   "Publiczne": "Públicas",
   "Własne": "Próprias",
   "Zewnętrzne": "Externas",
+  "Telemetria": "Telemetria",
   "Wiek: %s": "Idade: %s",
   "lokalna": "local",
   "Brak zapisanych nodów": "Nenhum node salvo",
