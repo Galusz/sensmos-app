@@ -266,7 +266,6 @@ class _NodeScriptCard extends StatelessWidget {
   Widget _stepSummary(int n, Map<String, dynamic> step) {
     final action = step['action'] as String? ?? '?';
     final cond = step['if'] as String? ?? '';
-    final cd = step['cooldown_s']?.toString() ?? '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Row(
@@ -294,10 +293,6 @@ class _NodeScriptCard extends StatelessWidget {
                           fontSize: 12,
                           fontFamily: 'monospace'),
                       softWrap: true),
-                if (cd.isNotEmpty)
-                  Text('cd: ${cd}s',
-                      style: const TextStyle(
-                          color: AppTheme.muted, fontSize: 11)),
               ],
             ),
           ),
@@ -368,17 +363,14 @@ class _StepData {
   String func; // aggregate
 
   final TextEditingController condCtrl;
-  final TextEditingController cooldownCtrl;
   final Map<String, TextEditingController> _fields;
 
   _StepData({
     this.action = 'webhook',
     this.func = 'avg',
     String condition = '',
-    String cooldown = '300',
     Map<String, String> fields = const {},
   })  : condCtrl = TextEditingController(text: condition),
-        cooldownCtrl = TextEditingController(text: cooldown),
         _fields = {
           for (final e in fields.entries)
             e.key: TextEditingController(text: e.value)
@@ -389,7 +381,6 @@ class _StepData {
 
   void dispose() {
     condCtrl.dispose();
-    cooldownCtrl.dispose();
     for (final c in _fields.values) {
       c.dispose();
     }
@@ -449,14 +440,13 @@ class _StepData {
   Map<String, dynamic> toJson() => {
         if (condCtrl.text.trim().isNotEmpty) 'if': condCtrl.text.trim(),
         'action': action,
-        'cooldown_s': int.tryParse(cooldownCtrl.text) ?? 300,
+        'cooldown_s': 60,   // stała — patrz komentarz przy edytorze warunku
         'data': buildData(),
       };
 
   static _StepData fromJson(Map<String, dynamic> j) {
     final action = j['action'] as String? ?? 'webhook';
     final cond = j['if'] as String? ?? '';
-    final cd = j['cooldown_s']?.toString() ?? '300';
     final data = j['data'] as Map<String, dynamic>? ?? {};
 
     final fields = <String, String>{};
@@ -499,7 +489,6 @@ class _StepData {
       action: _kActions.contains(action) ? action : 'webhook',
       func: data['func'] as String? ?? 'avg',
       condition: cond,
-      cooldown: cd,
       fields: fields,
     );
   }
@@ -717,44 +706,22 @@ class _StepCardState extends State<_StepCard> {
             ]),
             const SizedBox(height: 12),
 
-            // ── Warunek + cooldown ────────────────────────────
-            Row(
+            // ── Warunek ───────────────────────────────────────
+            // Cooldown celowo NIE jest pokazywany: skrypt usera odpala się na akcję
+            // (router wiadomości), a nie w pętli, więc odstęp między odpaleniami i tak
+            // nie ma czego ograniczać. W tle wysyłamy 60 s — tyle samo, ile firmware
+            // wymusza jako minimum dla kroków sieciowych (SCRIPT_NET_COOLDOWN_MIN_S).
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 3,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _lbl(tr('WARUNEK (opcjonalnie)')),
-                      TextFormField(
-                        controller: d.condCtrl,
-                        style: const TextStyle(
-                            color: AppTheme.teal,
-                            fontSize: 13,
-                            fontFamily: 'monospace'),
-                        decoration:
-                            _decor().copyWith(hintText: 'pub.grid_v < 180'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 88,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _lbl('COOLDOWN s'),
-                      TextFormField(
-                        controller: d.cooldownCtrl,
-                        style: const TextStyle(
-                            color: AppTheme.text, fontSize: 14),
-                        decoration: _decor(),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ],
-                  ),
+                _lbl(tr('WARUNEK (opcjonalnie)')),
+                TextFormField(
+                  controller: d.condCtrl,
+                  style: const TextStyle(
+                      color: AppTheme.teal,
+                      fontSize: 13,
+                      fontFamily: 'monospace'),
+                  decoration: _decor().copyWith(hintText: 'pub.grid_v < 180'),
                 ),
               ],
             ),

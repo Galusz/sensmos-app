@@ -16,6 +16,12 @@ class BleService {
   StreamSubscription?      _notifySub;
   final _responses = StreamController<Map<String, dynamic>>.broadcast();
 
+  /// Wynik ceremonii z ostatniego setupu: null = OK, tekst = powód niepowodzenia.
+  /// Rejestracja rzuca wyjątek i przerywa setup, ale ceremonia NIE — a jej brak oznacza
+  /// noda, który wygląda na sprawnego i NIE ZARABIA. Bez wystawienia tego na zewnątrz
+  /// user kończy setup przekonany, że wszystko gra (realny przypadek: 22 podejścia).
+  String? lastAttestError;
+
   /// Obserwacje z powietrza — do raportu ceremonii trust
   String? get remoteId   => _device?.remoteId.str;
   String? get remoteName => _device?.platformName;
@@ -181,6 +187,7 @@ class BleService {
     String? gpsLon,
     String? bleNameOverride,   // restore: node zmienił nazwę na SENSMOS-<nowe ID> (z set_device_id)
   }) async {
+    lastAttestError = null;   // świeży setup — wynik poprzedniego nie może się przenieść
     // ── Ceremonia trust — PRZED register (register restartuje node) ──
     String? seed;
     TrustEvidence? trustEv;
@@ -282,11 +289,15 @@ class BleService {
           bleName: obsName, bleMac: obsMac, rssi: obsRssi,
         );
         if (ok) {
+          lastAttestError = null;
           Log.i('attest', 'node zaufany ✓');
         } else {
+          lastAttestError = msg;
           Log.e('attest', 'BE odrzucił atestację: $msg');   // <-- powód: pubkey_mismatch / seed_* / invalid_esp_signature …
         }
       } catch (e) {
+        // Najczęstszy przypadek: telefon stracił internet MIĘDZY rejestracją a ceremonią.
+        lastAttestError = e.toString();
         Log.e('attest', 'submit error: $e');
       }
     }

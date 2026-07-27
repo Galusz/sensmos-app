@@ -270,6 +270,19 @@ class _SetupScreenState extends State<SetupScreen> {
       // /node/confirm już wysłany w setupNode → watchdog wyłączony
       await nodeService.saveNode(_nodeIp!, nodePin, _authDeviceId);
 
+      // Ceremonia mogła paść mimo udanej rejestracji (np. telefon stracił internet między
+      // jednym a drugim). Node wtedy działa, ale NIE ZARABIA — i nic by o tym nie powiedziało.
+      if (_ble.lastAttestError != null && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          backgroundColor: AppTheme.amber,
+          duration: const Duration(seconds: 8),
+          content: Text(
+              tr('Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. '
+                 'Powtórz ceremonię w ustawieniach noda (Zaufanie).'),
+              style: const TextStyle(color: Colors.black)),
+        ));
+      }
+
       setState(() { _step = _Step.done; _doneCountdown = 3; });
       for (int i = 3; i >= 0; i--) {
         if (!mounted) return;

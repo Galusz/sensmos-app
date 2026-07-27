@@ -461,6 +461,16 @@ class _TrustScreenState extends State<TrustScreen> {
                         : tr('Przeprowadź ceremonię, aby potwierdzić,\nże to fizyczne urządzenie.'),
                     style: const TextStyle(
                         color: AppTheme.muted, fontSize: 12)),
+                // Bez tego zdania user po udanej ceremonii widzi zero nagród i uznaje, że
+                // atestacja nie zadziałała — po czym powtarza ją w kółko (realny przypadek:
+                // 22 podejścia w 2 godziny). Nagrody ruszają dopiero po progu obecności.
+                if (trusted) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                      tr('Nagrody naliczają się po ok. 4 godzinach online w danej dobie — '
+                         'zero na starcie jest normalne.'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                ],
               ],
             ),
           ),

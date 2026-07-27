@@ -487,4 +487,8 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
+      "Node adicionado, mas a verificação falhou — sem ela não há recompensas. Repita a cerimônia nas configurações do node (Confiança).",
+  "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":
+      "As recompensas começam após cerca de 4 horas online por dia — zero no início é normal.",
 };

@@ -351,7 +351,20 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        title: Text('${tr('Panel HA')} · ${widget.label}'),
+        // Tytuł agnostyczny wobec integracji (HomeIntegration to interfejs — HA jest pierwszym
+        // adapterem, nie jedynym). Podtytuł niesie to, co realnie identyfikuje: rodzaj integracji
+        // + skrót device_id. Miasto pomijamy — nie odróżnia dwóch nodów w tej samej miejscowości.
+        titleSpacing: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Dashboard', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+            Text('HA · ${widget.deviceId.length >= 8 ? widget.deviceId.substring(0, 8) : widget.deviceId}',
+                style: const TextStyle(
+                    fontSize: 11, color: AppTheme.muted, fontFamily: 'monospace', letterSpacing: 0.3)),
+          ],
+        ),
         actions: [
           if (_phase == _Phase.ready)
             IconButton(

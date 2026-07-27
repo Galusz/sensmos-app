@@ -602,6 +602,8 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
+      "Node added, but verification failed — without it the node earns nothing. Repeat the ceremony in the node settings (Trust).",
   // ── Panel HA: typy kafelków + akcje ──
   "Typ kafelka": "Tile type",
   "Wykres": "Chart",
@@ -615,6 +617,8 @@ const Map<String, String> _enMap = {
   "brak historii": "no history",
   "Gotowe": "Done",
   "OK": "OK",
+  "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":
+      "Rewards start after roughly 4 hours online within a day — zero at first is normal.",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
@@ -631,6 +635,10 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
+      "Node hinzugefügt, aber die Verifizierung schlug fehl — ohne sie gibt es keine Belohnungen. Wiederhole die Zeremonie in den Node-Einstellungen (Vertrauen).",
+  "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":
+      "Belohnungen beginnen nach etwa 4 Stunden online pro Tag — null am Anfang ist normal.",
   // ── RemoteTerminal / Panel (auto) ──
   "Łączę z relayem…": "Verbinde mit Relay…",
   "Brak portfela w apce": "Keine Wallet in der App",
