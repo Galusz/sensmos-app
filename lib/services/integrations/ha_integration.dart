@@ -15,6 +15,9 @@ class HaIntegration implements HomeIntegration {
 
   // Domeny które realnie da się przełączać usługą turn_on/turn_off.
   static const _switchable = {'light', 'switch', 'input_boolean', 'fan', 'automation', 'script', 'siren'};
+  // Domeny bezstanowe: „odpal i zapomnij" — trzymanie ich jako przełącznika jest mylące
+  // (script pokazywałby się jako włączony przez ułamek sekundy działania).
+  static const _fireable = {'script', 'scene', 'button', 'input_button'};
 
   Thing _fromState(Map<String, dynamic> s) {
     final id = s['entity_id'] as String;
@@ -28,6 +31,7 @@ class HaIntegration implements HomeIntegration {
       id: id,
       name: name,
       kind: domain,
+      deviceClass: attrs['device_class']?.toString(),
       state: state,
       unit: unit,
       controllable: controllable,
@@ -74,5 +78,52 @@ class HaIntegration implements HomeIntegration {
   }
 
   @override
-  TileType suggest(Thing t) => t.controllable ? TileType.toggle : TileType.sensor;
+  Future<void> fire(HttpOverTunnel c, String thingId) async {
+    final domain = thingId.contains('.') ? thingId.split('.').first : thingId;
+    // Każda domena ma swój czasownik — `button.press` nie zna turn_on, `automation` chce trigger.
+    final svc = switch (domain) {
+      'button' || 'input_button' => 'press',
+      'automation' => 'trigger',
+      _ => 'turn_on', // script, scene
+    };
+    await c.request('POST', '/api/services/$domain/$svc',
+        headers: {..._auth, 'Content-Type': 'application/json'},
+        body: jsonEncode({'entity_id': thingId}));
+  }
+
+  @override
+  Future<List<double>> history(HttpOverTunnel c, String thingId,
+      {Duration span = const Duration(hours: 6)}) async {
+    // minimal_response + no_attributes = kilkukrotnie mniejszy payload (idzie przez tunel noda).
+    final from = DateTime.now().toUtc().subtract(span).toIso8601String();
+    final r = await c.request(
+      'GET',
+      '/api/history/period/$from?filter_entity_id=$thingId&minimal_response&no_attributes',
+      headers: _auth,
+    );
+    if (r.status != 200) return const [];
+    final outer = r.json;
+    if (outer is! List || outer.isEmpty) return const [];
+    final series = outer.first;
+    if (series is! List) return const [];
+    final vals = <double>[];
+    for (final p in series) {
+      final v = double.tryParse(((p as Map?)?['state'] ?? '').toString().replaceAll(',', '.'));
+      if (v != null) vals.add(v);
+    }
+    // Sparkline na kafelku ~150px — więcej niż 60 punktów to i tak niewidoczny szum.
+    if (vals.length <= 60) return vals;
+    final step = vals.length / 60;
+    return [for (var i = 0; i < 60; i++) vals[(i * step).floor()]];
+  }
+
+  @override
+  TileType suggest(Thing t) {
+    if (_fireable.contains(t.kind)) return TileType.button;
+    if (t.kind == 'light') return TileType.light;
+    if (t.controllable) return TileType.toggle;
+    // Liczbowy sensor → od razu wykres (to on najbardziej zyskuje na trendzie).
+    if (t.numeric != null) return TileType.chart;
+    return TileType.sensor;
+  }
 }

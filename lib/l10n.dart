@@ -602,10 +602,35 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  // ── Panel HA: typy kafelków + akcje ──
+  "Typ kafelka": "Tile type",
+  "Wykres": "Chart",
+  "Odczyt": "Reading",
+  "Przełącznik": "Switch",
+  "Światło": "Light",
+  "Przycisk": "Button",
+  "Uruchom": "Run",
+  "uruchomiono": "started",
+  "Nie udało się uruchomić": "Couldn't run it",
+  "brak historii": "no history",
+  "Gotowe": "Done",
+  "OK": "OK",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
 const Map<String, String> _deMap = {
+  // ── Panel HA: typy kafelków + akcje ──
+  "Typ kafelka": "Kacheltyp",
+  "Wykres": "Diagramm",
+  "Odczyt": "Messwert",
+  "Przełącznik": "Schalter",
+  "Światło": "Licht",
+  "Przycisk": "Taste",
+  "Uruchom": "Ausführen",
+  "uruchomiono": "ausgeführt",
+  "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
+  "brak historii": "kein Verlauf",
+  "Gotowe": "Fertig",
   // ── RemoteTerminal / Panel (auto) ──
   "Łączę z relayem…": "Verbinde mit Relay…",
   "Brak portfela w apce": "Keine Wallet in der App",

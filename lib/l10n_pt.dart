@@ -475,4 +475,16 @@ const Map<String, String> ptMap = {
   "W sieci": "Na rede",
   "Zdalnie": "Remoto",
   "przed chwilą": "agora mesmo",
+  // ── Panel HA: typy kafelków + akcje ──
+  "Typ kafelka": "Tipo de bloco",
+  "Wykres": "Gráfico",
+  "Odczyt": "Leitura",
+  "Przełącznik": "Interruptor",
+  "Światło": "Luz",
+  "Przycisk": "Botão",
+  "Uruchom": "Executar",
+  "uruchomiono": "executado",
+  "Nie udało się uruchomić": "Não foi possível executar",
+  "brak historii": "sem histórico",
+  "Gotowe": "Pronto",
 };

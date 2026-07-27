@@ -37,6 +37,9 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
   bool _editing = false;
   bool _polling = false;
   final Map<String, Thing> _states = {};
+  // Sparkline: historia z HA pobierana RAZ na wejście (tunel jest wąski), potem dokładamy
+  // wartości z pollingu — wykres żyje bez dodatkowych requestów.
+  final Map<String, List<double>> _hist = {};
   List<Thing>? _allThings; // cache pełnej listy encji (picker) — pobrana raz na sesję (throttle tunelu)
 
   @override
@@ -101,6 +104,7 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       if (!mounted) return;
       setState(() { _phase = _Phase.ready; _status = ''; });
       await _refreshNow();
+      _loadHistory();   // w tle — wykresy dorysują się same, panel nie czeka
       _poll = Timer.periodic(const Duration(seconds: 4), (_) => _refreshNow());
     } catch (e) {
       if (!mounted) return;
@@ -124,9 +128,34 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
     try {
       final things = await ha.refresh(http, ids);
       if (!mounted) return;
-      setState(() { for (final t in things) _states[t.id] = t; });
+      setState(() {
+        for (final t in things) {
+          _states[t.id] = t;
+          // dokładaj do sparkline tylko realne zmiany wartości (inaczej płaska linia z pollingu)
+          final v = t.numeric;
+          final h = _hist[t.id];
+          if (v != null && h != null && (h.isEmpty || h.last != v)) {
+            h.add(v);
+            if (h.length > 60) h.removeAt(0);
+          }
+        }
+      });
     } catch (_) {/* pojedynczy poll może paść — następny naprawi */}
     finally { _polling = false; }
+  }
+
+  /// Historia dla kafelków typu chart — sekwencyjnie (tunel serializuje i tak), błąd = brak wykresu.
+  Future<void> _loadHistory() async {
+    final ha = _ha, http = _http, binding = _binding;
+    if (ha == null || http == null || binding == null) return;
+    for (final t in binding.tiles.where((t) => t.type == TileType.chart)) {
+      if (_hist.containsKey(t.thingId)) continue;
+      try {
+        final h = await ha.history(http, t.thingId);
+        if (!mounted) return;
+        setState(() => _hist[t.thingId] = h.toList());
+      } catch (_) { _hist[t.thingId] = []; }
+    }
   }
 
   Future<void> _toggle(Tile tile, bool on) async {
@@ -143,6 +172,72 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
     } catch (_) {}
     await _refreshNow();
   }
+
+  /// Button: bezstanowa akcja (script/scene/…). Krótki feedback, bo encja nie zmienia stanu.
+  Future<void> _fire(Tile tile) async {
+    final ha = _ha, http = _http;
+    if (ha == null || http == null) return;
+    try {
+      await ha.fire(http, tile.thingId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('${tile.label} — ${tr('uruchomiono')}'),
+            duration: const Duration(seconds: 1)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(tr('Nie udało się uruchomić'))));
+      }
+    }
+  }
+
+  /// Wybór typu kafelka — proponujemy sensowny domyślny, ale user decyduje.
+  Future<TileType?> _pickType(TileType initial, {required bool controllable, required bool numeric}) async {
+    // Nie pokazujemy typów, które dla danej encji nie mają sensu (switch dla czujnika temperatury).
+    final opts = <TileType>[
+      if (numeric) TileType.chart,
+      TileType.sensor,
+      if (controllable) TileType.toggle,
+      if (controllable) TileType.light,
+      TileType.button,
+    ];
+    return showDialog<TileType>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Typ kafelka'), style: const TextStyle(color: AppTheme.text, fontSize: 16)),
+        children: [
+          for (final o in opts)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, o),
+              child: Row(children: [
+                Icon(_typeIcon(o), size: 18, color: o == initial ? AppTheme.teal : AppTheme.muted),
+                const SizedBox(width: 12),
+                Text(_typeLabel(o),
+                    style: TextStyle(color: o == initial ? AppTheme.teal : AppTheme.text)),
+              ]),
+            ),
+        ],
+      ),
+    );
+  }
+
+  static IconData _typeIcon(TileType t) => switch (t) {
+        TileType.chart  => Icons.show_chart,
+        TileType.sensor => Icons.speed,
+        TileType.toggle => Icons.toggle_on_outlined,
+        TileType.light  => Icons.lightbulb_outline,
+        TileType.button => Icons.touch_app_outlined,
+      };
+
+  static String _typeLabel(TileType t) => switch (t) {
+        TileType.chart  => tr('Wykres'),
+        TileType.sensor => tr('Odczyt'),
+        TileType.toggle => tr('Przełącznik'),
+        TileType.light  => tr('Światło'),
+        TileType.button => tr('Przycisk'),
+      };
 
   Future<void> _addTile() async {
     final ha = _ha, http = _http, binding = _binding;
@@ -170,11 +265,33 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
     final picked = await Navigator.push<Thing>(context, MaterialPageRoute(
         builder: (_) => _EntityPickerScreen(all: _allThings!, onRefresh: _refetchEntities)));
     if (picked == null) return;
-    binding.tiles.add(Tile(thingId: picked.id, type: ha.suggest(picked), label: picked.name));
+    if (!mounted) return;
+    final type = await _pickType(ha.suggest(picked),
+        controllable: picked.controllable, numeric: picked.numeric != null);
+    if (type == null) return;
+    binding.tiles.add(Tile(thingId: picked.id, type: type, label: picked.name));
     await IntegrationStore.save(widget.deviceId, binding);
     if (!mounted) return;
     setState(() {});
     _refreshNow();
+    _loadHistory();
+  }
+
+  /// Zmiana typu istniejącego kafelka (tryb edycji) — bez usuwania i dodawania od nowa.
+  Future<void> _changeType(Tile t) async {
+    final binding = _binding;
+    if (binding == null) return;
+    final st = _states[t.thingId];
+    final type = await _pickType(t.type,
+        controllable: st?.controllable ?? true, numeric: st?.numeric != null);
+    if (type == null || type == t.type) return;
+    final i = binding.tiles.indexOf(t);
+    if (i < 0) return;
+    binding.tiles[i] = Tile(thingId: t.thingId, type: type, label: t.label);
+    await IntegrationStore.save(widget.deviceId, binding);
+    if (!mounted) return;
+    setState(() {});
+    _loadHistory();
   }
 
   // Odśwież katalog encji z HA (na żądanie z pickera) + zapisz do cache dyskowego.
@@ -326,38 +443,67 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
         ),
       );
 
+  // Ikona wg device_class (dokładniejsza), potem wg domeny. Bez tego wszystko wygląda tak samo.
+  static IconData _entityIcon(Tile t, Thing? st) {
+    switch (st?.deviceClass) {
+      case 'temperature': return Icons.thermostat;
+      case 'humidity':    return Icons.water_drop_outlined;
+      case 'power':
+      case 'energy':      return Icons.bolt;
+      case 'battery':     return Icons.battery_full;
+      case 'pressure':    return Icons.compress;
+      case 'illuminance': return Icons.wb_sunny_outlined;
+      case 'motion':      return Icons.directions_run;
+      case 'door':
+      case 'window':      return Icons.sensor_door_outlined;
+      case 'co2':
+      case 'pm25':        return Icons.air;
+    }
+    return switch (st?.kind) {
+      'light'  => Icons.lightbulb_outline,
+      'switch' => Icons.power_settings_new,
+      'fan'    => Icons.mode_fan_off,
+      'lock'   => Icons.lock_outline,
+      'cover'  => Icons.blinds_outlined,
+      'climate'=> Icons.ac_unit,
+      'script' || 'scene' || 'button' || 'input_button' => Icons.play_arrow_rounded,
+      'automation' => Icons.smart_toy_outlined,
+      _ => _typeIcon(t.type),
+    };
+  }
+
   Widget _tile(Tile t) {
     final st = _states[t.thingId];
+    final on = st?.on ?? false;
+    // Światło świeci na bursztynowo, reszta sterowalnych na teal — kolor niesie stan, nie dekorację.
+    final accent = t.type == TileType.light ? AppTheme.amber : AppTheme.teal;
+    final active = (t.type == TileType.light || t.type == TileType.toggle) && on;
+
     return GestureDetector(
-      onTap: _editing ? () => _renameTile(t) : null, // w edycji: tap = zmień nazwę
-      child: Container(
+      onTap: _editing
+          ? () => _renameTile(t)
+          : (t.type == TileType.button ? () => _fire(t) : null),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(12)),
+        decoration: BoxDecoration(
+          color: active ? Color.alphaBlend(accent.withOpacity(0.10), AppTheme.card) : AppTheme.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: active ? accent.withOpacity(0.45) : Colors.transparent),
+        ),
         child: Stack(children: [
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(children: [
+                Icon(_entityIcon(t, st), size: 16, color: active ? accent : AppTheme.muted),
+                const SizedBox(width: 6),
                 Expanded(child: Text(t.label,
                     maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w500, fontSize: 13))),
-                if (_editing) const Icon(Icons.edit, color: AppTheme.muted, size: 14),
               ]),
-              if (t.type == TileType.toggle)
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Switch(
-                    value: st?.on ?? false,
-                    activeThumbColor: AppTheme.teal,
-                    onChanged: (_editing || st == null) ? null : (v) => _toggle(t, v),
-                  ),
-                )
-              else
-                Text(
-                  st == null ? '—' : '${st.state ?? '—'}${st.unit != null ? ' ${st.unit}' : ''}',
-                  style: const TextStyle(color: AppTheme.teal, fontWeight: FontWeight.w600, fontSize: 20),
-                ),
+              _tileBody(t, st, accent, on),
             ],
           ),
           if (_editing)
@@ -368,10 +514,123 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
                 onPressed: () => _removeTile(t),
               ),
             ),
+          if (_editing)
+            Positioned(
+              bottom: -6, right: -6,
+              child: IconButton(
+                tooltip: tr('Typ kafelka'),
+                icon: Icon(_typeIcon(t.type), color: AppTheme.muted, size: 18),
+                onPressed: () => _changeType(t),
+              ),
+            ),
         ]),
       ),
     );
   }
+
+  Widget _tileBody(Tile t, Thing? st, Color accent, bool on) {
+    switch (t.type) {
+      case TileType.toggle:
+      case TileType.light:
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Switch(
+            value: on,
+            activeThumbColor: accent,
+            onChanged: (_editing || st == null) ? null : (v) => _toggle(t, v),
+          ),
+        );
+      case TileType.button:
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+            decoration: BoxDecoration(
+              color: AppTheme.teal.withOpacity(_editing ? 0.06 : 0.14),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.play_arrow_rounded, size: 16, color: _editing ? AppTheme.muted : AppTheme.teal),
+              const SizedBox(width: 5),
+              Text(tr('Uruchom'),
+                  style: TextStyle(color: _editing ? AppTheme.muted : AppTheme.teal,
+                      fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
+          ),
+        );
+      case TileType.chart:
+        final h = _hist[t.thingId];
+        return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+          _value(st, fontSize: 17),
+          const SizedBox(height: 4),
+          SizedBox(
+            height: 22,
+            width: double.infinity,
+            child: (h == null)
+                ? const SizedBox()                       // historia jeszcze leci
+                : (h.length < 2)
+                    ? Text(tr('brak historii'),
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 10))
+                    : CustomPaint(painter: _Sparkline(h, AppTheme.teal)),
+          ),
+        ]);
+      case TileType.sensor:
+        return _value(st, fontSize: 20);
+    }
+  }
+
+  Widget _value(Thing? st, {required double fontSize}) {
+    final v = st?.state ?? '—';
+    return RichText(
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(children: [
+        TextSpan(text: v, style: TextStyle(
+            color: AppTheme.teal, fontWeight: FontWeight.w600, fontSize: fontSize)),
+        if (st?.unit != null)
+          TextSpan(text: ' ${st!.unit}', style: const TextStyle(
+              color: AppTheme.muted, fontWeight: FontWeight.w500, fontSize: 11)),
+      ]),
+    );
+  }
+}
+
+/// Sparkline — świadomie bez fl_chart: kilka linii CustomPaint zamiast ciężkiego wykresu,
+/// który i tak byłby nieczytelny na kafelku 150×22 px.
+class _Sparkline extends CustomPainter {
+  final List<double> data;
+  final Color color;
+  _Sparkline(this.data, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (data.length < 2) return;
+    var lo = data.first, hi = data.first;
+    for (final v in data) { if (v < lo) lo = v; if (v > hi) hi = v; }
+    final span = (hi - lo).abs() < 1e-9 ? 1.0 : (hi - lo);   // płaska seria → linia w połowie
+    final dx = size.width / (data.length - 1);
+    final pts = [
+      for (var i = 0; i < data.length; i++)
+        Offset(i * dx, size.height - ((data[i] - lo) / span) * size.height),
+    ];
+    final line = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final p in pts.skip(1)) { line.lineTo(p.dx, p.dy); }
+    // delikatne wypełnienie pod linią — daje głębię bez rozpraszania
+    final fill = Path.from(line)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
+    canvas.drawPath(fill, Paint()..color = color.withOpacity(0.12));
+    canvas.drawPath(line, Paint()
+      ..color = color.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..strokeJoin = StrokeJoin.round);
+    canvas.drawCircle(pts.last, 2.0, Paint()..color = color);   // „teraz"
+  }
+
+  @override
+  bool shouldRepaint(_Sparkline old) => old.data.length != data.length || old.data.last != data.last;
 }
 
 /// Picker encji HA — pełnoekranowy (Scaffold sam ogarnia klawiaturę, koniec nachodzenia na
