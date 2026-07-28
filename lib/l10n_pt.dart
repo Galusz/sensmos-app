@@ -487,6 +487,10 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Pełne ID":
+      "ID completo",
+  "Adres IP":
+      "Endereço IP",
   "Skopiowano %s":
       "Copiado %s",
   "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":

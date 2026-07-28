@@ -665,15 +665,29 @@ class _NodesScreenState extends State<NodesScreen> {
                 const SizedBox(width: 16),
                 _stat(tr('Promień'), _beData[id]?['radius'] ?? '—'),
                 const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.copy, size: 16, color: AppTheme.muted),
-                  tooltip: tr('Kopiuj ID'),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
+                // Wcześniej sama ikonka kopiowania obok trzech opisanych statystyk —
+                // nie było wiadomo, czego dotyczy. Teraz podpisana jak reszta.
+                InkWell(
+                  onTap: () {
                     Clipboard.setData(ClipboardData(text: id));
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                         content: Text(tr('ID skopiowane: %s', [id])), duration: const Duration(seconds: 2)));
                   },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(tr('Pełne ID'),
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                      const SizedBox(height: 2),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(tr('Kopiuj'), style: const TextStyle(
+                            color: AppTheme.teal, fontSize: 13, fontWeight: FontWeight.w500)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.copy, size: 14, color: AppTheme.teal),
+                      ]),
+                    ]),
+                  ),
                 ),
               ]),
               const SizedBox(height: 14),
@@ -717,11 +731,13 @@ class _NodesScreenState extends State<NodesScreen> {
                     child: Row(children: [
                       const Icon(Icons.lan_outlined, size: 14, color: AppTheme.muted),
                       const SizedBox(width: 6),
+                      Text('${tr('Adres IP')}:  ',
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                       Text(saved.ip, style: const TextStyle(
                           color: AppTheme.text, fontSize: 13,
                           fontFeatures: [FontFeature.tabularFigures()])),
                       const SizedBox(width: 6),
-                      const Icon(Icons.copy, size: 13, color: AppTheme.muted),
+                      const Icon(Icons.copy, size: 13, color: AppTheme.teal),
                     ]),
                   ),
                 ),
