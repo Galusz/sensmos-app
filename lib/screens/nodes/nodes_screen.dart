@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' show FontFeature;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -699,6 +700,32 @@ class _NodesScreenState extends State<NodesScreen> {
 
               // ── Sieć lokalna (tylko w domu) ──
               _groupLabel(Icons.wifi, tr('Sieć lokalna (tylko w sieci noda)')),
+              // Adres IP wprost, z kopiowaniem — potrzebny wszędzie tam, gdzie wpisuje się
+              // go ręcznie (np. integracja w Home Assistancie), a dotąd nigdzie go nie było.
+              if (saved != null && saved.ip.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                InkWell(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: saved.ip));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        duration: const Duration(seconds: 2),
+                        content: Text(tr('Skopiowano %s', [saved.ip]))));
+                  },
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(children: [
+                      const Icon(Icons.lan_outlined, size: 14, color: AppTheme.muted),
+                      const SizedBox(width: 6),
+                      Text(saved.ip, style: const TextStyle(
+                          color: AppTheme.text, fontSize: 13,
+                          fontFeatures: [FontFeature.tabularFigures()])),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.copy, size: 13, color: AppTheme.muted),
+                    ]),
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
               if (saved != null && localReachable) ...[
                 Row(children: [

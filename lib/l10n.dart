@@ -602,6 +602,8 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Skopiowano %s":
+      "Copied %s",
   "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":
       "A different node is at this address (%s) — this board was reflashed and has a new identity.",
   "Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. Połącz telefon z siecią noda i wyszukaj go lokalnie.":
@@ -665,6 +667,8 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Skopiowano %s":
+      "Kopiert %s",
   "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":
       "Unter dieser Adresse ist ein anderer Node (%s) — diese Platine wurde neu geflasht und hat eine neue Identität.",
   "Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. Połącz telefon z siecią noda i wyszukaj go lokalnie.":
