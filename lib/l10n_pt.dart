@@ -459,7 +459,7 @@ const Map<String, String> ptMap = {
   "Wymaga firmware 0.25+ — zaktualizuj node.": "Requer firmware 0.25+ — atualize o node.",
   "Tryb prywatny (ghost)": "Modo privado (ghost)",
   "Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.": "Oculto no mapa, 0 recompensas. Os dados funcionam localmente; você ainda paga pelas assinaturas.",
-  "Tryb prywatny włączony — node ukryty z mapy i nagród": "Modo privado ativado — node oculto do mapa e das recompensas",
+  "Tryb prywatny włączony — node ukryty z mapy": "Modo privado ativado — node oculto do mapa",
   "Tryb prywatny wyłączony": "Modo privado desativado",
   "Pobieram pozycję GPS...": "Obtendo posição GPS...",
   "Zaraz poprosimy o lokalizację (GPS) — potwierdza, że node jest fizycznie tutaj. Bez niej node działa, ale zarabia znacznie mniej.": "Vamos pedir a localização (GPS) — ela confirma que o node está fisicamente aqui. Sem ela o node funciona, mas ganha bem menos.",

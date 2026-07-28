@@ -133,8 +133,14 @@ class _TrustScreenState extends State<TrustScreen> {
       if (res.statusCode == 200) {
         if (mounted) setState(() => _ghost = on);
         _snack(on
-            ? tr('Tryb prywatny włączony — node ukryty z mapy i nagród')
+            ? tr('Tryb prywatny włączony — node ukryty z mapy')
             : tr('Tryb prywatny wyłączony'));
+        // Przeładuj stan z BE. _located wyliczane jest z location_source, a _setGhost
+        // go nie ruszał — po wyjściu z trybu prywatnego suwak rozmycia zostawał
+        // zablokowany aż do ponownego wejścia na ekran. Krótka zwłoka, bo zmiana leci
+        // przez noda po WS i BE potrzebuje chwili, żeby ją zapisać.
+        await Future.delayed(const Duration(milliseconds: 900));
+        await _loadGhost();
       } else {
         _snack(tr('Błąd %s', [res.statusCode]), error: true);
       }

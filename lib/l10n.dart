@@ -580,7 +580,7 @@ const Map<String, String> _enMap = {
   "Tryb prywatny (ghost)": "Private mode (ghost)",
   "Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.":
       "Hidden from map, 0 rewards. Data works locally; you still pay for subscriptions.",
-  "Tryb prywatny włączony — node ukryty z mapy i nagród":
+  "Tryb prywatny włączony — node ukryty z mapy":
       "Private mode on — node hidden from the map and rewards",
   "Tryb prywatny wyłączony": "Private mode off",
   "Pobieram pozycję GPS...": "Getting GPS position...",
@@ -1258,7 +1258,7 @@ const Map<String, String> _deMap = {
   "Tryb prywatny (ghost)": "Privater Modus (Ghost)",
   "Ukryty z mapy, 0 nagród. Dane działają lokalnie; za subskrypcje płacisz.":
       "Von der Karte verborgen, 0 Belohnungen. Daten funktionieren lokal; Abos kosten weiterhin.",
-  "Tryb prywatny włączony — node ukryty z mapy i nagród":
+  "Tryb prywatny włączony — node ukryty z mapy":
       "Privater Modus an — Node von Karte und Belohnungen ausgeblendet",
   "Tryb prywatny wyłączony": "Privater Modus aus",
   "Pobieram pozycję GPS...": "GPS-Position wird abgerufen...",
