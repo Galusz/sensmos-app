@@ -3,7 +3,7 @@ class Config {
   // Wersja aplikacji â€” trzymaÄ‡ w zgodzie z pubspec.yaml (version:)
   // UWAGA: podbijaÄ‡ RAZEM z pubspec.yaml â€” updater porĂłwnuje TÄ staĹ‚Ä… z manifestem;
   // rozjazd = wieczna pÄ™tla â€ždostÄ™pna aktualizacja" (wpadka 1.4.9, wczeĹ›niej 1.4.8)
-  static const String appVersion = '1.5.28';
+  static const String appVersion = '1.5.29';
   // Manifest aktualizacji (wersja + changelog + URL APK) â€” public/app/manifest.json na BE
   static const String updateManifestUrl = 'https://api.sensmos.com/app/manifest.json';
 

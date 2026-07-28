@@ -630,31 +630,41 @@ class _NodesScreenState extends State<NodesScreen> {
                 // a miejscowość bywa ta sama dla kilku sztuk albo pusta.
                 // Ikonki stanu w prawym rogu TEJ linii, a nie w głównym rzędzie —
                 // tam konkurowały o szerokość z badge'em i strzałką i nic się nie mieściło.
+                // ID + firmware jako JEDEN Text z elipsą wewnątrz Expanded. Wcześniej były
+                // to dwa Texty w zagnieżdżonym Row — przy ciasnym kafelku ten Row przepełniał
+                // się i malował po ikonach, które przez to siedziały na napisie „fw 0.79".
+                // Text z ellipsis nie wyjdzie poza swój box niezależnie od szerokości.
                 Row(children: [
-                  Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic, children: [
-                    Text(id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
-                        style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
-                            fontSize: 14, letterSpacing: 0.6)),
-                    const SizedBox(width: 6),
-                    Text('fw ${be?['firmware'] ?? '?'}',
-                        style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-                  ])),
+                  Expanded(child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(
+                          text: id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
+                          style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
+                              fontSize: 14, letterSpacing: 0.6)),
+                      TextSpan(text: '   fw ${be?['firmware'] ?? '?'}',
+                          style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                    ]),
+                    maxLines: 1, overflow: TextOverflow.ellipsis,
+                  )),
                   if (be != null && be['geo_state'] != 'gps')
-                    const Padding(padding: EdgeInsets.only(left: 6),
+                    const Padding(padding: EdgeInsets.only(left: 8),
                         child: Icon(Icons.location_off, size: 15, color: Color(0xFFFF4444))),
                   if (be?['ghost'] == true)
-                    const Padding(padding: EdgeInsets.only(left: 6),
+                    const Padding(padding: EdgeInsets.only(left: 8),
                         child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
-                  // Odstęp od badge'a „W tej sieci", który stoi w głównym rzędzie tuż obok —
-                  // bez tego ikony się o niego opierają.
-                  const SizedBox(width: 10),
                 ]),
-                Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
-                Text(healthText, style: TextStyle(color: healthColor, fontSize: 11)),
+                Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                // Badge zszedł z głównego rzędu tutaj — tam zabierał szerokość wszystkim
+                // trzem liniom naraz i to on wypychał ikony na tekst.
+                Row(children: [
+                  Flexible(child: Text(healthText,
+                      style: TextStyle(color: healthColor, fontSize: 11),
+                      maxLines: 1, overflow: TextOverflow.ellipsis)),
+                  const SizedBox(width: 8),
+                  _reachBadge(localReachable, saved != null),
+                ]),
               ])),
-              // Reachability lokalna: „W tej sieci" (akcje lokalne) / „Zdalnie"
-              _reachBadge(localReachable, saved != null),
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
             ]),
