@@ -279,6 +279,14 @@ class _WalletScreenState extends State<WalletScreen> {
   // ── UI ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    // Portfel potrafi zmienic sie POD tym ekranem: odzysk kopii z noda albo import
+    // w trybie serwisowym podmienia adres w CoreBloc. Bez tego `_address` zostawal
+    // z initState i panel pokazywal same zera az do restartu apki.
+    final cur = context.watch<CoreBloc>().state.wallet?.address;
+    if (cur != _address) {
+      _address = cur;
+      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _load(); });
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(tr('Portfel')),

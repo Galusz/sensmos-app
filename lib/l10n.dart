@@ -602,6 +602,16 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Usuń z listy":
+      "Remove from list",
+  "Usunąć z aplikacji?":
+      "Remove from the app?",
+  "Node %s zniknie z tej listy. W sieci SENSMOS zostaje bez zmian — nie należy do Twojego portfela, więc nie możesz go stamtąd usunąć.":
+      "Node %s will disappear from this list. It stays unchanged in the SENSMOS network — it does not belong to your wallet, so you cannot remove it from there.",
+  "Usuń z aplikacji":
+      "Remove from app",
+  "Usunięto z aplikacji: %s":
+      "Removed from the app: %s",
   "Zastąpić portfel w aplikacji?":
       "Replace the wallet in the app?",
   "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":
@@ -687,6 +697,16 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Usuń z listy":
+      "Aus der Liste entfernen",
+  "Usunąć z aplikacji?":
+      "Aus der App entfernen?",
+  "Node %s zniknie z tej listy. W sieci SENSMOS zostaje bez zmian — nie należy do Twojego portfela, więc nie możesz go stamtąd usunąć.":
+      "Node %s verschwindet aus dieser Liste. Im SENSMOS-Netzwerk bleibt er unverändert — er gehört nicht zu deiner Wallet, du kannst ihn dort also nicht entfernen.",
+  "Usuń z aplikacji":
+      "Aus der App entfernen",
+  "Usunięto z aplikacji: %s":
+      "Aus der App entfernt: %s",
   "Zastąpić portfel w aplikacji?":
       "Wallet in der App ersetzen?",
   "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":

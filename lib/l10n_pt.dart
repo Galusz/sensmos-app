@@ -487,6 +487,16 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Usuń z listy":
+      "Remover da lista",
+  "Usunąć z aplikacji?":
+      "Remover do app?",
+  "Node %s zniknie z tej listy. W sieci SENSMOS zostaje bez zmian — nie należy do Twojego portfela, więc nie możesz go stamtąd usunąć.":
+      "O node %s vai sumir desta lista. Na rede SENSMOS ele fica inalterado — não pertence à sua carteira, então você não pode removê-lo de lá.",
+  "Usuń z aplikacji":
+      "Remover do app",
+  "Usunięto z aplikacji: %s":
+      "Removido do app: %s",
   "Zastąpić portfel w aplikacji?":
       "Substituir a carteira no app?",
   "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":

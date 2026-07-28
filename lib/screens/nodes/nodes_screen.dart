@@ -246,6 +246,30 @@ class _NodesScreenState extends State<NodesScreen> {
     } catch (e) { Log.w('nodes', 'by-owner: $e'); }
   }
 
+  // Zapomnij node WYLACZNIE lokalnie — nie rusza BE. Dla wpisow, ktorych nie da sie
+  // skasowac z sieci, bo naleza do innego portfela (zmiana tozsamosci, cudza plytka).
+  Future<void> _forgetLocally(String id) async {
+    final short = id.length > 8 ? '${id.substring(0, 8)}…' : id;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Usunąć z aplikacji?')),
+        content: Text(tr('Node %s zniknie z tej listy. W sieci SENSMOS zostaje bez zmian — '
+                         'nie należy do Twojego portfela, więc nie możesz go stamtąd usunąć.', [short])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Usuń z aplikacji'), style: const TextStyle(color: Color(0xFFFF6666)))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    context.read<CoreBloc>().add(NodeRemoved(id));
+    setState(() { _expanded.remove(id); _online.remove(id); _nodeData.remove(id); });
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Usunięto z aplikacji: %s', [short]))));
+  }
+
   Future<void> _deleteFromNetwork(String id) async {
     final short = id.length > 8 ? '${id.substring(0, 8)}…' : id;
     final ok = await showDialog<bool>(
@@ -721,14 +745,30 @@ class _NodesScreenState extends State<NodesScreen> {
                     style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
               ),
               const SizedBox(height: 14),
-              SizedBox(width: double.infinity, child: OutlinedButton.icon(
-                onPressed: () => _deleteFromNetwork(id),
-                icon: const Icon(Icons.delete_outline, size: 16),
-                label: Text(tr('Usuń node z sieci')),
-                style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFFF6666),
-                    side: const BorderSide(color: Color(0x55FF6666))),
-              )),
+              // Dwie ROZNE operacje, wiec dwa osobne przyciski obok siebie:
+              //   z sieci  — kasuje w BE, wymaga podpisu portfelem WLASCICIELA
+              //   z listy  — czysci tylko lokalny wpis w tej apce, BE nietkniete
+              // Bez tego drugiego porzucony node (zmieniona tozsamosc, inny portfel)
+              // zostawal na liscie na zawsze, bo pierwszego nie da sie wykonac.
+              Row(children: [
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: () => _deleteFromNetwork(id),
+                  icon: const Icon(Icons.delete_outline, size: 16),
+                  label: Text(tr('Usuń z sieci'), overflow: TextOverflow.ellipsis),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFFF6666),
+                      side: const BorderSide(color: Color(0x55FF6666))),
+                )),
+                const SizedBox(width: 8),
+                Expanded(child: OutlinedButton.icon(
+                  onPressed: saved == null ? null : () => _forgetLocally(id),
+                  icon: const Icon(Icons.playlist_remove, size: 16),
+                  label: Text(tr('Usuń z listy'), overflow: TextOverflow.ellipsis),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.amber,
+                      side: BorderSide(color: AppTheme.amber.withOpacity(0.35))),
+                )),
+              ]),
               const SizedBox(height: 16),
 
               // ── Sieć lokalna (tylko w domu) ──
