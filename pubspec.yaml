@@ -1,7 +1,7 @@
 ﻿name: sensmos_app
 description: SENSMOS â€” sieÄ‡ inteligentnych czujnikĂłw
 publish_to: 'none'
-version: 1.5.27+61
+version: 1.5.28+62
 
 environment:
   sdk: '>=3.0.0 <4.0.0'

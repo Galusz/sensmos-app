@@ -646,6 +646,9 @@ class _NodesScreenState extends State<NodesScreen> {
                   if (be?['ghost'] == true)
                     const Padding(padding: EdgeInsets.only(left: 6),
                         child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
+                  // Odstęp od badge'a „W tej sieci", który stoi w głównym rzędzie tuż obok —
+                  // bez tego ikony się o niego opierają.
+                  const SizedBox(width: 10),
                 ]),
                 Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                 Text(healthText, style: TextStyle(color: healthColor, fontSize: 11)),
