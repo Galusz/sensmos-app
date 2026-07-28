@@ -487,6 +487,16 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Rozmyj dokładną pozycję":
+      "Desfocar a posição exata",
+  "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":
+      "No mapa mostramos um ponto deslocado em 200-800 m. Desative apenas se quiser publicar o endereço exato.",
+  "Node w ogóle nie pojawi się na mapie. Zarabia mniej, bo nie współtworzy publicznego pokrycia sieci.":
+      "O node não aparecerá no mapa. Ele rende menos porque não contribui para a cobertura pública da rede.",
+  "Tryb prywatny — node nie jest pokazywany na mapie i zarabia w obniżonej stawce, bo nie współtworzy publicznego pokrycia sieci.":
+      "Modo privado — o node não é mostrado no mapa e rende a uma taxa reduzida, pois não contribui para a cobertura pública da rede.",
+  "Brak potwierdzonej lokalizacji GPS — ten node prawie nie zarabia. Podejdź do niego z telefonem i ustaw lokalizację.":
+      "Sem localização GPS confirmada — este node quase não rende. Vá até ele com o celular e defina a localização.",
   "Sprawdzam połączenie...":
       "Verificando conexão...",
   "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":

@@ -142,6 +142,32 @@ class _NodesScreenState extends State<NodesScreen> {
     }
   }
 
+  // Komunikat „czemu ten node zarabia inaczej". Bez tego user widział spadek nagród
+  // i nie miał jak się dowiedzieć, że zabrakło potwierdzenia GPS.
+  Widget _geoNotice(String state) {
+    final ghost = state == 'ghost';
+    final color = ghost ? Colors.amber.shade700 : const Color(0xFFFF4444);
+    final text = ghost
+        ? tr('Tryb prywatny — node nie jest pokazywany na mapie i zarabia w obniżonej '
+             'stawce, bo nie współtworzy publicznego pokrycia sieci.')
+        : tr('Brak potwierdzonej lokalizacji GPS — ten node prawie nie zarabia. '
+             'Podejdź do niego z telefonem i ustaw lokalizację.');
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Icon(ghost ? Icons.visibility_off_outlined : Icons.location_off, size: 16, color: color),
+        const SizedBox(width: 8),
+        Expanded(child: Text(text,
+            style: TextStyle(color: color, fontSize: 12, height: 1.35))),
+      ]),
+    );
+  }
+
   Future<void> _fetchMyBeNodes() async {
     final owner = context.read<CoreBloc>().state.wallet?.address;
     if (owner == null) return;
@@ -513,9 +539,14 @@ class _NodesScreenState extends State<NodesScreen> {
               ])),
               // Reachability lokalna: „W tej sieci" (akcje lokalne) / „Zdalnie"
               _reachBadge(localReachable, saved != null),
-              if (be?['located'] == false) ...[
+              // geo_state z BE: ghost zachowuje lat/lon, więc po samym `located` był
+              // nie do odróżnienia od noda z potwierdzonym GPS-em.
+              if (be?['geo_state'] == 'ghost') ...[
                 const SizedBox(width: 6),
-                Icon(Icons.location_off, size: 15, color: Colors.amber.shade700),
+                Icon(Icons.visibility_off_outlined, size: 15, color: Colors.amber.shade700),
+              ] else if (be != null && be['geo_state'] != 'gps') ...[
+                const SizedBox(width: 6),
+                Icon(Icons.location_off, size: 15, color: const Color(0xFFFF4444)),
               ],
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
@@ -589,7 +620,12 @@ class _NodesScreenState extends State<NodesScreen> {
                     style: OutlinedButton.styleFrom(foregroundColor: AppTheme.text, side: const BorderSide(color: AppTheme.border)),
                   )),
                 ]),
-                if (be?['located'] == false) ...[
+                // Dlaczego node zarabia mało albo wcale — wprost, zamiast samej ikonki.
+                if (be != null && be['geo_state'] != null && be['geo_state'] != 'gps') ...[
+                  const SizedBox(height: 10),
+                  _geoNotice(be['geo_state'] as String),
+                ],
+                if (be != null && be['geo_state'] != 'gps' && be['geo_state'] != 'ghost') ...[
                   const SizedBox(height: 8),
                   SizedBox(width: double.infinity, child: TextButton.icon(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TrustScreen(node: saved))),

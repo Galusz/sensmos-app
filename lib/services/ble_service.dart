@@ -186,6 +186,8 @@ class BleService {
     String? gpsLat,   // GPS telefonu (przy nodzie) → atest v2 (lokalizacja + trust naraz)
     String? gpsLon,
     String? bleNameOverride,   // restore: node zmienił nazwę na SENSMOS-<nowe ID> (z set_device_id)
+    bool gpsFuzz = true,       // rozmycie publicznej pozycji o 200-800 m
+    bool ghost = false,        // node poza mapą (obniżone nagrody)
   }) async {
     lastAttestError = null;   // świeży setup — wynik poprzedniego nie może się przenieść
     // ── Ceremonia trust — PRZED register (register restartuje node) ──
@@ -297,6 +299,7 @@ class BleService {
           deviceId: deviceId, owner: ownerAddress, seed: seed,
           ev: trustEv, sigWallet: sigWallet,
           bleName: obsName, bleMac: obsMac, rssi: obsRssi,
+          fuzz: gpsFuzz, ghost: ghost,
         );
         if (ok) {
           lastAttestError = null;

@@ -46,6 +46,11 @@ class _SetupScreenState extends State<SetupScreen> {
   // (zmiana pubkey → jego identify odrzucany).
   SavedNode? _restoreFrom;
   bool       _restoreId = false;                 // przełącznik „Odtwórz ID" (jak fuzz GPS)
+  // Prywatność pozycji — ustawiana OD RAZU przy rejestracji, a nie dopiero w ustawieniach
+  // noda. Kolejność ma znaczenie: kto nie chce być na mapie, nie powinien musieć się
+  // na niej najpierw pojawić.
+  bool       _gpsFuzz = true;
+  bool       _ghost   = false;
   List<SavedNode> _restoreCandidates = [];       // TYLKO offline nody walleta (kandydaci do przejęcia ID)
   final Map<String, double?> _restoreAge = {};   // device_id → sekund od ostatniego pingu
 
@@ -282,6 +287,8 @@ class _SetupScreenState extends State<SetupScreen> {
         gpsLat:          gpsLat,
         gpsLon:          gpsLon,
         bleNameOverride: restoreBleName,
+        gpsFuzz:         _gpsFuzz,
+        ghost:           _ghost,
       );
 
       setState(() => _status = tr('Łączę z nodem przez sieć...'));
@@ -502,6 +509,44 @@ class _SetupScreenState extends State<SetupScreen> {
                         'fizycznie tutaj. Bez niej node działa, ale zarabia znacznie mniej.'),
                     style: const TextStyle(
                         color: AppTheme.amber, fontSize: 12, height: 1.35))),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.teal.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppTheme.border),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SwitchListTile(
+              value: _gpsFuzz,
+              // Przy ghoście pozycja i tak nie jest publikowana — rozmycie nie ma czego dotyczyć.
+              onChanged: _ghost ? null : (v) => setState(() => _gpsFuzz = v),
+              activeColor: AppTheme.teal,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              secondary: const Icon(Icons.blur_on, color: AppTheme.muted),
+              title: Text(tr('Rozmyj dokładną pozycję'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  tr('Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, '
+                     'jeśli chcesz publikować dokładny adres.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
+            const Divider(height: 1, color: AppTheme.border),
+            SwitchListTile(
+              value: _ghost,
+              onChanged: (v) => setState(() => _ghost = v),
+              activeColor: AppTheme.amber,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              secondary: const Icon(Icons.visibility_off_outlined, color: AppTheme.muted),
+              title: Text(tr('Tryb prywatny (ghost)'),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+              subtitle: Text(
+                  tr('Node w ogóle nie pojawi się na mapie. Zarabia mniej, bo nie '
+                     'współtworzy publicznego pokrycia sieci.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            ),
           ]),
         ),
         const SizedBox(height: 20),

@@ -602,6 +602,16 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Rozmyj dokładną pozycję":
+      "Blur the exact position",
+  "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":
+      "On the map we show a point shifted by 200-800 m. Turn this off only if you want to publish the exact address.",
+  "Node w ogóle nie pojawi się na mapie. Zarabia mniej, bo nie współtworzy publicznego pokrycia sieci.":
+      "The node will not appear on the map at all. It earns less because it does not contribute to the network's public coverage.",
+  "Tryb prywatny — node nie jest pokazywany na mapie i zarabia w obniżonej stawce, bo nie współtworzy publicznego pokrycia sieci.":
+      "Private mode — the node is not shown on the map and earns at a reduced rate, because it does not contribute to the network's public coverage.",
+  "Brak potwierdzonej lokalizacji GPS — ten node prawie nie zarabia. Podejdź do niego z telefonem i ustaw lokalizację.":
+      "No confirmed GPS location — this node earns almost nothing. Walk up to it with your phone and set the location.",
   "Sprawdzam połączenie...":
       "Checking connection...",
   "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":
@@ -643,6 +653,16 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Rozmyj dokładną pozycję":
+      "Genaue Position unscharf machen",
+  "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":
+      "Auf der Karte zeigen wir einen um 200-800 m verschobenen Punkt. Schalte das nur aus, wenn du die genaue Adresse veröffentlichen willst.",
+  "Node w ogóle nie pojawi się na mapie. Zarabia mniej, bo nie współtworzy publicznego pokrycia sieci.":
+      "Der Node erscheint gar nicht auf der Karte. Er verdient weniger, weil er nicht zur öffentlichen Netzabdeckung beiträgt.",
+  "Tryb prywatny — node nie jest pokazywany na mapie i zarabia w obniżonej stawce, bo nie współtworzy publicznego pokrycia sieci.":
+      "Privater Modus — der Node wird nicht auf der Karte gezeigt und verdient zu einem reduzierten Satz, da er nicht zur öffentlichen Netzabdeckung beiträgt.",
+  "Brak potwierdzonej lokalizacji GPS — ten node prawie nie zarabia. Podejdź do niego z telefonem i ustaw lokalizację.":
+      "Kein bestätigter GPS-Standort — dieser Node verdient fast nichts. Geh mit dem Telefon zu ihm und setze den Standort.",
   "Sprawdzam połączenie...":
       "Verbindung wird geprüft...",
   "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":

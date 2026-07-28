@@ -193,6 +193,11 @@ class AttestService {
     required String bleName,
     required String bleMac,
     int? rssi,
+    // Preferencje prywatności z ekranu rejestracji — poza podpisanym atestem
+    // (to ustawienia widoczności, nie dowody). fuzz=true rozmywa publiczną pozycję
+    // o 200-800 m, ghost trzyma node całkiem poza mapą.
+    bool fuzz = true,
+    bool ghost = false,
   }) async {
     try {
       final res = await http
@@ -212,6 +217,8 @@ class AttestService {
                 'sig_wallet': sigWallet,
                 if (ev.gpsLat != null) 'gps_lat': ev.gpsLat,
                 if (ev.gpsLon != null) 'gps_lon': ev.gpsLon,
+                'fuzz': fuzz,
+                'ghost': ghost,
                 'app_report': {
                   'ble_name': bleName,
                   'ble_mac': bleMac,
