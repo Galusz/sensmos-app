@@ -97,6 +97,9 @@ class _NodesScreenState extends State<NodesScreen> {
     for (final s in ns.nodes) {
       if (!seen.contains(s.id)) out.add(_UnifiedNode(id: s.id, be: null, saved: s));
     }
+    // Stała kolejność po ID. BE sortuje po last_ping, więc kafle skakały przy każdym
+    // odświeżeniu i nie dało się trafić w ten, który się chciało otworzyć.
+    out.sort((a, b) => a.id.compareTo(b.id));
     return out;
   }
 
@@ -140,6 +143,68 @@ class _NodesScreenState extends State<NodesScreen> {
         }
       }
     }
+  }
+
+  String? _searching;   // device_id noda, dla którego trwa szukanie po mDNS
+
+  // Odnalezienie noda w LAN po fakcie. Potrzebne, gdy onboarding poszedł po LTE:
+  // telefon nigdy nie był z nodem w jednej sieci, więc nie miał skąd wziąć IP,
+  // a późniejszy powrót na WiFi sam z siebie tego nie naprawia.
+  Future<void> _findLocally(String id) async {
+    setState(() => _searching = id);
+    final ble = context.read<BleService>();
+    final ns  = context.read<NodeService>();
+    final short = id.length >= 6 ? id.substring(0, 6) : id;
+    String? ip;
+    try {
+      ip = await ble.discoverByHostname(
+          hostname: 'sensmos-$short', timeout: const Duration(seconds: 12));
+    } catch (e) {
+      Log.w('nodes', 'mDNS $short: $e');
+    }
+    if (!mounted) return;
+    setState(() => _searching = null);
+
+    if (ip == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        backgroundColor: AppTheme.amber,
+        duration: const Duration(seconds: 6),
+        content: Text(
+            tr('Nie znaleziono noda w tej sieci. Upewnij się, że telefon jest '
+               'w tej samej sieci WiFi co node.'),
+            style: const TextStyle(color: Colors.black)),
+      ));
+      return;
+    }
+
+    final pin = await _askPin();
+    if (pin == null || !mounted) return;
+    await ns.saveNode(ip, pin, id);
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(tr('Node znaleziony: %s', [ip!]))));
+  }
+
+  Future<String?> _askPin() async {
+    final ctrl = TextEditingController(text: '123456');
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Podaj PIN noda')),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: InputDecoration(labelText: tr('PIN noda')),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+              child: Text(tr('Zapisz'))),
+        ],
+      ),
+    );
   }
 
   // Komunikat „czemu ten node zarabia inaczej". Bez tego user widział spadek nagród
@@ -294,10 +359,29 @@ class _NodesScreenState extends State<NodesScreen> {
           headers: {'Authorization': 'Bearer ${n.pin}'}).timeout(const Duration(seconds: 3));
       if (!mounted) return;
       final j = jsonDecode(res.body) as Map<String, dynamic>;
+      if (!_identityOk(j, n.id)) {
+        _identityMismatch(n.id, j);
+        setState(() { _online[n.id] = false; _nodeData.remove(n.id); });
+        return;
+      }
       setState(() { _online[n.id] = true; _nodeData[n.id] = j; _nodeErr.remove(n.id); });
     } catch (_) {
       if (mounted && _online[n.id] != false) setState(() => _online[n.id] = false);
     }
+  }
+
+  // Czy pod tym adresem stoi TEN node. Po przeflashowaniu płytka dostaje nową tożsamość,
+  // a stary wpis lokalny nadal wskazuje to samo IP — bez tego sprawdzenia apka uznawała
+  // osierocony node za żywy i wysyłała komendy do zupełnie innego urządzenia.
+  bool _identityOk(Map<String, dynamic> j, String expectedId) {
+    final got = j['device_id']?.toString() ?? '';
+    return got.isEmpty || got == expectedId;   // starsze FW bez pola → nie blokuj
+  }
+
+  void _identityMismatch(String id, Map<String, dynamic> j) {
+    final got = j['device_id']?.toString() ?? '?';
+    _nodeErr[id] = tr('Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana '
+                      'i ma nową tożsamość.', [got.length >= 8 ? got.substring(0, 8) : got]);
   }
 
   Future<bool> _tryInfo(String ip, String id, String pin) async {
@@ -307,6 +391,11 @@ class _NodesScreenState extends State<NodesScreen> {
             headers: {'Authorization': 'Bearer $pin'}).timeout(const Duration(seconds: 6));
         if (!mounted) return true;
         final j = jsonDecode(res.body) as Map<String, dynamic>;
+        if (!_identityOk(j, id)) {
+          _identityMismatch(id, j);
+          setState(() { _online[id] = false; _nodeData.remove(id); });
+          return false;   // bez retry: to nie jest problem łączności
+        }
         setState(() { _online[id] = true; _nodeData[id] = j; _nodeErr.remove(id); });
         return true;
       } catch (e) {
@@ -532,9 +621,18 @@ class _NodesScreenState extends State<NodesScreen> {
               Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: healthColor)),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(name, style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w500, fontSize: 14)),
-                Text('${id.substring(0, id.length >= 8 ? 8 : id.length)} · fw ${be?['firmware'] ?? '?'}',
-                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                // ID na pierwszym planie — to ono identyfikuje node jednoznacznie,
+                // a miejscowość bywa ta sama dla kilku sztuk albo pusta.
+                Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic, children: [
+                  Text(id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
+                      style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
+                          fontSize: 14, letterSpacing: 0.6)),
+                  const SizedBox(width: 6),
+                  Text('fw ${be?['firmware'] ?? '?'}',
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                ]),
+                Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                 Text(healthText, style: TextStyle(color: healthColor, fontSize: 11)),
               ])),
               // Reachability lokalna: „W tej sieci" (akcje lokalne) / „Zdalnie"
@@ -643,7 +741,7 @@ class _NodesScreenState extends State<NodesScreen> {
                     style: TextButton.styleFrom(foregroundColor: const Color(0xFFFF6666)),
                   )),
                 ],
-              ] else _localLocked(saved != null),
+              ] else _localLocked(saved != null, id),
             ]),
           ),
         ],
@@ -672,18 +770,38 @@ class _NodesScreenState extends State<NodesScreen> {
             style: const TextStyle(color: AppTheme.muted, fontSize: 10.5, letterSpacing: 0.6, fontWeight: FontWeight.w600)),
       ]);
 
-  Widget _localLocked(bool hasLocal) => Container(
+  Widget _localLocked(bool hasLocal, [String? id]) => Container(
         width: double.infinity,
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(color: AppTheme.muted.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
-        child: Row(children: [
-          const Icon(Icons.wifi_off, size: 16, color: AppTheme.muted),
-          const SizedBox(width: 8),
-          Expanded(child: Text(
-            hasLocal
-                ? tr('Połącz telefon z siecią WiFi noda, żeby zobaczyć encje i zmienić ustawienia.')
-                : tr('Ten node nie jest dodany lokalnie — połącz się z jego siecią i dodaj go, by konfigurować.'),
-            style: const TextStyle(color: AppTheme.muted, fontSize: 12))),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.wifi_off, size: 16, color: AppTheme.muted),
+            const SizedBox(width: 8),
+            Expanded(child: Text(
+              hasLocal
+                  ? tr('Połącz telefon z siecią WiFi noda, żeby zobaczyć encje i zmienić ustawienia.')
+                  : tr('Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. '
+                       'Połącz telefon z siecią noda i wyszukaj go lokalnie.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12))),
+          ]),
+          // Typowy przypadek: atestacja poszła po LTE, więc telefon nigdy nie widział
+          // noda w LAN i nie było czego zapisać. Sam powrót na WiFi tego nie naprawia —
+          // trzeba go raz odnaleźć po mDNS.
+          if (!hasLocal && id != null) ...[
+            const SizedBox(height: 6),
+            SizedBox(width: double.infinity, child: TextButton.icon(
+              onPressed: _searching == id ? null : () => _findLocally(id),
+              icon: _searching == id
+                  ? const SizedBox(width: 14, height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal))
+                  : const Icon(Icons.travel_explore, size: 18),
+              label: Text(_searching == id
+                  ? tr('Szukam w sieci...')
+                  : tr('Wyszukaj noda w tej sieci')),
+              style: TextButton.styleFrom(foregroundColor: AppTheme.teal),
+            )),
+          ],
         ]),
       );
 

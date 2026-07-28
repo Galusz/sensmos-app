@@ -487,6 +487,18 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":
+      "Há outro node neste endereço (%s) — esta placa foi reprogramada e tem uma nova identidade.",
+  "Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. Połącz telefon z siecią noda i wyszukaj go lokalnie.":
+      "Este node não tem endereço IP salvo — o app só o conhece pela nuvem. Conecte o celular à rede do node e procure-o localmente.",
+  "Wyszukaj noda w tej sieci":
+      "Procurar o node nesta rede",
+  "Szukam w sieci...":
+      "Procurando na rede...",
+  "Nie znaleziono noda w tej sieci. Upewnij się, że telefon jest w tej samej sieci WiFi co node.":
+      "Node não encontrado nesta rede. Verifique se o celular está na mesma rede WiFi do node.",
+  "Node znaleziony: %s":
+      "Node encontrado: %s",
   "Rozmyj dokładną pozycję":
       "Desfocar a posição exata",
   "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":

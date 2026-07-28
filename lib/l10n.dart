@@ -602,6 +602,18 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":
+      "A different node is at this address (%s) — this board was reflashed and has a new identity.",
+  "Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. Połącz telefon z siecią noda i wyszukaj go lokalnie.":
+      "This node has no saved IP address — the app only knows it from the cloud. Connect your phone to the node's network and search for it locally.",
+  "Wyszukaj noda w tej sieci":
+      "Search for the node on this network",
+  "Szukam w sieci...":
+      "Searching the network...",
+  "Nie znaleziono noda w tej sieci. Upewnij się, że telefon jest w tej samej sieci WiFi co node.":
+      "Node not found on this network. Make sure your phone is on the same WiFi network as the node.",
+  "Node znaleziony: %s":
+      "Node found: %s",
   "Rozmyj dokładną pozycję":
       "Blur the exact position",
   "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":
@@ -653,6 +665,18 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Pod tym adresem jest inny node (%s) — ta płytka została przeflashowana i ma nową tożsamość.":
+      "Unter dieser Adresse ist ein anderer Node (%s) — diese Platine wurde neu geflasht und hat eine neue Identität.",
+  "Ten node nie ma zapisanego adresu IP — apka zna go tylko z chmury. Połącz telefon z siecią noda i wyszukaj go lokalnie.":
+      "Dieser Node hat keine gespeicherte IP-Adresse — die App kennt ihn nur aus der Cloud. Verbinde das Telefon mit dem Netzwerk des Nodes und suche ihn lokal.",
+  "Wyszukaj noda w tej sieci":
+      "Node in diesem Netzwerk suchen",
+  "Szukam w sieci...":
+      "Suche im Netzwerk...",
+  "Nie znaleziono noda w tej sieci. Upewnij się, że telefon jest w tej samej sieci WiFi co node.":
+      "Node in diesem Netzwerk nicht gefunden. Stelle sicher, dass das Telefon im selben WLAN ist wie der Node.",
+  "Node znaleziony: %s":
+      "Node gefunden: %s",
   "Rozmyj dokładną pozycję":
       "Genaue Position unscharf machen",
   "Na mapie pokazujemy punkt przesunięty o 200-800 m. Wyłącz tylko, jeśli chcesz publikować dokładny adres.":
