@@ -210,9 +210,8 @@ class _NodesScreenState extends State<NodesScreen> {
 
   // Komunikat „czemu ten node zarabia inaczej". Bez tego user widział spadek nagród
   // i nie miał jak się dowiedzieć, że zabrakło potwierdzenia GPS.
-  Widget _geoNotice(String state) {
-    final ghost = state == 'ghost';
-    final color = ghost ? Colors.amber.shade700 : const Color(0xFFFF4444);
+  Widget _geoNotice(bool ghost) {
+    final color = ghost ? const Color(0xFF3B82F6) : const Color(0xFFFF4444);
     final text = ghost
         ? tr('Tryb prywatny — node nie jest pokazywany na mapie i zarabia w obniżonej '
              'stawce, bo nie współtworzy publicznego pokrycia sieci.')
@@ -619,7 +618,12 @@ class _NodesScreenState extends State<NodesScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(children: [
-              Container(width: 10, height: 10, decoration: BoxDecoration(shape: BoxShape.circle, color: healthColor)),
+              // Ghost = niebieski, jak na mapie (tam blue to node bez potwierdzonej
+              // pozycji publicznej). Stan łączności nie ginie — jest wypisany tekstem
+              // w linijce pod spodem.
+              Container(width: 10, height: 10, decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: be?['ghost'] == true ? const Color(0xFF3B82F6) : healthColor)),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // ID na pierwszym planie — to ono identyfikuje node jednoznacznie,
@@ -638,14 +642,14 @@ class _NodesScreenState extends State<NodesScreen> {
               ])),
               // Reachability lokalna: „W tej sieci" (akcje lokalne) / „Zdalnie"
               _reachBadge(localReachable, saved != null),
-              // geo_state z BE: ghost zachowuje lat/lon, więc po samym `located` był
-              // nie do odróżnienia od noda z potwierdzonym GPS-em.
-              if (be?['geo_state'] == 'ghost') ...[
+              // Dwie niezależne ikonki — node bywa i bez GPS, i ukryty naraz.
+              if (be != null && be['geo_state'] != 'gps') ...[
                 const SizedBox(width: 6),
-                Icon(Icons.visibility_off_outlined, size: 15, color: Colors.amber.shade700),
-              ] else if (be != null && be['geo_state'] != 'gps') ...[
+                const Icon(Icons.location_off, size: 15, color: Color(0xFFFF4444)),
+              ],
+              if (be?['ghost'] == true) ...[
                 const SizedBox(width: 6),
-                Icon(Icons.location_off, size: 15, color: const Color(0xFFFF4444)),
+                const Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6)),
               ],
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
@@ -762,11 +766,17 @@ class _NodesScreenState extends State<NodesScreen> {
                   )),
                 ]),
                 // Dlaczego node zarabia mało albo wcale — wprost, zamiast samej ikonki.
+                // Oba powody mogą wystąpić naraz i wtedy oba są pokazywane: brak GPS
+                // jest ważniejszy (kosztuje więcej), więc idzie pierwszy.
                 if (be != null && be['geo_state'] != null && be['geo_state'] != 'gps') ...[
                   const SizedBox(height: 10),
-                  _geoNotice(be['geo_state'] as String),
+                  _geoNotice(false),
                 ],
-                if (be != null && be['geo_state'] != 'gps' && be['geo_state'] != 'ghost') ...[
+                if (be?['ghost'] == true) ...[
+                  const SizedBox(height: 8),
+                  _geoNotice(true),
+                ],
+                if (be != null && be['geo_state'] != 'gps') ...[
                   const SizedBox(height: 8),
                   SizedBox(width: double.infinity, child: TextButton.icon(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TrustScreen(node: saved))),
