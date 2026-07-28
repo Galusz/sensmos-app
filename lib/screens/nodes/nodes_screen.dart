@@ -653,17 +653,18 @@ class _NodesScreenState extends State<NodesScreen> {
                     const Padding(padding: EdgeInsets.only(left: 8),
                         child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
                 ]),
-                Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
-                // Badge zszedł z głównego rzędu tutaj — tam zabierał szerokość wszystkim
-                // trzem liniom naraz i to on wypychał ikony na tekst.
+                // Linia 2: miejscowość z lewej, znacznik sieci z prawej. Badge zszedł
+                // z głównego rzędu — tam zabierał szerokość wszystkim trzem liniom naraz
+                // i to on wypychał ikony na tekst pierwszej linii.
                 Row(children: [
-                  Flexible(child: Text(healthText,
-                      style: TextStyle(color: healthColor, fontSize: 11),
+                  Expanded(child: Text(name,
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12),
                       maxLines: 1, overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: 8),
                   _reachBadge(localReachable, saved != null),
                 ]),
+                Text(healthText, style: TextStyle(color: healthColor, fontSize: 11),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
