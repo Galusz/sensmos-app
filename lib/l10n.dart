@@ -602,6 +602,22 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Zastąpić portfel w aplikacji?":
+      "Replace the wallet in the app?",
+  "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":
+      "The app already holds a different wallet. Restoring will OVERWRITE it.",
+  "Obecny w aplikacji:":
+      "Currently in the app:",
+  "Kopia na nodzie:":
+      "Backup on the node:",
+  "Jeśli obecny portfel nie został nigdzie wyeksportowany, stracisz do niego dostęp razem ze środkami. Klucza nie da się odtworzyć.":
+      "If the current wallet has not been exported anywhere, you will lose access to it and to its funds. The key cannot be recreated.",
+  "Nadpisz":
+      "Overwrite",
+  "Sprawdzam kopię na nodzie…":
+      "Checking the backup on the node…",
+  "Na nodzie jest kopia TEGO SAMEGO portfela — nic nie zmieniam.":
+      "The node holds a backup of THE SAME wallet — nothing changed.",
   "Pełne ID":
       "Full ID",
   "Adres IP":
@@ -671,6 +687,22 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Zastąpić portfel w aplikacji?":
+      "Wallet in der App ersetzen?",
+  "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":
+      "Die App enthält bereits eine andere Wallet. Die Wiederherstellung ÜBERSCHREIBT sie.",
+  "Obecny w aplikacji:":
+      "Aktuell in der App:",
+  "Kopia na nodzie:":
+      "Kopie auf dem Node:",
+  "Jeśli obecny portfel nie został nigdzie wyeksportowany, stracisz do niego dostęp razem ze środkami. Klucza nie da się odtworzyć.":
+      "Wenn die aktuelle Wallet nirgends exportiert wurde, verlierst du den Zugang zu ihr und zu ihrem Guthaben. Der Schlüssel lässt sich nicht wiederherstellen.",
+  "Nadpisz":
+      "Überschreiben",
+  "Sprawdzam kopię na nodzie…":
+      "Prüfe die Kopie auf dem Node…",
+  "Na nodzie jest kopia TEGO SAMEGO portfela — nic nie zmieniam.":
+      "Auf dem Node liegt eine Kopie DERSELBEN Wallet — nichts geändert.",
   "Pełne ID":
       "Vollständige ID",
   "Adres IP":

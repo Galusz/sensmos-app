@@ -145,10 +145,70 @@ class _ServiceScreenState extends State<ServiceScreen> {
     }
   }
 
+  // Pytamy, ZANIM cokolwiek nadpiszemy. Klucza prywatnego nie da się odzyskać —
+  // jeśli portfel w apce nie był nigdzie wyeksportowany, nadpisanie go kasuje na zawsze.
+  Future<bool> _confirmOverwrite(String currentAddr, String nodeAddr) async {
+    final r = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Zastąpić portfel w aplikacji?')),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('W aplikacji jest już inny portfel. Odzysk go NADPISZE.'),
+                style: const TextStyle(color: Color(0xFFFF4444))),
+            const SizedBox(height: 12),
+            Text(tr('Obecny w aplikacji:'), style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+            SelectableText(currentAddr, style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 8),
+            Text(tr('Kopia na nodzie:'), style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+            SelectableText(nodeAddr.isEmpty ? '?' : nodeAddr, style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            Text(tr('Jeśli obecny portfel nie został nigdzie wyeksportowany, stracisz do niego dostęp '
+                    'razem ze środkami. Klucza nie da się odtworzyć.'),
+                style: const TextStyle(fontSize: 12, color: AppTheme.muted)),
+          ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Nadpisz'), style: const TextStyle(color: Color(0xFFFF4444)))),
+        ],
+      ),
+    );
+    return r == true;
+  }
+
   Future<void> _recoverWallet() async {
     final wallet = context.read<WalletService>();
-    setState(() { _phase = _Phase.working; _status = tr('Pobieram kopię z noda…'); });
+    setState(() { _phase = _Phase.working; _status = tr('Sprawdzam kopię na nodzie…'); });
     try {
+      // Najpierw SAM ADRES — node zna go bez odszyfrowywania bloba (wallet_status zwraca
+      // has_backup + addr). Bez tego kroku apka nadpisywała portfel w ciemno, a user
+      // dowiadywał się co dostał dopiero ze snackbara, czyli po fakcie.
+      Map<String, dynamic> st = {};
+      try { st = await _ble.walletStatus(); } catch (_) {}
+      final nodeAddr = (st['addr'] as String?) ?? '';
+
+      final hasCurrent = await wallet.exists();
+      if (hasCurrent) {
+        final cur = await wallet.load();
+        final curAddr = cur?.address ?? '';
+        if (nodeAddr.isNotEmpty && curAddr.isNotEmpty &&
+            nodeAddr.toLowerCase() == curAddr.toLowerCase()) {
+          if (!mounted) return;
+          setState(() { _phase = _Phase.connected; _status = ''; });
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+              content: Text(tr('Na nodzie jest kopia TEGO SAMEGO portfela — nic nie zmieniam.'))));
+          return;
+        }
+        if (!mounted) return;
+        if (!await _confirmOverwrite(curAddr, nodeAddr)) {
+          if (mounted) setState(() { _phase = _Phase.connected; _status = ''; });
+          return;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() { _phase = _Phase.working; _status = tr('Pobieram kopię z noda…'); });
       final r = await _ble.walletRestore();
       final blob = r['blob'] as String?;
       if (r['status'] != 'ok' || blob == null || blob.isEmpty) {

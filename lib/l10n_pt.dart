@@ -487,6 +487,22 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Zastąpić portfel w aplikacji?":
+      "Substituir a carteira no app?",
+  "W aplikacji jest już inny portfel. Odzysk go NADPISZE.":
+      "O app já tem outra carteira. A restauração vai SOBRESCREVÊ-LA.",
+  "Obecny w aplikacji:":
+      "Atual no app:",
+  "Kopia na nodzie:":
+      "Cópia no node:",
+  "Jeśli obecny portfel nie został nigdzie wyeksportowany, stracisz do niego dostęp razem ze środkami. Klucza nie da się odtworzyć.":
+      "Se a carteira atual não foi exportada em nenhum lugar, você perderá o acesso a ela e aos fundos. A chave não pode ser recriada.",
+  "Nadpisz":
+      "Sobrescrever",
+  "Sprawdzam kopię na nodzie…":
+      "Verificando a cópia no node…",
+  "Na nodzie jest kopia TEGO SAMEGO portfela — nic nie zmieniam.":
+      "O node tem uma cópia da MESMA carteira — nada foi alterado.",
   "Pełne ID":
       "ID completo",
   "Adres IP":
