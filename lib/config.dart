@@ -1,25 +1,25 @@
-/// SENSMOS — konfiguracja globalna
+﻿/// SENSMOS â€” konfiguracja globalna
 class Config {
-  // Wersja aplikacji — trzymać w zgodzie z pubspec.yaml (version:)
-  // UWAGA: podbijać RAZEM z pubspec.yaml — updater porównuje TĘ stałą z manifestem;
-  // rozjazd = wieczna pętla „dostępna aktualizacja" (wpadka 1.4.9, wcześniej 1.4.8)
-  static const String appVersion = '1.5.20';
-  // Manifest aktualizacji (wersja + changelog + URL APK) — public/app/manifest.json na BE
+  // Wersja aplikacji â€” trzymaÄ‡ w zgodzie z pubspec.yaml (version:)
+  // UWAGA: podbijaÄ‡ RAZEM z pubspec.yaml â€” updater porĂłwnuje TÄ staĹ‚Ä… z manifestem;
+  // rozjazd = wieczna pÄ™tla â€ždostÄ™pna aktualizacja" (wpadka 1.4.9, wczeĹ›niej 1.4.8)
+  static const String appVersion = '1.5.21';
+  // Manifest aktualizacji (wersja + changelog + URL APK) â€” public/app/manifest.json na BE
   static const String updateManifestUrl = 'https://api.sensmos.com/app/manifest.json';
 
   // Backend (publiczne dane: mapa, ranking, statystyki)
   static const String beUrl  = 'https://api.sensmos.com';
-  // URL przekazywany do noda (z /v1 — firmware dokleja /ws)
+  // URL przekazywany do noda (z /v1 â€” firmware dokleja /ws)
   static const String nodeBackendUrl = 'https://api.sensmos.com/v1';
   static const String wsUrl  = 'wss://api.sensmos.com/v1/map/live';
 
-  // BLE — UUID usługi SENSMOS (zgodne z firmware ble_config.h)
+  // BLE â€” UUID usĹ‚ugi SENSMOS (zgodne z firmware ble_config.h)
   static const String bleServiceUuid = 'a7f3bc52-4e1d-4e7a-9c2f-8b5d6e3a1f0c';
-  static const String bleCharWrite    = 'a7f3bc52-4e1d-4e7a-9c2f-8b5d6e3a1f0d'; // app → esp
-  static const String bleCharRead     = 'a7f3bc52-4e1d-4e7a-9c2f-8b5d6e3a1f0e'; // esp → app
+  static const String bleCharWrite    = 'a7f3bc52-4e1d-4e7a-9c2f-8b5d6e3a1f0d'; // app â†’ esp
+  static const String bleCharRead     = 'a7f3bc52-4e1d-4e7a-9c2f-8b5d6e3a1f0e'; // esp â†’ app
   static const String bleNamePrefix   = 'SENSMOS-';
 
-  // mDNS — wykrywanie nodów w sieci lokalnej
+  // mDNS â€” wykrywanie nodĂłw w sieci lokalnej
   static const String mdnsService = '_sensmos._tcp';
 
   // Klucze secure storage
@@ -30,7 +30,7 @@ class Config {
   static const String kNodePin      = 'sensmos_node_pin';
   static const String kNodeHostname = 'sensmos_node_hostname';
 
-  // Polygon mainnet — kontrakt GALU (SensmosRewardPool = token + pula nagród).
+  // Polygon mainnet â€” kontrakt GALU (SensmosRewardPool = token + pula nagrĂłd).
   static const String polygonRpc  = 'https://polygon-bor-rpc.publicnode.com';
   static const String rewardPool  = '0x9d797D0E642D9EADdbDbD34ACFCFd07bf0043c6C';
 }

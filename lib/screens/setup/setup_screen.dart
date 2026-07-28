@@ -37,6 +37,7 @@ class _SetupScreenState extends State<SetupScreen> {
   String  _authDeviceId = '';
   int     _countdown = 0;
   bool    _waitingReset = false;
+  String? _resetReason;          // nagłówek ekranu odliczania — czemu rejestracja padła
   int     _doneCountdown = 3;
 
   // Odtwarzanie ID (FW ≥ 0.46): user wybiera z selektora offline'owy node swojego
@@ -123,8 +124,8 @@ class _SetupScreenState extends State<SetupScreen> {
   }
 
 
-  Future<void> _startResetCountdown() async {
-    setState(() { _waitingReset = true; _countdown = 60; });
+  Future<void> _startResetCountdown([String? reason]) async {
+    setState(() { _waitingReset = true; _countdown = 60; _resetReason = reason; });
     while (_countdown > 0 && mounted) {
       await Future.delayed(const Duration(seconds: 1));
       if (mounted) setState(() => _countdown--);
@@ -144,7 +145,24 @@ class _SetupScreenState extends State<SetupScreen> {
     final navigator     = Navigator.of(context);
     String? restoreBleName;   // przy restore node zwraca nową nazwę BLE (SENSMOS-<nowe ID>)
 
-    setState(() { _step = _Step.connecting; _error = null; _status = tr('Łączenie przez BLE...'); });
+    setState(() { _step = _Step.connecting; _error = null; _status = tr('Sprawdzam połączenie...'); });
+
+    // Bez internetu rejestracja padnie TAK CZY TAK, ale node zdąży dostać konfigurację
+    // WiFi i po 60 s watchdoga zrobi factory reset — tracąc tożsamość. Więc nie zaczynamy
+    // w ogóle: sprawdzamy łączność, zanim dotkniemy urządzenia.
+    if (!await attestService.beReachable()) {
+      if (!mounted) return;
+      setState(() {
+        _step   = _Step.form;
+        _status = '';
+        _error  = tr('Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. '
+                     'Telefon musi być online przez cały czas rejestracji. '
+                     'Połącz się z siecią i spróbuj ponownie.');
+      });
+      return;
+    }
+
+    if (mounted) setState(() => _status = tr('Łączenie przez BLE...'));
 
     try {
       // 1. Połącz BLE + auth → nonce
@@ -305,10 +323,16 @@ class _SetupScreenState extends State<SetupScreen> {
         msg = tr('Nie udało się połączyć z nodem przez Bluetooth. Upewnij się, że node jest w trybie konfiguracji (przytrzymaj przycisk ~3 s), podejdź bliżej i przełącz Bluetooth. Jeśli resetowałeś node — wróć do skanowania, bo ma teraz nową nazwę.');
       }
       try { await _ble.disconnect(); } catch (_) {}
-      // Błąd BE = watchdog zresetuje node za ~60s
-      if (msg.contains('rejestracja_backend_niedostepny')) {
-        print('[Setup] BE niedostepny — countdown reset');
-        _startResetCountdown();
+      // Rejestracja padła po tym, jak node dostał już WiFi → watchdog zresetuje go za ~60 s.
+      // Nazywamy przyczynę wprost: „urządzenie się resetuje" wskazywało palcem na sprzęt,
+      // podczas gdy zwykle winna jest utrata sieci w telefonie.
+      if (msg.contains('rejestracja_brak_internetu')) {
+        print('[Setup] utracono internet w trakcie rejestracji — countdown reset');
+        _startResetCountdown(tr('Utracono połączenie z internetem — nie udało się zarejestrować noda. '
+                                'Telefon musi być online przez cały czas rejestracji.'));
+      } else if (msg.contains('rejestracja_backend_odmowa')) {
+        print('[Setup] BE odrzucil rejestracje — countdown reset');
+        _startResetCountdown(tr('Serwer odrzucił rejestrację noda.'));
       } else {
         setState(() { _step = _Step.form; _error = msg; _status = ''; });
       }
@@ -514,7 +538,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     fontSize: 24, fontWeight: FontWeight.bold)),
           ]),
           const SizedBox(height: 24),
-          Text(tr('Nie udało się zarejestrować noda'),
+          Text(_resetReason ?? tr('Nie udało się zarejestrować noda'),
               style: const TextStyle(color: AppTheme.red, fontSize: 15,
                   fontWeight: FontWeight.w500),
               textAlign: TextAlign.center),

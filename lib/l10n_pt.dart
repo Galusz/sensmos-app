@@ -487,6 +487,14 @@ const Map<String, String> ptMap = {
   "Nie udało się uruchomić": "Não foi possível executar",
   "brak historii": "sem histórico",
   "Gotowe": "Pronto",
+  "Sprawdzam połączenie...":
+      "Verificando conexão...",
+  "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":
+      "Não é possível registrar o node — o aplicativo está sem conexão com a internet. O celular precisa ficar online durante todo o registro. Conecte-se a uma rede e tente novamente.",
+  "Utracono połączenie z internetem — nie udało się zarejestrować noda. Telefon musi być online przez cały czas rejestracji.":
+      "Conexão com a internet perdida — não foi possível registrar o node. O celular precisa ficar online durante todo o registro.",
+  "Serwer odrzucił rejestrację noda.":
+      "O servidor recusou o registro do node.",
   "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
       "Node adicionado, mas a verificação falhou — sem ela não há recompensas. Repita a cerimônia nas configurações do node (Confiança).",
   "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":

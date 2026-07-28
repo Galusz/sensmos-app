@@ -602,6 +602,14 @@ const Map<String, String> _enMap = {
   "W sieci": "On network",
   "Zdalnie": "Remote",
   "przed chwilą": "just now",
+  "Sprawdzam połączenie...":
+      "Checking connection...",
+  "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":
+      "Cannot register the node — the app has no internet connection. Your phone must stay online for the whole registration. Connect to a network and try again.",
+  "Utracono połączenie z internetem — nie udało się zarejestrować noda. Telefon musi być online przez cały czas rejestracji.":
+      "Internet connection lost — the node could not be registered. Your phone must stay online for the whole registration.",
+  "Serwer odrzucił rejestrację noda.":
+      "The server rejected the node registration.",
   "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
       "Node added, but verification failed — without it the node earns nothing. Repeat the ceremony in the node settings (Trust).",
   // ── Panel HA: typy kafelków + akcje ──
@@ -635,6 +643,14 @@ const Map<String, String> _deMap = {
   "Nie udało się uruchomić": "Konnte nicht ausgeführt werden",
   "brak historii": "kein Verlauf",
   "Gotowe": "Fertig",
+  "Sprawdzam połączenie...":
+      "Verbindung wird geprüft...",
+  "Nie można zarejestrować noda — aplikacja nie ma połączenia z internetem. Telefon musi być online przez cały czas rejestracji. Połącz się z siecią i spróbuj ponownie.":
+      "Node kann nicht registriert werden — die App hat keine Internetverbindung. Das Telefon muss während der gesamten Registrierung online sein. Verbinde dich mit einem Netzwerk und versuche es erneut.",
+  "Utracono połączenie z internetem — nie udało się zarejestrować noda. Telefon musi być online przez cały czas rejestracji.":
+      "Internetverbindung verloren — der Node konnte nicht registriert werden. Das Telefon muss während der gesamten Registrierung online sein.",
+  "Serwer odrzucił rejestrację noda.":
+      "Der Server hat die Node-Registrierung abgelehnt.",
   "Node dodany, ale weryfikacja się nie powiodła — bez niej nie nalicza nagród. Powtórz ceremonię w ustawieniach noda (Zaufanie).":
       "Node hinzugefügt, aber die Verifizierung schlug fehl — ohne sie gibt es keine Belohnungen. Wiederhole die Zeremonie in den Node-Einstellungen (Vertrauen).",
   "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":

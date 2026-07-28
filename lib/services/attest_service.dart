@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config.dart';
+import '../log.dart';
 import 'ble_service.dart';
 
 /// Dowody ceremonii trust — pola odpowiedzi trust_sign + przebieg rund.
@@ -61,6 +62,20 @@ class AttestService {
         .join();
   }
 
+  /// Czy BE jest osiągalny. Sprawdzane PRZED rozpoczęciem setupu: bez internetu
+  /// rejestracja i tak padnie, a node zdąży dostać konfigurację WiFi i wpaść
+  /// w watchdog factory-resetu — czyli traci tożsamość za nasz błąd.
+  Future<bool> beReachable() async {
+    try {
+      final res = await http
+          .get(Uri.parse('${Config.beUrl}/health'))
+          .timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Pobierz seed ceremonii z BE. null = BE niedostępny / odmowa.
   Future<Map<String, dynamic>?> fetchSeed(String deviceId, String owner) async {
     try {
@@ -73,9 +88,16 @@ class AttestService {
                 'app_token': await appToken(),
               }))
           .timeout(const Duration(seconds: 8));
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        Log.e('attest', 'seed odrzucony przez BE: HTTP ${res.statusCode}');
+        return null;
+      }
       return jsonDecode(res.body) as Map<String, dynamic>;
-    } catch (_) {
+    } catch (e) {
+      // Nie połykać po cichu: to pierwszy kontakt z BE w setupie, a null tutaj oznacza
+      // pominięcie CAŁEJ ceremonii zaufania — node zostałby bez atestacji i nikt by
+      // nie wiedział dlaczego.
+      Log.e('attest', 'seed nieudany (sieć?): $e');
       return null;
     }
   }

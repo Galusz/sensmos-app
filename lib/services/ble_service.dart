@@ -214,7 +214,11 @@ class BleService {
           trustEv = null;
         }
       } else {
-        Log.w('attest', 'seed z BE niedostępny — pomijam atestację');
+        // Do tej pory było ciche pominięcie: node kończył setup bez zaufania i bez
+        // słowa wyjaśnienia. Teraz idzie tą samą drogą co inne błędy ceremonii,
+        // więc user zobaczy komunikat na końcu setupu.
+        Log.e('attest', 'seed z BE niedostępny — atestacja pominięta (sieć w telefonie?)');
+        lastAttestError = 'seed_unreachable';
       }
     }
 
@@ -269,11 +273,17 @@ class BleService {
         ).timeout(const Duration(seconds: 8));
         print('[Setup] 3/5 BE: ' + beRes.statusCode.toString() + ' ' + beRes.body);
         if (beRes.statusCode != 200 && beRes.statusCode != 409) {
-          throw Exception('rejestracja_backend_niedostepny');
+          Log.e('setup', 'rejestracja odrzucona: HTTP ${beRes.statusCode} ${beRes.body}');
+          throw Exception('rejestracja_backend_odmowa');
         }
       } catch (e) {
         print('[Setup] 3/5 BE BLAD: ' + e.toString());
-        throw Exception('rejestracja_backend_niedostepny');
+        if (e.toString().contains('rejestracja_backend_odmowa')) rethrow;
+        // Nie doszliśmy do kodu odpowiedzi = warstwa sieciowa padła (SocketException,
+        // ClientException, TimeoutException). Rozróżnienie ma znaczenie: „BE odmówił"
+        // to nasz problem, „telefon stracił sieć" to informacja dla użytkownika.
+        Log.e('setup', 'rejestracja — brak łączności: $e');
+        throw Exception('rejestracja_brak_internetu');
       }
     }
 
