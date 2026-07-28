@@ -628,29 +628,30 @@ class _NodesScreenState extends State<NodesScreen> {
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // ID na pierwszym planie — to ono identyfikuje node jednoznacznie,
                 // a miejscowość bywa ta sama dla kilku sztuk albo pusta.
-                Row(crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic, children: [
-                  Text(id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
-                      style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
-                          fontSize: 14, letterSpacing: 0.6)),
-                  const SizedBox(width: 6),
-                  Text('fw ${be?['firmware'] ?? '?'}',
-                      style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                // Ikonki stanu w prawym rogu TEJ linii, a nie w głównym rzędzie —
+                // tam konkurowały o szerokość z badge'em i strzałką i nic się nie mieściło.
+                Row(children: [
+                  Expanded(child: Row(crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic, children: [
+                    Text(id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
+                        style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
+                            fontSize: 14, letterSpacing: 0.6)),
+                    const SizedBox(width: 6),
+                    Text('fw ${be?['firmware'] ?? '?'}',
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+                  ])),
+                  if (be != null && be['geo_state'] != 'gps')
+                    const Padding(padding: EdgeInsets.only(left: 6),
+                        child: Icon(Icons.location_off, size: 15, color: Color(0xFFFF4444))),
+                  if (be?['ghost'] == true)
+                    const Padding(padding: EdgeInsets.only(left: 6),
+                        child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
                 ]),
                 Text(name, style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
                 Text(healthText, style: TextStyle(color: healthColor, fontSize: 11)),
               ])),
               // Reachability lokalna: „W tej sieci" (akcje lokalne) / „Zdalnie"
               _reachBadge(localReachable, saved != null),
-              // Dwie niezależne ikonki — node bywa i bez GPS, i ukryty naraz.
-              if (be != null && be['geo_state'] != 'gps') ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.location_off, size: 15, color: Color(0xFFFF4444)),
-              ],
-              if (be?['ghost'] == true) ...[
-                const SizedBox(width: 6),
-                const Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6)),
-              ],
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
             ]),
