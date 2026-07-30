@@ -199,6 +199,8 @@ const Map<String, String> ptMap = {
   "(brak payloadu)": "(sem payload)",
   // ── Setup / Onboarding ──
   "Włącz Bluetooth": "Ative o Bluetooth",
+  "Lokalizacja (GPS) jest wyłączona — na Androidzie 11 i starszych jest wymagana do skanowania Bluetooth.":
+      "A Localização (GPS) está desativada — no Android 11 e anteriores ela é necessária para a busca por Bluetooth.",
   "Wpisz nazwę sieci WiFi": "Digite o nome da rede WiFi",
   "Łączenie przez BLE...": "Conectando via BLE...",
   "Łączenie z nodem...": "Conectando ao node...",

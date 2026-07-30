@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -116,7 +117,17 @@ class _SetupScreenState extends State<SetupScreen> {
       (r) { if (mounted) setState(() { _results..clear()..addAll(r); }); },
     );
     await Future.delayed(const Duration(seconds: 12));
-    if (mounted) setState(() => _scanning = false);
+    if (!mounted) return;
+    setState(() => _scanning = false);
+    // Android ≤11: skan BLE wymaga włączonej lokalizacji — bez niej system po cichu
+    // zwraca pustą listę (na 12+ neverForLocation w manifeście załatwia sprawę).
+    if (_results.isEmpty && Platform.isAndroid &&
+        !await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) {
+        setState(() => _error = tr(
+            'Lokalizacja (GPS) jest wyłączona — na Androidzie 11 i starszych jest wymagana do skanowania Bluetooth.'));
+      }
+    }
   }
 
   Future<void> _connect(ScanResult r) async {

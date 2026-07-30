@@ -277,6 +277,8 @@ const Map<String, String> _enMap = {
 
   // ── Setup / Onboarding ───────────────────────────────────────
   "Włącz Bluetooth": "Turn on Bluetooth",
+  "Lokalizacja (GPS) jest wyłączona — na Androidzie 11 i starszych jest wymagana do skanowania Bluetooth.":
+      "Location (GPS) is off — on Android 11 and older it is required for Bluetooth scanning.",
   "Wpisz nazwę sieci WiFi": "Enter WiFi network name",
   "Łączenie przez BLE...": "Connecting via BLE...",
   "Łączenie z nodem...": "Connecting to node...",
@@ -972,6 +974,8 @@ const Map<String, String> _deMap = {
 
   // ── Setup / Onboarding ───────────────────────────────────────
   "Włącz Bluetooth": "Bluetooth einschalten",
+  "Lokalizacja (GPS) jest wyłączona — na Androidzie 11 i starszych jest wymagana do skanowania Bluetooth.":
+      "Standort (GPS) ist aus — auf Android 11 und älter ist er für das Bluetooth-Scannen erforderlich.",
   "Wpisz nazwę sieci WiFi": "WLAN-Namen eingeben",
   "Łączenie przez BLE...": "Verbindung über BLE...",
   "Łączenie z nodem...": "Verbindung zum Node...",
