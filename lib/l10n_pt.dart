@@ -141,7 +141,7 @@ const Map<String, String> ptMap = {
   "SALDO ON-CHAIN (Polygon)": "SALDO ON-CHAIN (Polygon)",
   "GALU w portfelu": "GALU na carteira",
   "POL (gas)": "POL (gas)",
-  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL (dawniej MATIC) na adres portfela (QR powyżej).": "Sem POL — as transações (resgate/depósito) exigem gas. Envie POL (antigo MATIC) para o endereço da carteira (QR acima).",
+  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).": "Sem POL — as transações (resgate/depósito) exigem gas. Envie POL para o endereço da carteira (QR acima).",
   "Eksportuj klucz (MetaMask)": "Exportar chave (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requer o PIN de qualquer um dos seus nodes",
   "Dostępne: %s (MAX)": "Disponível: %s (MÁX)",
@@ -151,7 +151,7 @@ const Map<String, String> ptMap = {
   "MetaMask → Importuj konto → Private Key → wklej.": "MetaMask → Importar conta → Private Key → colar.",
   "Klucz skopiowany": "Chave copiada",
   "Odbiór POL / GALU": "Receber POL / GALU",
-  "Wyślij POL na ten adres (gas na transakcje; POL to dawny MATIC)": "Envie POL para este endereço (gas para transações; POL é o antigo MATIC)",
+  "Wyślij POL na ten adres (gas na transakcje)": "Envie POL para este endereço (gas para transações)",
   "Kopiuj adres": "Copiar endereço",
   // ── Skrypty ──
   "Usuń skrypt": "Excluir script",

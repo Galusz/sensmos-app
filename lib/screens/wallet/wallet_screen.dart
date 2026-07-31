@@ -477,7 +477,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 6),
                 Text(
                     tr('Brak POL — transakcje (claim/deposit) wymagają gazu. '
-                        'Wpłać POL (dawniej MATIC) na adres portfela (QR powyżej).'),
+                        'Wpłać POL na adres portfela (QR powyżej).'),
                     style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
               ],
             ],
@@ -767,7 +767,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text(tr('Wyślij POL na ten adres (gas na transakcje; POL to dawny MATIC)'),
+            Text(tr('Wyślij POL na ten adres (gas na transakcje)'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
             const SizedBox(height: 20),
             Container(
