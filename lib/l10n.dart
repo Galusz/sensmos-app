@@ -209,8 +209,8 @@ const Map<String, String> _enMap = {
   "SALDO ON-CHAIN (Polygon)": "ON-CHAIN BALANCE (Polygon)",
   "GALU w portfelu": "GALU in wallet",
   "POL (gas)": "POL (gas)",
-  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
-      "No POL — transactions (claim/deposit) require gas. Send POL to your wallet address (QR above).",
+  "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
+      "Not enough POL — transactions (claim/deposit) require gas. Send POL to your wallet address (QR above).",
   "Eksportuj klucz (MetaMask)": "Export key (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requires the PIN of any of your nodes",
   "Dostępne: %s (MAX)": "Available: %s (MAX)",
@@ -906,8 +906,8 @@ const Map<String, String> _deMap = {
   "SALDO ON-CHAIN (Polygon)": "ON-CHAIN-GUTHABEN (Polygon)",
   "GALU w portfelu": "GALU im Wallet",
   "POL (gas)": "POL (Gas)",
-  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
-      "Kein POL — Transaktionen (Claim/Deposit) brauchen Gas. Sende POL an deine Wallet-Adresse (QR oben).",
+  "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
+      "Zu wenig POL — Transaktionen (Claim/Deposit) brauchen Gas. Sende POL an deine Wallet-Adresse (QR oben).",
   "Eksportuj klucz (MetaMask)": "Schlüssel exportieren (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "erfordert die PIN eines beliebigen deiner Nodes",
   "Dostępne: %s (MAX)": "Verfügbar: %s (MAX)",

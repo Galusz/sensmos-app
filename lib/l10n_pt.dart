@@ -141,7 +141,7 @@ const Map<String, String> ptMap = {
   "SALDO ON-CHAIN (Polygon)": "SALDO ON-CHAIN (Polygon)",
   "GALU w portfelu": "GALU na carteira",
   "POL (gas)": "POL (gas)",
-  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).": "Sem POL — as transações (resgate/depósito) exigem gas. Envie POL para o endereço da carteira (QR acima).",
+  "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).": "POL insuficiente — as transações (resgate/depósito) exigem gas. Envie POL para o endereço da carteira (QR acima).",
   "Eksportuj klucz (MetaMask)": "Exportar chave (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requer o PIN de qualquer um dos seus nodes",
   "Dostępne: %s (MAX)": "Disponível: %s (MÁX)",

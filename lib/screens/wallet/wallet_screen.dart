@@ -39,6 +39,9 @@ class _WalletScreenState extends State<WalletScreen> {
   // saldo on-chain (wei)
   BigInt _dhv = BigInt.zero;
   BigInt _matic = BigInt.zero;
+  // Za mało gazu = poniżej ~kosztu claima z zapasem (0.005 POL), nie tylko dokładne zero —
+  // pył 0.0001 POL i tak nie pozwoli wysłać transakcji, a ostrzeżenie by się nie pokazało.
+  bool get _lowGas => _matic < BigInt.from(5) * BigInt.from(10).pow(15);
 
   EthService get _eth => context.read<EthService>();
 
@@ -466,17 +469,15 @@ class _WalletScreenState extends State<WalletScreen> {
                             color: AppTheme.muted, fontSize: 13)),
                     Text(_weiToDouble(_matic).toStringAsFixed(4),
                         style: TextStyle(
-                            color: _matic == BigInt.zero
-                                ? AppTheme.red
-                                : AppTheme.text,
+                            color: _lowGas ? AppTheme.red : AppTheme.text,
                             fontSize: 13)),
                   ],
                 ),
               ),
-              if (_matic == BigInt.zero) ...[
+              if (_lowGas) ...[
                 const SizedBox(height: 6),
                 Text(
-                    tr('Brak POL — transakcje (claim/deposit) wymagają gazu. '
+                    tr('Za mało POL — transakcje (claim/deposit) wymagają gazu. '
                         'Wpłać POL na adres portfela (QR powyżej).'),
                     style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
               ],
