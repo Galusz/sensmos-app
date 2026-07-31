@@ -208,9 +208,9 @@ const Map<String, String> _enMap = {
   "Wpłać (Deposit)": "Deposit",
   "SALDO ON-CHAIN (Polygon)": "ON-CHAIN BALANCE (Polygon)",
   "GALU w portfelu": "GALU in wallet",
-  "MATIC (gas)": "MATIC (gas)",
-  "Brak MATIC — transakcje (claim/deposit) wymagają gazu. Wpłać MATIC na adres portfela (QR powyżej).":
-      "No MATIC — transactions (claim/deposit) require gas. Send MATIC to your wallet address (QR above).",
+  "POL (gas)": "POL (gas)",
+  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL (dawniej MATIC) na adres portfela (QR powyżej).":
+      "No POL — transactions (claim/deposit) require gas. Send POL (formerly MATIC) to your wallet address (QR above).",
   "Eksportuj klucz (MetaMask)": "Export key (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requires the PIN of any of your nodes",
   "Dostępne: %s (MAX)": "Available: %s (MAX)",
@@ -220,8 +220,8 @@ const Map<String, String> _enMap = {
       "⚠️ Never show this key to anyone. Whoever has it controls the wallet and all GALU.",
   "MetaMask → Importuj konto → Private Key → wklej.": "MetaMask → Import account → Private Key → paste.",
   "Klucz skopiowany": "Key copied",
-  "Odbiór MATIC / GALU": "Receive MATIC / GALU",
-  "Wyślij MATIC na ten adres (gas na transakcje)": "Send MATIC to this address (gas for transactions)",
+  "Odbiór POL / GALU": "Receive POL / GALU",
+  "Wyślij POL na ten adres (gas na transakcje; POL to dawny MATIC)": "Send POL to this address (gas for transactions; POL is the former MATIC)",
   "Kopiuj adres": "Copy address",
 
   // ── Skrypty ──────────────────────────────────────────────────
@@ -905,9 +905,9 @@ const Map<String, String> _deMap = {
   "Wpłać (Deposit)": "Einzahlen (Deposit)",
   "SALDO ON-CHAIN (Polygon)": "ON-CHAIN-GUTHABEN (Polygon)",
   "GALU w portfelu": "GALU im Wallet",
-  "MATIC (gas)": "MATIC (Gas)",
-  "Brak MATIC — transakcje (claim/deposit) wymagają gazu. Wpłać MATIC na adres portfela (QR powyżej).":
-      "Kein MATIC — Transaktionen (Claim/Deposit) brauchen Gas. Sende MATIC an deine Wallet-Adresse (QR oben).",
+  "POL (gas)": "POL (Gas)",
+  "Brak POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL (dawniej MATIC) na adres portfela (QR powyżej).":
+      "Kein POL — Transaktionen (Claim/Deposit) brauchen Gas. Sende POL (früher MATIC) an deine Wallet-Adresse (QR oben).",
   "Eksportuj klucz (MetaMask)": "Schlüssel exportieren (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "erfordert die PIN eines beliebigen deiner Nodes",
   "Dostępne: %s (MAX)": "Verfügbar: %s (MAX)",
@@ -917,8 +917,8 @@ const Map<String, String> _deMap = {
       "⚠️ Zeige diesen Schlüssel niemandem. Wer ihn hat, kontrolliert das Wallet und alle GALU.",
   "MetaMask → Importuj konto → Private Key → wklej.": "MetaMask → Konto importieren → Private Key → einfügen.",
   "Klucz skopiowany": "Schlüssel kopiert",
-  "Odbiór MATIC / GALU": "MATIC / GALU empfangen",
-  "Wyślij MATIC na ten adres (gas na transakcje)": "Sende MATIC an diese Adresse (Gas für Transaktionen)",
+  "Odbiór POL / GALU": "POL / GALU empfangen",
+  "Wyślij POL na ten adres (gas na transakcje; POL to dawny MATIC)": "Sende POL an diese Adresse (Gas für Transaktionen; POL ist das frühere MATIC)",
   "Kopiuj adres": "Adresse kopieren",
 
   // ── Skrypty ──────────────────────────────────────────────────

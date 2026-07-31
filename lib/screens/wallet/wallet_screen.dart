@@ -461,7 +461,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(tr('MATIC (gas)'),
+                    Text(tr('POL (gas)'),
                         style: const TextStyle(
                             color: AppTheme.muted, fontSize: 13)),
                     Text(_weiToDouble(_matic).toStringAsFixed(4),
@@ -476,8 +476,8 @@ class _WalletScreenState extends State<WalletScreen> {
               if (_matic == BigInt.zero) ...[
                 const SizedBox(height: 6),
                 Text(
-                    tr('Brak MATIC — transakcje (claim/deposit) wymagają gazu. '
-                        'Wpłać MATIC na adres portfela (QR powyżej).'),
+                    tr('Brak POL — transakcje (claim/deposit) wymagają gazu. '
+                        'Wpłać POL (dawniej MATIC) na adres portfela (QR powyżej).'),
                     style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
               ],
             ],
@@ -761,13 +761,13 @@ class _WalletScreenState extends State<WalletScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(tr('Odbiór MATIC / GALU'),
+            Text(tr('Odbiór POL / GALU'),
                 style: const TextStyle(
                     color: AppTheme.text,
                     fontSize: 16,
                     fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text(tr('Wyślij MATIC na ten adres (gas na transakcje)'),
+            Text(tr('Wyślij POL na ten adres (gas na transakcje; POL to dawny MATIC)'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
             const SizedBox(height: 20),
             Container(
