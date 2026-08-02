@@ -700,14 +700,13 @@ class _NodesScreenState extends State<NodesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // statystyki
+              // Statystyki. Elastyczne, bo na wąskich ekranach (starsze telefony) sztywne
+              // odstępy + Spacer wypychały „Pełne ID / Kopiuj" poza kartę.
               Row(children: [
-                _stat('Scarcity', _scarcity[id] ?? '—'),
-                const SizedBox(width: 16),
-                _stat(tr('Sąsiedzi'), _beData[id]?['neighbors'] ?? '—'),
-                const SizedBox(width: 16),
-                _stat(tr('Promień'), _beData[id]?['radius'] ?? '—'),
-                const Spacer(),
+                Expanded(child: _stat('Scarcity', _scarcity[id] ?? '—')),
+                Expanded(child: _stat(tr('Sąsiedzi'), _beData[id]?['neighbors'] ?? '—')),
+                Expanded(child: _stat(tr('Promień'), _beData[id]?['radius'] ?? '—')),
+                const SizedBox(width: 8),
                 // Wcześniej sama ikonka kopiowania obok trzech opisanych statystyk —
                 // nie było wiadomo, czego dotyczy. Teraz podpisana jak reszta.
                 InkWell(
@@ -751,11 +750,14 @@ class _NodesScreenState extends State<NodesScreen> {
               // Bez tego drugiego porzucony node (zmieniona tozsamosc, inny portfel)
               // zostawal na liscie na zawsze, bo pierwszego nie da sie wykonac.
               Row(children: [
+                // FittedBox zamiast ellipsis: „Remove from network" ma się zmniejszyć,
+                // a nie zostać przycięte do „Remov…" (bez tego etykieta traci sens).
                 Expanded(child: OutlinedButton.icon(
                   onPressed: () => _deleteFromNetwork(id),
                   icon: const Icon(Icons.delete_outline, size: 16),
-                  label: Text(tr('Usuń z sieci'), overflow: TextOverflow.ellipsis),
+                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Usuń z sieci'), maxLines: 1)),
                   style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       foregroundColor: const Color(0xFFFF6666),
                       side: const BorderSide(color: Color(0x55FF6666))),
                 )),
@@ -763,8 +765,9 @@ class _NodesScreenState extends State<NodesScreen> {
                 Expanded(child: OutlinedButton.icon(
                   onPressed: saved == null ? null : () => _forgetLocally(id),
                   icon: const Icon(Icons.playlist_remove, size: 16),
-                  label: Text(tr('Usuń z listy'), overflow: TextOverflow.ellipsis),
+                  label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Usuń z listy'), maxLines: 1)),
                   style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
                       foregroundColor: AppTheme.amber,
                       side: BorderSide(color: AppTheme.amber.withOpacity(0.35))),
                 )),
@@ -871,12 +874,17 @@ class _NodesScreenState extends State<NodesScreen> {
     );
   }
 
-  Widget _groupLabel(IconData icon, String text) => Row(children: [
-        Icon(icon, size: 13, color: AppTheme.muted),
-        const SizedBox(width: 6),
-        Text(text.toUpperCase(),
-            style: const TextStyle(color: AppTheme.muted, fontSize: 10.5, letterSpacing: 0.6, fontWeight: FontWeight.w600)),
-      ]);
+  // Nagłówek sekcji zawija się zamiast uciekać poza kartę — „SIEĆ LOKALNA (TYLKO W SIECI
+  // NODA)" po angielsku jest długie i na wąskim ekranie nie mieści się w jednej linii.
+  Widget _groupLabel(IconData icon, String text) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(top: 1),
+              child: Icon(icon, size: 13, color: AppTheme.muted)),
+          const SizedBox(width: 6),
+          Expanded(child: Text(text.toUpperCase(),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 10.5, letterSpacing: 0.6, fontWeight: FontWeight.w600))),
+        ]);
 
   Widget _localLocked(bool hasLocal, [String? id]) => Container(
         width: double.infinity,
@@ -973,9 +981,13 @@ class _NodesScreenState extends State<NodesScreen> {
   Widget _divider() => Container(width: 1, height: 40, color: AppTheme.border, margin: const EdgeInsets.symmetric(horizontal: 8));
 
   Widget _stat(String label, String value) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+        Text(label, maxLines: 1, overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
         const SizedBox(height: 2),
-        Text(value, style: const TextStyle(color: AppTheme.text, fontSize: 14, fontWeight: FontWeight.w500)),
+        // scaleDown zamiast ucinania: „200.0 km" ma się zmieścić, a nie zamienić w „200…"
+        FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft,
+          child: Text(value, maxLines: 1,
+              style: const TextStyle(color: AppTheme.text, fontSize: 14, fontWeight: FontWeight.w500))),
       ]);
 
   Widget _buildEmpty() => Center(
