@@ -1,9 +1,22 @@
 ﻿/// SENSMOS â€” konfiguracja globalna
+import 'package:package_info_plus/package_info_plus.dart';
+
 class Config {
   // Wersja aplikacji â€” trzymaÄ‡ w zgodzie z pubspec.yaml (version:)
   // UWAGA: podbijaÄ‡ RAZEM z pubspec.yaml â€” updater porĂłwnuje TÄ staĹ‚Ä… z manifestem;
   // rozjazd = wieczna pÄ™tla â€ždostÄ™pna aktualizacja" (wpadka 1.4.9, wczeĹ›niej 1.4.8)
-  static const String appVersion = '1.5.33';
+  // Czytana z ZAINSTALOWANEGO pakietu (patrz initVersion), nie przepisywana recznie.
+  // Reczna stala rozjechala sie z pubspec.yaml juz trzy razy (1.4.8, 1.4.9, 1.5.34/35)
+  // i za kazdym razem dawala wieczna petle "dostepna aktualizacja", bo updater porownuje
+  // z manifestem wlasnie ja, a nie realna wersje APK.
+  static String appVersion = '0.0.0';
+
+  static Future<void> initVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (info.version.isNotEmpty) appVersion = info.version;
+    } catch (_) {/* zostaje 0.0.0 -> updater zaproponuje aktualizacje, nie zablokuje jej */}
+  }
   // Manifest aktualizacji (wersja + changelog + URL APK) â€” public/app/manifest.json na BE
   static const String updateManifestUrl = 'https://api.sensmos.com/app/manifest.json';
 

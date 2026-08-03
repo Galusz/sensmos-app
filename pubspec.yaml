@@ -1,7 +1,7 @@
 ﻿name: sensmos_app
 description: SENSMOS â€” sieÄ‡ inteligentnych czujnikĂłw
 publish_to: 'none'
-version: 1.5.35+69
+version: 1.5.36+70
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -58,6 +58,8 @@ dependencies:
   # Utils
   intl: ^0.20.2
   url_launcher: ^6.3.0
+  # Wersja aplikacji czytana z pakietu — patrz Config.initVersion (koniec z ręczną stałą)
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:

@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'theme.dart';
+import 'config.dart';
 import 'l10n.dart';
 import 'log.dart';
 import 'core/core_bloc.dart';
@@ -25,6 +26,7 @@ Future<void> _fcmBackground(RemoteMessage message) async {}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Config.initVersion();   // wersja z pakietu — updater i ekran Ustawień czytają ją stąd
   await L10n.init();
   await Log.load();
   // Firebase opcjonalny — apka działa też bez google-services.json
