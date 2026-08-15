@@ -5,11 +5,11 @@ import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/wallet_service.dart';
 import '../../services/terminal_relay.dart';
+import '../../util/pair_gate.dart';
 import '../../services/integrations/http_over_tunnel.dart';
 import '../../services/integrations/home_integration.dart';
 import '../../services/integrations/ha_integration.dart';
 import '../../services/integrations/integration_store.dart';
-import '../../util/pin_gate.dart';
 import 'ha_settings_screen.dart';
 
 enum _Phase { connecting, ready, error }
@@ -70,10 +70,19 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
 
       final wallet = await context.read<WalletService>().load();
       if (wallet == null) throw Exception(tr('Brak portfela w apce'));
+
+      // Klucz parowania — bez niego node odmówi otwarcia tunelu. Jednorazowo wymaga bycia
+      // w tej samej sieci WiFi co node (patrz pair_gate); potem leży w bezpiecznym magazynie.
+      if (!mounted) return;
+      final pairKey = await ensurePaired(context, widget.deviceId);
+      if (!mounted) return;
+      if (pairKey == null) { Navigator.pop(context); return; }
+
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
+        pairKey: pairKey,
       );
       _relay = relay;
       _evSub = relay.events.listen(_onRelayEvent);
@@ -82,16 +91,6 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       if (!relay.nodeOnline) {
         setState(() { _phase = _Phase.error; _status = tr('Node jest offline — wróci gdy odzyska sieć.'); });
         return;
-      }
-      // dostęp do LAN = PIN-gate (jak terminal); jeśli już włączony, nie pytamy ponownie.
-      // confirmNodePin ponawia zły PIN wewnątrz dialogu; false = user ANULOWAŁ → wyjście z panelu
-      // (a nie error→retry→PIN, co dawało pętlę).
-      if (!relay.remoteEnabled) {
-        if (!await confirmNodePin(context, widget.deviceId)) {
-          if (mounted) Navigator.pop(context);
-          return;
-        }
-        relay.setRemote(true);
       }
 
       final sock = await relay.openTunnel(binding.host, binding.port);

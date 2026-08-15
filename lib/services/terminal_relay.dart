@@ -4,15 +4,21 @@ import 'dart:typed_data';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:dartssh2/dartssh2.dart';
 import '../config.dart';
+import 'pairing_service.dart';
 
 /// RemoteTerminal — most apka↔BE(/v1/term)↔node.
 /// Owner-auth podpisem portfela; otwiera tunel TCP na nodzie (np. 192.168.1.1:22) i wystawia
 /// [SSHSocket] dla dartssh2. Node to głupia rura — cała krypto SSH jest tu (E2E), BE/node nie
-/// widzą haseł SSH. Jeden WS na żywotność ekranu: connect() → setRemote()/openTunnel().
+/// widzą haseł SSH. Jeden WS na żywotność ekranu: connect() → openTunnel().
 class TerminalRelay {
   final String deviceId;
   final String owner;
   final Future<String> Function(String message) signMessage;
+  /// Klucz parowania tego noda (32 B). Bez niego node ODMÓWI otwarcia tunelu — backend nie
+  /// potrafi go wytworzyć, i o to właśnie chodzi.
+  /// NIE final: user może sparować node już po otwarciu ekranu, a wtedy nie chcemy przebudowywać
+  /// całego relaya (żywy WS + uwierzytelnienie) tylko po to, żeby wstrzyknąć klucz.
+  Uint8List? pairKey;
 
   WebSocketChannel? _ch;
   _RelaySocket? _sock;
@@ -28,7 +34,8 @@ class TerminalRelay {
   Completer<void>? _auth;
   Completer<SSHSocket>? _open;
 
-  TerminalRelay({required this.deviceId, required this.owner, required this.signMessage});
+  TerminalRelay({required this.deviceId, required this.owner, required this.signMessage,
+                 this.pairKey});
 
   String get _wsUrl => '${Config.beUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://')}/v1/term';
 
@@ -45,18 +52,19 @@ class TerminalRelay {
         onTimeout: () => throw Exception('auth timeout'));
   }
 
-  /// Włącz/wyłącz remote access na nodzie (opt-in; przy ON node jest mniej wybierany do monitorów).
-  void setRemote(bool on) {
-    if (!_authed) return;
-    _send({'type': 'cfg', 'enable': on});
-    remoteEnabled = on;
-  }
-
   /// Otwórz tunel TCP do ip:port na LAN-ie noda; zwraca SSHSocket dla SSHClient.
   Future<SSHSocket> openTunnel(String ip, int port) async {
     if (!_authed) throw Exception('not authenticated');
+    final key = pairKey;
+    if (key == null) {
+      throw Exception('Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.');
+    }
+    // Dowód liczony TUTAJ i przepychany przez backend nietknięty. ip i port siedzą w środku
+    // podpisywanego ciągu, więc przejęty serwer nie podmieni celu na inny adres w LAN-ie.
+    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final proof = PairingService.proof(key, deviceId, ip, port, ts);
     _open = Completer<SSHSocket>();
-    _send({'type': 'open', 'ip': ip, 'port': port});
+    _send({'type': 'open', 'ip': ip, 'port': port, 'ts': ts, 'proof': proof});
     return _open!.future.timeout(const Duration(seconds: 20),
         onTimeout: () => throw Exception('tunnel open timeout'));
   }

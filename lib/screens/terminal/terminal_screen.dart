@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:xterm/xterm.dart';
@@ -8,7 +9,8 @@ import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/wallet_service.dart';
 import '../../services/terminal_relay.dart';
-import '../../util/pin_gate.dart';
+import '../../services/pairing_service.dart';
+import '../../util/pair_gate.dart';
 
 /// RemoteTerminal — zdalny terminal do LAN-u noda przez tunel. Node = głupia rura, SSH E2E w apce.
 /// Bierze device_id + etykietę (NIE SavedNode) — działa też dla nodów widocznych tylko z BE
@@ -38,7 +40,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _port = TextEditingController(text: '22');
   final _user = TextEditingController(text: 'root');
   final _pass = TextEditingController();
-  bool _remoteOn = false;
+  bool _paired = false;
+  Uint8List? _pairKey;
 
   @override
   void initState() {
@@ -52,16 +55,23 @@ class _TerminalScreenState extends State<TerminalScreen> {
     try {
       final wallet = await context.read<WalletService>().load();
       if (wallet == null) throw Exception(tr('Brak portfela w apce'));
+
+      // Klucz MUSI być wczytany przed budową relaya — on go dostaje przez konstruktor
+      // i bez niego openTunnel od razu odmówi. Brak klucza nie jest tu błędem: ekran
+      // pokaże kartę „niesparowany" z przyciskiem parowania.
+      _pairKey = await PairingService().keyFor(widget.deviceId);
+      _paired  = _pairKey != null;
+
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
+        pairKey: _pairKey,
       );
       _relay = relay;                   // track wcześnie → dispose posprząta też gdy connect rzuci
       relay.events.listen(_onEvent);
       await relay.connect();
       if (!mounted) return;
-      _remoteOn = relay.remoteEnabled;
       if (!relay.nodeOnline) {
         // node nie ma żywego połączenia z chmurą — bez niego tunel nie ruszy
         setState(() { _phase = _Phase.error; _status = tr('Node jest offline — nie połączysz się z nim, dopóki nie wróci do sieci.'); });
@@ -92,19 +102,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  Future<void> _toggleRemote(bool on) async {
-    if (on && !await confirmNodePin(context, widget.deviceId)) {
-      if (!mounted) return;
-      setState(() => _status = tr('Zły PIN — remote access nie włączony'));
-      return;
-    }
-    _relay?.setRemote(on);
+  /// Parowanie: klucz trafia do noda po LAN, z pominięciem naszego serwera. Dopiero on
+  /// uprawnia do otwarcia tunelu — backend sam z siebie tego nie zrobi.
+  Future<void> _doPair() async {
+    final key = await ensurePaired(context, widget.deviceId);
     if (!mounted) return;
+    _relay?.pairKey = key;   // żywy relay musi dostać klucz, inaczej openTunnel dalej odmawia
     setState(() {
-      _remoteOn = on;
-      _status = on
-          ? tr('Remote access WŁĄCZONY — ten node będzie rzadziej wybierany do monitorów')
-          : tr('Remote access wyłączony');
+      _pairKey = key;
+      _paired  = key != null;
+      if (key != null) _status = tr('Node sparowany — możesz się połączyć.');
     });
   }
 
@@ -216,16 +223,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
         children: [
           Card(
             color: AppTheme.card,
-            child: SwitchListTile(
-              value: _remoteOn,
-              onChanged: _toggleRemote,
-              activeThumbColor: AppTheme.teal,
-              title: Text(tr('Remote access na nodzie'), style: const TextStyle(color: AppTheme.text)),
+            child: ListTile(
+              leading: Icon(_paired ? Icons.verified_user_outlined : Icons.vpn_key_outlined,
+                            color: _paired ? AppTheme.teal : AppTheme.amber),
+              title: Text(_paired ? tr('Node sparowany') : tr('Node niesparowany'),
+                          style: const TextStyle(color: AppTheme.text)),
               subtitle: Text(
-                tr('Pozwala łączyć się z urządzeniami w sieci noda. Włączony node jest rzadziej wybierany do monitorów.'),
+                _paired
+                  ? tr('Ten telefon ma klucz, którego nasz serwer nie zna — tylko Ty otworzysz tunel.')
+                  : tr('Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12),
               ),
-              secondary: const Icon(Icons.vpn_key_outlined, color: AppTheme.teal),
+              trailing: _paired ? null : FilledButton(
+                onPressed: _doPair,
+                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
+                child: Text(tr('Sparuj')),
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -243,14 +256,14 @@ class _TerminalScreenState extends State<TerminalScreen> {
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
-            onPressed: _remoteOn ? _startSession : null,
+            onPressed: _paired ? _startSession : null,
             icon: const Icon(Icons.terminal),
             label: Text(tr('Połącz')),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
           ),
-          if (!_remoteOn) Padding(
+          if (!_paired) Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Text(tr('Najpierw włącz remote access powyżej.'),
+            child: Text(tr('Najpierw sparuj node powyżej.'),
                 style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
           ),
           if (_status.isNotEmpty) Padding(

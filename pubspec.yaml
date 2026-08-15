@@ -34,6 +34,9 @@ dependencies:
   ed25519_hd_key: ^2.2.0
   pointycastle: ^3.7.4
 
+  # HMAC-SHA256 do dowodu otwarcia tunelu (pairing_service) — była tranzytywna, teraz wprost
+  crypto: ^3.0.3
+
   # Secure storage (Keychain / Keystore)
   flutter_secure_storage: ^9.0.0
   shared_preferences: ^2.2.2
