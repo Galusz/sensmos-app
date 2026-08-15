@@ -11,6 +11,8 @@ import '../../core/core_event.dart';
 import '../scripts/scripts_screen.dart';
 import '../message_actions/message_actions_screen.dart';
 import '../messages/messages_screen.dart';
+import '../../services/pairing_service.dart';
+import '../../util/pair_gate.dart';
 import 'trust_screen.dart';
 import 'service_screen.dart';
 
@@ -26,6 +28,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   String? _city;
   String? _fw;
   String? _pinOverride;
+  bool _paired = false;
 
   SavedNode get node => widget.node;
   String get pin => _pinOverride ?? widget.node.pin;
@@ -36,6 +39,52 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   void initState() {
     super.initState();
     _loadInfo();
+    _loadPairing();
+  }
+
+  Future<void> _loadPairing() async {
+    final has = await PairingService().hasKey(node.id);
+    if (!mounted) return;
+    setState(() => _paired = has);
+  }
+
+  /// Jedyne miejsce zarządzania zdalnym dostępem. Terminal i panel HA tylko UŻYWAJĄ klucza —
+  /// gdyby każda integracja miała własny krok parowania, przy trzeciej powielalibyśmy to samo
+  /// po raz trzeci, a user i tak nie wiedziałby, gdzie tego szukać.
+  Future<void> _togglePairing() async {
+    if (!_paired) {
+      final key = await ensurePaired(context, node.id);
+      if (!mounted) return;
+      setState(() => _paired = key != null);
+      return;
+    }
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Wyłączyć zdalny dostęp?'), style: const TextStyle(color: AppTheme.text)),
+        content: Text(
+          tr('Node skasuje wszystkie klucze — terminal i panel HA przestaną działać ze WSZYSTKICH '
+             'telefonów, także innych domowników. Ponowne włączenie wymaga bycia w sieci noda.'),
+          style: const TextStyle(color: AppTheme.muted)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6666)),
+            onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Wyłącz'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final err = await PairingService().unpair(node.id, node.ip, pin);
+    if (!mounted) return;
+    if (err != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(err))));
+      return;
+    }
+    setState(() => _paired = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(tr('Zdalny dostęp wyłączony.'))));
   }
 
   Future<void> _loadInfo() async {
@@ -113,6 +162,17 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
             title: tr('Integracja (webhook)'),
             sub: tr('URL wywoływany przy zdarzeniach noda'),
             onTap: _editIntegration,
+          ),
+          // Zdalny dostęp — JEDNO centralne miejsce. Klucz da się zapisać w nodzie wyłącznie
+          // po LAN, więc user musi się o tym dowiedzieć TERAZ, gdy jest w domu, a nie dopiero
+          // przy próbie użycia terminala czy panelu HA z wakacji, gdzie nie ma jak tego zrobić.
+          _tile(
+            icon: _paired ? Icons.verified_user_outlined : Icons.shield_outlined,
+            title: tr('Zdalny dostęp'),
+            sub: _paired
+                ? tr('sparowany — terminal i panel HA działają z dowolnego miejsca')
+                : tr('NIESPAROWANY — sparuj teraz, będąc w sieci noda'),
+            onTap: _togglePairing,
           ),
           _tile(
             icon: Icons.vpn_key_outlined,
