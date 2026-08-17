@@ -14,6 +14,21 @@ import '../../services/wallet_service.dart';
 import '../../services/eth_service.dart';
 import '../../services/node_service.dart';
 
+/// Wpłata GALU — WYGASZONA, kod celowo zostaje.
+///
+/// Kupować dane może wyłącznie zarejestrowany node ([data.js] wymaga, by nadawca był aktywnym
+/// urządzeniem), a każdy node zarabia wielokrotnie więcej, niż kosztuje zapytanie: 0,50 GALU
+/// przy ~17 GALU/dobę. Saldo liczy się jako `earned + deposited − spent − claimed`, więc same
+/// zarobki są pełnoprawnym środkiem płatniczym i nikt nigdy nie musiał dopłacać.
+///
+/// Dowód z produkcji: za całą historię sieci wydano 7,50 GALU (jedna subskrypcja + jedna
+/// wiadomość) wobec 41 152 zarobionych; depozyt wpłaciły 3 portfele, z czego dwa nie wydały nic.
+///
+/// Przestawienie na `true` przywraca wpłatę w całości — przyda się, gdy pojawią się płatne
+/// funkcje. Księgowanie w BE (listener `onDeposited`) zostaje włączone niezależnie od tej flagi,
+/// bo `deposit()` istnieje w kontrakcie i wywołane bezpośrednio musi się zaksięgować.
+const bool kDepositEnabled = false;
+
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
 
@@ -62,6 +77,27 @@ class _WalletScreenState extends State<WalletScreen> {
     await _loadBe(addr);
     await Future.wait([_loadChain(addr), _loadPending(addr)]);
     if (mounted) setState(() => _loading = false);
+  }
+
+  /// Dobijanie po claimie, aż listener zaksięguje zdarzenie z łańcucha.
+  ///
+  /// `waitReceipt` wraca po PIERWSZYM potwierdzeniu, a BE czyta logi 12 bloków wstecz i odpytuje
+  /// co 15 s (listener.js) — więc w tej chwili backend GWARANTOWANIE ma jeszcze stare `claimed_galu`
+  /// i nadal trzyma hold. Bez dobijania „Odebrano" zostaje nietknięte, a „Wypłata w toku" wisi
+  /// do restartu apki. Depozyt ma taką pętlę od dawna; claim jej nie miał i to był cały bug.
+  ///
+  /// Ratuje też ścieżkę bez claim-intentu (`viaIntent == false`), gdzie BE nie zapisał nic i bez
+  /// tego wszystkie liczby zostawały dokładnie takie jak przed claimem.
+  Future<void> _settleClaim(String addr, double claimedBefore) async {
+    for (int i = 0; i < 12 && mounted; i++) {   // 12 × 5 s = 60 s: 12 bloków (~24 s) + poll 15 s z zapasem
+      await Future.delayed(const Duration(seconds: 5));
+      if (!mounted) return;
+      await _loadBe(addr);
+      await _loadPending(addr);
+      if (!mounted) return;
+      setState(() {});
+      if (_claimed > claimedBefore + 0.0001) return;   // zaksięgowane — hold schodzi tym samym UPDATE-em
+    }
   }
 
   Future<void> _loadBe(String addr) async {
@@ -225,11 +261,13 @@ class _WalletScreenState extends State<WalletScreen> {
         return;
       }
 
+      final claimedBefore = _claimed;
       _snack(tr('Odbieranie nagród…'));
       final h = await _eth.claim(pk, cumulativeWei, proof);
       final ok = await _eth.waitReceipt(h);
       _snack(ok ? tr('Odebrano nagrody') : tr('Claim zrewertowany'), error: !ok);
       await _load();
+      if (ok) _settleClaim(addr, claimedBefore);   // BEZ await — inaczej scrim wisiałby minutę
     } catch (e) {
       _snack(tr('Błąd: %s', [e]), error: true);
     } finally {
@@ -385,7 +423,10 @@ class _WalletScreenState extends State<WalletScreen> {
               _bigRow(tr('Do wydania na nody'), _available, AppTheme.teal),
               const Divider(color: AppTheme.border, height: 20),
               _smallRow(tr('Zarobione (nagrody)'), _earned),
-              _smallRow(tr('Wpłacone (Twój kapitał)'), _deposited),
+              // Zostaje widoczne komuś, kto już kiedyś wpłacił — inaczej „Do wydania" nie zgadzałoby
+              // się z sumą pozostałych wierszy i wyglądałoby na błąd. Reszta floty tego nie widzi.
+              if (kDepositEnabled || _deposited > 0)
+                _smallRow(tr('Wpłacone (Twój kapitał)'), _deposited),
               if (_depositPending > 0) _smallRow(tr('Wpłata w toku'), _depositPending),
               const Divider(color: AppTheme.border, height: 20),
               _smallRow(tr('Do odebrania (claim)'), _pending),
@@ -432,18 +473,20 @@ class _WalletScreenState extends State<WalletScreen> {
                 style: const TextStyle(color: Colors.black)),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-                foregroundColor: AppTheme.teal,
-                side: const BorderSide(color: AppTheme.teal),
-                padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: _busy ? null : _deposit,
-            icon: const Icon(Icons.upload, size: 18),
-            label: Text(tr('Wpłać (Deposit)')),
+        if (kDepositEnabled) ...[
+          const SizedBox(width: 12),
+          Expanded(
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.teal,
+                  side: const BorderSide(color: AppTheme.teal),
+                  padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: _busy ? null : _deposit,
+              icon: const Icon(Icons.upload, size: 18),
+              label: Text(tr('Wpłać (Deposit)')),
+            ),
           ),
-        ),
+        ],
       ]);
 
   Widget _onchainCard() => Card(
@@ -477,8 +520,11 @@ class _WalletScreenState extends State<WalletScreen> {
               if (_lowGas) ...[
                 const SizedBox(height: 6),
                 Text(
-                    tr('Za mało POL — transakcje (claim/deposit) wymagają gazu. '
-                        'Wpłać POL na adres portfela (QR powyżej).'),
+                    tr(kDepositEnabled
+                        ? 'Za mało POL — transakcje (claim/deposit) wymagają gazu. '
+                          'Wpłać POL na adres portfela (QR powyżej).'
+                        : 'Za mało POL — odbiór nagród (claim) wymaga gazu. '
+                          'Wpłać POL na adres portfela (QR powyżej).'),
                     style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
               ],
             ],

@@ -211,6 +211,8 @@ const Map<String, String> _enMap = {
   "POL (gas)": "POL (gas)",
   "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
       "Not enough POL — transactions (claim/deposit) require gas. Send POL to your wallet address (QR above).",
+  "Za mało POL — odbiór nagród (claim) wymaga gazu. Wpłać POL na adres portfela (QR powyżej).":
+      "Not enough POL — claiming rewards requires gas. Send POL to your wallet address (QR above).",
   "Eksportuj klucz (MetaMask)": "Export key (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requires the PIN of any of your nodes",
   "Dostępne: %s (MAX)": "Available: %s (MAX)",
@@ -683,6 +685,44 @@ const Map<String, String> _enMap = {
   "OK": "OK",
   "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":
       "Rewards start after roughly 4 hours online within a day — zero at first is normal.",
+
+  // ── Parowanie noda (klucz w telefonie, kanał wyłącznie po LAN) ──
+  "Zdalny dostęp": "Remote access",
+  "Zapamiętaj hasło na tym telefonie": "Remember the password on this phone",
+  "sparowany — terminal i panel HA działają z dowolnego miejsca":
+      "paired — terminal and HA panel work from anywhere",
+  "NIESPAROWANY — sparuj teraz, będąc w sieci noda":
+      "NOT PAIRED — pair now, while you're on the node's network",
+  "Sparuj": "Pair",
+  "Sparuj node": "Pair node",
+  "Node sparowany.": "Node paired.",
+  "Node sparowany — możesz się połączyć.": "Node paired — you can connect now.",
+  "Node niesparowany": "Node not paired",
+  "Najpierw sparuj node powyżej.": "Pair the node above first.",
+  "Nie znam tego noda na tym telefonie.": "This phone doesn't know that node.",
+  "Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.":
+      "Remote access needs a one-time pairing on the same Wi-Fi network as the node.",
+  "Zdalny dostęp wymaga jednorazowego sparowania: telefon zapisze w nodzie tajny klucz, którego nasz serwer nigdy nie zobaczy. Bez niego nikt — łącznie z nami — nie otworzy tunelu do Twojej sieci.\n\nMusisz być teraz w tej samej sieci WiFi co node.":
+      "Remote access needs a one-time pairing: your phone stores a secret key on the node that our server never sees. Without it nobody — us included — can open a tunnel into your network.\n\nYou need to be on the same Wi-Fi network as the node right now.",
+  "Wyłączyć zdalny dostęp?": "Turn off remote access?",
+  "Node skasuje wszystkie klucze — terminal i panel HA przestaną działać ze WSZYSTKICH telefonów, także innych domowników. Ponowne włączenie wymaga bycia w sieci noda.":
+      "The node will erase every key — the terminal and the HA panel will stop working on ALL phones, including other people in your home. Turning it back on requires being on the node's network.",
+  "Zdalny dostęp wyłączony.": "Remote access turned off.",
+  "Zły PIN noda.": "Wrong node PIN.",
+  "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
+      "Can't see the node on this network — connect your phone to the same Wi-Fi as the node.",
+  "Node odrzucił parowanie (HTTP %s).": "The node refused pairing (HTTP %s).",
+  "Node odrzucił żądanie (HTTP %s).": "The node refused the request (HTTP %s).",
+  "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":
+      "This node isn't paired with this phone — pair it while on the same Wi-Fi network.",
+  "Wymagane sparowanie": "Pairing required",
+  "Rozumiem": "Got it",
+  "Wymaga sparowania noda — tylko w jego sieci WiFi":
+      "Needs node pairing — only on its Wi-Fi network",
+  "Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.":
+      "Node not paired — the tunnel won't open. Pair it while on its Wi-Fi network.",
+  "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
+      "This integration opens a tunnel into your network, and only the node itself can allow that — not our server. You need to store a key on it while on the same Wi-Fi: Node settings → Remote access.\n\nI'll add the integration now, but it will only connect once the node is paired.",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
@@ -908,6 +948,8 @@ const Map<String, String> _deMap = {
   "POL (gas)": "POL (Gas)",
   "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).":
       "Zu wenig POL — Transaktionen (Claim/Deposit) brauchen Gas. Sende POL an deine Wallet-Adresse (QR oben).",
+  "Za mało POL — odbiór nagród (claim) wymaga gazu. Wpłać POL na adres portfela (QR powyżej).":
+      "Zu wenig POL — das Abholen der Belohnungen braucht Gas. Sende POL an deine Wallet-Adresse (QR oben).",
   "Eksportuj klucz (MetaMask)": "Schlüssel exportieren (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "erfordert die PIN eines beliebigen deiner Nodes",
   "Dostępne: %s (MAX)": "Verfügbar: %s (MAX)",
@@ -1304,4 +1346,42 @@ const Map<String, String> _deMap = {
   "W sieci": "Im Netzwerk",
   "Zdalnie": "Remote",
   "przed chwilą": "gerade eben",
+
+  // ── Node-Kopplung (Schlüssel im Telefon, Kanal ausschließlich über LAN) ──
+  "Zdalny dostęp": "Fernzugriff",
+  "Zapamiętaj hasło na tym telefonie": "Passwort auf diesem Telefon merken",
+  "sparowany — terminal i panel HA działają z dowolnego miejsca":
+      "gekoppelt — Terminal und HA-Panel funktionieren von überall",
+  "NIESPAROWANY — sparuj teraz, będąc w sieci noda":
+      "NICHT GEKOPPELT — jetzt koppeln, solange du im Netzwerk des Nodes bist",
+  "Sparuj": "Koppeln",
+  "Sparuj node": "Node koppeln",
+  "Node sparowany.": "Node gekoppelt.",
+  "Node sparowany — możesz się połączyć.": "Node gekoppelt — du kannst dich jetzt verbinden.",
+  "Node niesparowany": "Node nicht gekoppelt",
+  "Najpierw sparuj node powyżej.": "Kopple zuerst den Node oben.",
+  "Nie znam tego noda na tym telefonie.": "Dieses Telefon kennt diesen Node nicht.",
+  "Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.":
+      "Fernzugriff erfordert eine einmalige Kopplung im selben WLAN wie der Node.",
+  "Zdalny dostęp wymaga jednorazowego sparowania: telefon zapisze w nodzie tajny klucz, którego nasz serwer nigdy nie zobaczy. Bez niego nikt — łącznie z nami — nie otworzy tunelu do Twojej sieci.\n\nMusisz być teraz w tej samej sieci WiFi co node.":
+      "Fernzugriff erfordert eine einmalige Kopplung: Das Telefon speichert einen geheimen Schlüssel auf dem Node, den unser Server nie sieht. Ohne ihn kann niemand — auch wir nicht — einen Tunnel in dein Netzwerk öffnen.\n\nDu musst jetzt im selben WLAN wie der Node sein.",
+  "Wyłączyć zdalny dostęp?": "Fernzugriff deaktivieren?",
+  "Node skasuje wszystkie klucze — terminal i panel HA przestaną działać ze WSZYSTKICH telefonów, także innych domowników. Ponowne włączenie wymaga bycia w sieci noda.":
+      "Der Node löscht alle Schlüssel — Terminal und HA-Panel funktionieren dann auf ALLEN Telefonen nicht mehr, auch bei anderen im Haushalt. Zum Wiedereinschalten musst du im Netzwerk des Nodes sein.",
+  "Zdalny dostęp wyłączony.": "Fernzugriff deaktiviert.",
+  "Zły PIN noda.": "Falsche Node-PIN.",
+  "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
+      "Node in diesem Netzwerk nicht gefunden — verbinde das Telefon mit demselben WLAN wie den Node.",
+  "Node odrzucił parowanie (HTTP %s).": "Der Node hat die Kopplung abgelehnt (HTTP %s).",
+  "Node odrzucił żądanie (HTTP %s).": "Der Node hat die Anfrage abgelehnt (HTTP %s).",
+  "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":
+      "Dieser Node ist nicht mit diesem Telefon gekoppelt — kopple ihn im selben WLAN.",
+  "Wymagane sparowanie": "Kopplung erforderlich",
+  "Rozumiem": "Verstanden",
+  "Wymaga sparowania noda — tylko w jego sieci WiFi":
+      "Erfordert Node-Kopplung — nur in seinem WLAN",
+  "Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.":
+      "Node nicht gekoppelt — der Tunnel startet nicht. Koppeln, solange du in seinem WLAN bist.",
+  "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
+      "Diese Integration öffnet einen Tunnel in dein Netzwerk, und das erlaubt nur der Node selbst — nicht unser Server. Dafür musst du einen Schlüssel auf ihm speichern, während du im selben WLAN bist: Node-Einstellungen → Fernzugriff.\n\nIch füge die Integration jetzt hinzu, aber sie verbindet sich erst nach der Kopplung.",
 };

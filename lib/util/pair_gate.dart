@@ -16,7 +16,22 @@ import 'pin_gate.dart';
 ///
 /// Zastępuje dawny przełącznik „remote access" (szedł przez backend, czyli przez tego,
 /// przed kim miał chronić).
-Future<Uint8List?> ensurePaired(BuildContext context, String deviceId) async {
+/// Wynik bramki: klucz, tryb zgodności ze starym firmwarem, albo nic.
+class PairAccess {
+  /// Klucz parowania. null w trybie zgodności — stare FW nie ma czym go przyjąć.
+  final Uint8List? key;
+
+  /// TRYB PRZEJŚCIOWY (do usunięcia ok. miesiąc po wydaniu): node na FW ≤0.81, tunel
+  /// otwieramy starą ścieżką, bez dowodu. Patrz PairingService.legacyMark.
+  final bool legacy;
+
+  const PairAccess({this.key, this.legacy = false});
+
+  /// Czy da się otworzyć tunel — kluczem albo po staremu.
+  bool get ok => key != null || legacy;
+}
+
+Future<PairAccess> ensurePaired(BuildContext context, String deviceId) async {
   // NodeService czytamy PRZED pierwszym await — sięganie po BuildContext za async gapem
   // jest niepoprawne (widget mógł już zniknąć) i analizator słusznie to zgłasza.
   SavedNode? node;
@@ -26,14 +41,15 @@ Future<Uint8List?> ensurePaired(BuildContext context, String deviceId) async {
 
   final svc = PairingService();
   final existing = await svc.keyFor(deviceId);
-  if (existing != null) return existing;
+  if (existing != null) return PairAccess(key: existing);
+  if (await svc.isLegacy(deviceId)) return const PairAccess(legacy: true);
 
   if (node == null) {
     if (context.mounted) _toast(context, tr('Nie znam tego noda na tym telefonie.'));
-    return null;
+    return const PairAccess();
   }
 
-  if (!context.mounted) return null;
+  if (!context.mounted) return const PairAccess();
   final go = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
@@ -50,17 +66,20 @@ Future<Uint8List?> ensurePaired(BuildContext context, String deviceId) async {
       ],
     ),
   );
-  if (go != true) return null;
+  if (go != true) return const PairAccess();
 
-  if (!context.mounted) return null;
-  if (!await confirmNodePin(context, deviceId)) return null;
+  if (!context.mounted) return const PairAccess();
+  if (!await confirmNodePin(context, deviceId)) return const PairAccess();
 
   final err = await svc.pair(deviceId, node.ip, node.pin);
-  if (!context.mounted) return null;
-  if (err != null) { _toast(context, tr(err)); return null; }
+  if (!context.mounted) return const PairAccess();
+  if (err != null) { _toast(context, err); return const PairAccess(); }   // serwis zwraca już przetłumaczone
 
+  // Tryb zgodności celowo NIE mówi userowi nic innego: z jego punktu widzenia node jest
+  // gotowy do pracy, a tego, na jakim firmwarze stoi, i tak sam nie zmieni.
   _toast(context, tr('Node sparowany.'));
-  return svc.keyFor(deviceId);
+  if (await svc.isLegacy(deviceId)) return const PairAccess(legacy: true);
+  return PairAccess(key: await svc.keyFor(deviceId));
 }
 
 void _toast(BuildContext context, String msg) {

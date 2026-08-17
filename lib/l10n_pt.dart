@@ -142,6 +142,8 @@ const Map<String, String> ptMap = {
   "GALU w portfelu": "GALU na carteira",
   "POL (gas)": "POL (gas)",
   "Za mało POL — transakcje (claim/deposit) wymagają gazu. Wpłać POL na adres portfela (QR powyżej).": "POL insuficiente — as transações (resgate/depósito) exigem gas. Envie POL para o endereço da carteira (QR acima).",
+  "Za mało POL — odbiór nagród (claim) wymaga gazu. Wpłać POL na adres portfela (QR powyżej).":
+      "POL insuficiente — resgatar as recompensas exige gas. Envie POL para o endereço da carteira (QR acima).",
   "Eksportuj klucz (MetaMask)": "Exportar chave (MetaMask)",
   "wymaga PIN-u dowolnego Twojego noda": "requer o PIN de qualquer um dos seus nodes",
   "Dostępne: %s (MAX)": "Disponível: %s (MÁX)",
@@ -555,4 +557,42 @@ const Map<String, String> ptMap = {
       "Node adicionado, mas a verificação falhou — sem ela não há recompensas. Repita a cerimônia nas configurações do node (Confiança).",
   "Nagrody naliczają się po ok. 4 godzinach online w danej dobie — zero na starcie jest normalne.":
       "As recompensas começam após cerca de 4 horas online por dia — zero no início é normal.",
+
+  // ── Pareamento do node (chave no celular, canal só pela rede local) ──
+  "Zdalny dostęp": "Acesso remoto",
+  "Zapamiętaj hasło na tym telefonie": "Lembrar a senha neste celular",
+  "sparowany — terminal i panel HA działają z dowolnego miejsca":
+      "pareado — terminal e painel HA funcionam de qualquer lugar",
+  "NIESPAROWANY — sparuj teraz, będąc w sieci noda":
+      "NÃO PAREADO — pareie agora, enquanto está na rede do node",
+  "Sparuj": "Parear",
+  "Sparuj node": "Parear node",
+  "Node sparowany.": "Node pareado.",
+  "Node sparowany — możesz się połączyć.": "Node pareado — você já pode conectar.",
+  "Node niesparowany": "Node não pareado",
+  "Najpierw sparuj node powyżej.": "Pareie o node acima primeiro.",
+  "Nie znam tego noda na tym telefonie.": "Este celular não conhece esse node.",
+  "Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.":
+      "O acesso remoto exige um pareamento único na mesma rede Wi-Fi do node.",
+  "Zdalny dostęp wymaga jednorazowego sparowania: telefon zapisze w nodzie tajny klucz, którego nasz serwer nigdy nie zobaczy. Bez niego nikt — łącznie z nami — nie otworzy tunelu do Twojej sieci.\n\nMusisz być teraz w tej samej sieci WiFi co node.":
+      "O acesso remoto exige um pareamento único: o celular grava no node uma chave secreta que nosso servidor nunca vê. Sem ela ninguém — nem nós — abre um túnel para a sua rede.\n\nVocê precisa estar agora na mesma rede Wi-Fi do node.",
+  "Wyłączyć zdalny dostęp?": "Desativar o acesso remoto?",
+  "Node skasuje wszystkie klucze — terminal i panel HA przestaną działać ze WSZYSTKICH telefonów, także innych domowników. Ponowne włączenie wymaga bycia w sieci noda.":
+      "O node vai apagar todas as chaves — o terminal e o painel HA vão parar de funcionar em TODOS os celulares, inclusive de outras pessoas da casa. Para reativar é preciso estar na rede do node.",
+  "Zdalny dostęp wyłączony.": "Acesso remoto desativado.",
+  "Zły PIN noda.": "PIN do node incorreto.",
+  "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
+      "Não encontro o node nesta rede — conecte o celular à mesma rede Wi-Fi do node.",
+  "Node odrzucił parowanie (HTTP %s).": "O node recusou o pareamento (HTTP %s).",
+  "Node odrzucił żądanie (HTTP %s).": "O node recusou a solicitação (HTTP %s).",
+  "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":
+      "Este node não está pareado com este celular — pareie-o na mesma rede Wi-Fi.",
+  "Wymagane sparowanie": "Pareamento necessário",
+  "Rozumiem": "Entendi",
+  "Wymaga sparowania noda — tylko w jego sieci WiFi":
+      "Exige pareamento do node — só na rede Wi-Fi dele",
+  "Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.":
+      "Node não pareado — o túnel não vai abrir. Pareie enquanto estiver na rede Wi-Fi dele.",
+  "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
+      "Esta integração abre um túnel para a sua rede, e só o próprio node pode autorizar isso — não o nosso servidor. É preciso gravar uma chave nele estando na mesma rede Wi-Fi: Configurações do node → Acesso remoto.\n\nVou adicionar a integração agora, mas ela só vai conectar depois do pareamento.",
 };

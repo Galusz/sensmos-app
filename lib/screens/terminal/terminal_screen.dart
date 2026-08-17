@@ -5,6 +5,8 @@ import 'dart:typed_data';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:xterm/xterm.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/wallet_service.dart';
@@ -41,12 +43,63 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _user = TextEditingController(text: 'root');
   final _pass = TextEditingController();
   bool _paired = false;
+  bool _legacy = false;   // node na FW ≤0.81 — tunel starą ścieżką (tryb przejściowy)
   Uint8List? _pairKey;
+  bool _savePass = false;
+
+  // Zapamiętane pola formularza — PER NODE, bo każdy stoi w innej sieci i celujesz w co innego.
+  // Hasło NIGDY nie idzie do SharedPreferences: to zwykły plik XML w katalogu apki. Ląduje
+  // w tym samym szyfrowanym magazynie co klucze parowania i tylko za zgodą użytkownika.
+  static const _formPrefix = 'term_form_';
+  static const _passPrefix = 'term_pass_';
+  final _secure = const FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
 
   @override
   void initState() {
     super.initState();
+    _loadForm();
     _connect();
+  }
+
+  Future<void> _loadForm() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final raw = p.getString('$_formPrefix${widget.deviceId}');
+      if (raw != null) {
+        final j = jsonDecode(raw) as Map<String, dynamic>;
+        if (j['host'] is String) _host.text = j['host'] as String;
+        if (j['port'] is String) _port.text = j['port'] as String;
+        if (j['user'] is String) _user.text = j['user'] as String;
+        _savePass = j['savePass'] == true;
+      }
+      if (_savePass) {
+        _pass.text = await _secure.read(key: '$_passPrefix${widget.deviceId}') ?? '';
+      }
+      if (mounted) setState(() {});
+    } catch (_) {/* brak zapamiętanych wartości to nie błąd — zostają domyślne */}
+  }
+
+  /// Zapis DOPIERO po udanym połączeniu. Zapisywanie przy każdej próbie utrwaliłoby literówki
+  /// — np. domyślne 192.168.1.1, pod którym w Twojej sieci nic nie stoi — i apka podsuwałaby
+  /// je przy każdym wejściu.
+  Future<void> _saveForm() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setString('$_formPrefix${widget.deviceId}', jsonEncode({
+        'host': _host.text.trim(),
+        'port': _port.text.trim(),
+        'user': _user.text.trim(),
+        'savePass': _savePass,
+      }));
+      final k = '$_passPrefix${widget.deviceId}';
+      if (_savePass) {
+        await _secure.write(key: k, value: _pass.text);
+      } else {
+        await _secure.delete(key: k);   // odznaczone = kasujemy też to, co zapisaliśmy wcześniej
+      }
+    } catch (_) {}
   }
 
   Future<void> _connect() async {
@@ -59,14 +112,17 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Klucz MUSI być wczytany przed budową relaya — on go dostaje przez konstruktor
       // i bez niego openTunnel od razu odmówi. Brak klucza nie jest tu błędem: ekran
       // pokaże kartę „niesparowany" z przyciskiem parowania.
-      _pairKey = await PairingService().keyFor(widget.deviceId);
-      _paired  = _pairKey != null;
+      final svc = PairingService();
+      _pairKey = await svc.keyFor(widget.deviceId);
+      _legacy  = await svc.isLegacy(widget.deviceId);
+      _paired  = _pairKey != null || _legacy;
 
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
         pairKey: _pairKey,
+        legacy: _legacy,
       );
       _relay = relay;                   // track wcześnie → dispose posprząta też gdy connect rzuci
       relay.events.listen(_onEvent);
@@ -105,13 +161,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
   /// Parowanie: klucz trafia do noda po LAN, z pominięciem naszego serwera. Dopiero on
   /// uprawnia do otwarcia tunelu — backend sam z siebie tego nie zrobi.
   Future<void> _doPair() async {
-    final key = await ensurePaired(context, widget.deviceId);
+    final acc = await ensurePaired(context, widget.deviceId);
     if (!mounted) return;
-    _relay?.pairKey = key;   // żywy relay musi dostać klucz, inaczej openTunnel dalej odmawia
+    // Żywy relay musi dostać dostęp, inaczej openTunnel dalej odmawia.
+    _relay?.pairKey = acc.key;
+    _relay?.legacy  = acc.legacy;
     setState(() {
-      _pairKey = key;
-      _paired  = key != null;
-      if (key != null) _status = tr('Node sparowany — możesz się połączyć.');
+      _pairKey = acc.key;
+      _legacy  = acc.legacy;
+      _paired  = acc.ok;
+      if (acc.ok) _status = tr('Node sparowany — możesz się połączyć.');
     });
   }
 
@@ -134,6 +193,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         pty: SSHPtyConfig(width: _terminal.viewWidth, height: _terminal.viewHeight),
       );
       _session = session;
+      _saveForm();   // fire-and-forget: połączenie działa, więc te wartości warto zapamiętać
       _terminal.onOutput = (data) => session.write(utf8.encode(data));
       // Dynamiczny resize (htop skaluje się do ekranu). Debounce 300ms — chowanie klawiatury sypie
       // serią resize, wysyłamy tylko końcowy (jeden SIGWINCH zamiast lawiny).
@@ -159,12 +219,6 @@ class _TerminalScreenState extends State<TerminalScreen> {
     }
   }
 
-  void _disconnect() {
-    try { _ssh?.close(); } catch (_) {}
-    _ssh = null;
-    setState(() { _phase = _Phase.form; _status = tr('Rozłączono'); });
-  }
-
   @override
   void dispose() {
     _resizeDebounce?.cancel();
@@ -177,15 +231,13 @@ class _TerminalScreenState extends State<TerminalScreen> {
   @override
   Widget build(BuildContext context) {
     final short = widget.deviceId.length > 8 ? widget.deviceId.substring(0, 8) : widget.deviceId;
+    // JEDEN sposób wyjścia: BACK. Zamyka sesję SSH, tunel na nodzie i relay (patrz dispose),
+    // więc firmware oddaje ~27 kB heapu — potrzebne monitorom. Osobny przycisk „Rozłącz"
+    // wyglądał identycznie, a zostawiał tunel zamknięty, ale ekran i WS żywe; przy dwóch
+    // kontrolkach od tego samego lepiej zostawić tę, którą użytkownik i tak zna.
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(
-        title: Text('${tr('Terminal')} · $short'),
-        actions: [
-          if (_phase == _Phase.session)
-            IconButton(icon: const Icon(Icons.link_off), tooltip: tr('Rozłącz'), onPressed: _disconnect),
-        ],
-      ),
+      appBar: AppBar(title: Text('${tr('Terminal')} · $short')),
       body: switch (_phase) {
         _Phase.connecting => _center(const CircularProgressIndicator(color: AppTheme.teal)),
         _Phase.error => _errorView(),
@@ -221,27 +273,27 @@ class _TerminalScreenState extends State<TerminalScreen> {
   Widget _formView() => ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
-            color: AppTheme.card,
-            child: ListTile(
-              leading: Icon(_paired ? Icons.verified_user_outlined : Icons.vpn_key_outlined,
-                            color: _paired ? AppTheme.teal : AppTheme.amber),
-              title: Text(_paired ? tr('Node sparowany') : tr('Node niesparowany'),
-                          style: const TextStyle(color: AppTheme.text)),
-              subtitle: Text(
-                _paired
-                  ? tr('Ten telefon ma klucz, którego nasz serwer nie zna — tylko Ty otworzysz tunel.')
-                  : tr('Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.'),
-                style: const TextStyle(color: AppTheme.muted, fontSize: 12),
-              ),
-              trailing: _paired ? null : FilledButton(
-                onPressed: _doPair,
-                style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
-                child: Text(tr('Sparuj')),
+          // Tylko gdy czegoś brakuje. Potwierdzanie „sparowany" przy każdym wejściu to szum —
+          // o wymogu user dowiaduje się przy dodawaniu integracji, tu zostaje sama droga wyjścia.
+          if (!_paired) ...[
+            Card(
+              color: AppTheme.card,
+              child: ListTile(
+                leading: const Icon(Icons.vpn_key_outlined, color: AppTheme.amber),
+                title: Text(tr('Node niesparowany'), style: const TextStyle(color: AppTheme.text)),
+                subtitle: Text(
+                  tr('Zdalny dostęp wymaga jednorazowego sparowania w tej samej sieci WiFi co node.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                ),
+                trailing: FilledButton(
+                  onPressed: _doPair,
+                  style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
+                  child: Text(tr('Sparuj')),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
+            const SizedBox(height: 8),
+          ],
           _field(_host, tr('Host w sieci noda'), Icons.lan_outlined, hint: '192.168.1.1'),
           Row(children: [
             Expanded(flex: 2, child: _field(_port, tr('Port'), Icons.tag, keyboard: TextInputType.number)),
@@ -249,6 +301,22 @@ class _TerminalScreenState extends State<TerminalScreen> {
             Expanded(flex: 3, child: _field(_user, tr('Użytkownik SSH'), Icons.person_outline)),
           ]),
           _field(_pass, tr('Hasło SSH'), Icons.lock_outline, obscure: true),
+          InkWell(
+            onTap: () => setState(() => _savePass = !_savePass),
+            child: Row(children: [
+              Checkbox(
+                value: _savePass,
+                onChanged: (v) => setState(() => _savePass = v ?? false),
+                activeColor: AppTheme.teal,
+                checkColor: Colors.black,
+                visualDensity: VisualDensity.compact,
+              ),
+              Expanded(
+                child: Text(tr('Zapamiętaj hasło na tym telefonie'),
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12.5)),
+              ),
+            ]),
+          ),
           const SizedBox(height: 8),
           Text(
             tr('SSH jest szyfrowany end-to-end — node i nasze serwery przekazują tylko zaszyfrowane bajty.'),

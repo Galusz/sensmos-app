@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:dartssh2/dartssh2.dart';
 import '../config.dart';
+import '../l10n.dart';
 import 'pairing_service.dart';
 
 /// RemoteTerminal — most apka↔BE(/v1/term)↔node.
@@ -20,6 +21,11 @@ class TerminalRelay {
   /// całego relaya (żywy WS + uwierzytelnienie) tylko po to, żeby wstrzyknąć klucz.
   Uint8List? pairKey;
 
+  /// TRYB PRZEJŚCIOWY (do usunięcia ok. miesiąc po wydaniu): node na FW ≤0.81 nie zna
+  /// /node/pair ani dowodu, więc tunel otwieramy po staremu — `cfg` włączające remote_ok
+  /// plus `open` bez proof. Znika razem z PairingService.legacyMark.
+  bool legacy = false;
+
   WebSocketChannel? _ch;
   _RelaySocket? _sock;
   bool _authed = false;
@@ -35,7 +41,7 @@ class TerminalRelay {
   Completer<SSHSocket>? _open;
 
   TerminalRelay({required this.deviceId, required this.owner, required this.signMessage,
-                 this.pairKey});
+                 this.pairKey, this.legacy = false});
 
   String get _wsUrl => '${Config.beUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://')}/v1/term';
 
@@ -56,15 +62,22 @@ class TerminalRelay {
   Future<SSHSocket> openTunnel(String ip, int port) async {
     if (!_authed) throw Exception('not authenticated');
     final key = pairKey;
-    if (key == null) {
-      throw Exception('Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.');
+    if (key == null && !legacy) {
+      throw Exception(tr('Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.'));
     }
-    // Dowód liczony TUTAJ i przepychany przez backend nietknięty. ip i port siedzą w środku
-    // podpisywanego ciągu, więc przejęty serwer nie podmieni celu na inny adres w LAN-ie.
-    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final proof = PairingService.proof(key, deviceId, ip, port, ts);
     _open = Completer<SSHSocket>();
-    _send({'type': 'open', 'ip': ip, 'port': port, 'ts': ts, 'proof': proof});
+    if (key == null) {
+      // Stare FW: dowodu nie zweryfikuje, za to wymaga flagi remote_ok, którą ustawia się
+      // komunikatem `cfg`. Idą jednym WS-em, więc node przetworzy je w tej kolejności.
+      _send({'type': 'cfg', 'enable': true});
+      _send({'type': 'open', 'ip': ip, 'port': port});
+    } else {
+      // Dowód liczony TUTAJ i przepychany przez backend nietknięty. ip i port siedzą w środku
+      // podpisywanego ciągu, więc przejęty serwer nie podmieni celu na inny adres w LAN-ie.
+      final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final proof = PairingService.proof(key, deviceId, ip, port, ts);
+      _send({'type': 'open', 'ip': ip, 'port': port, 'ts': ts, 'proof': proof});
+    }
     return _open!.future.timeout(const Duration(seconds: 20),
         onTimeout: () => throw Exception('tunnel open timeout'));
   }
@@ -99,6 +112,13 @@ class TerminalRelay {
           );
           if (_open != null && !_open!.isCompleted) _open!.complete(_sock!);
         } else if (st == 'closed' || st == 'error') {
+          // Node dostał w międzyczasie 0.82 i odrzuca starą ścieżkę. Kasujemy znacznik
+          // zgodności, żeby przy następnej próbie apka poprosiła o prawdziwe parowanie
+          // zamiast w kółko dobijać się nieakceptowanym już żądaniem.
+          if (legacy && st == 'error' && '${m['msg'] ?? ''}'.contains('not paired')) {
+            legacy = false;
+            PairingService().forget(deviceId);
+          }
           _sock?.remoteClosed();
           if (_open != null && !_open!.isCompleted) {
             _open!.completeError(Exception('tunnel $st: ${m['msg'] ?? ''}'));

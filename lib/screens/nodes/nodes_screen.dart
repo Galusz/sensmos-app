@@ -25,6 +25,9 @@ import '../integrations/ha_panel_screen.dart';
 import '../integrations/ha_settings_screen.dart';
 import '../../services/integrations/integration_kind.dart';
 import '../../services/integrations/integration_store.dart';
+import '../../services/pairing_service.dart';
+import '../../util/pair_gate.dart';
+import '../../widgets/news_section.dart';
 import '../../l10n.dart';
 
 /// Panel — JEDNA lista nodów, źródło prawdy = BE (owned by wallet), działa wszędzie.
@@ -40,6 +43,8 @@ class NodesScreen extends StatefulWidget {
 class _NodesScreenState extends State<NodesScreen> {
   final _expanded = <String, bool>{};
   final _online = <String, bool>{}; // LOKALNA osiągalność (telefon w sieci noda)
+  final _paired = <String, bool>{}; // czy TEN telefon ma klucz do noda (tunel bez niego nie ruszy)
+  int _tick = 0;                    // licznik ticków pollingu (saldo rzadziej niż status online)
   final _nodeData = <String, Map<String, dynamic>>{}; // /info z noda (entity_count itd.)
   final _scarcity = <String, String>{};
   final _beData = <String, Map<String, dynamic>>{}; // /v1/nodes/:id (sąsiedzi/promień/saldo)
@@ -59,6 +64,10 @@ class _NodesScreenState extends State<NodesScreen> {
       if (!mounted) return;
       _fetchMyBeNodes();
       _probeAllLocal();
+      // Saldo to DRUGIE, niezależne źródło tej samej liczby co w Portfelu. Bez tego po claimie
+      // kafel trzymał kwotę sprzed operacji aż do pull-to-refresh albo restartu apki.
+      // Co 3. tick (30 s) — saldo nie potrzebuje granulacji statusu online.
+      if (++_tick % 3 == 0) _fetchBalance();
     });
   }
 
@@ -481,6 +490,10 @@ class _NodesScreenState extends State<NodesScreen> {
                     _buildGlobalStats(),
                     if (state.wallet == null) _noWalletBanner(),
                     const SizedBox(height: 16),
+                    // Aktualności pod portfelem, nad listą nodów. Gdy nie ma wpisów, widget
+                    // ma zerowy rozmiar i niczego tu nie przesuwa. Adres portfela decyduje
+                    // o wpisach celowanych (kraj / wersja FW / konkretne portfele).
+                    NewsSection(owner: state.wallet?.address),
                     ...list.map(_buildCard),
                   ],
                 ),
@@ -491,13 +504,18 @@ class _NodesScreenState extends State<NodesScreen> {
 
   // RemoteTerminal (on-demand tunel + PIN gate) jest dopiero od FW > 0.70 — na starszych ukryj wejście.
   bool _fwGt(dynamic fw, double min) {
-    final v = double.tryParse(fw?.toString() ?? '');
+    // Wersja bywa z sufiksem gałęzi ('0.80-lora6', '0.80-fsk3') — double.tryParse zwracał wtedy
+    // null i node z LoRy wyglądał na starszy niż 0.70, więc integracje były dla niego zablokowane
+    // mimo firmware 0.80. Bierzemy sam prefiks major.minor.
+    final m = RegExp(r'^\d+\.\d+').firstMatch(fw?.toString() ?? '');
+    final v = m == null ? null : double.tryParse(m.group(0)!);
     return v != null && v > min;
   }
 
   Future<void> _loadKinds(String id) async {
     final k = await IntegrationStore.enabledKinds(id);
-    if (mounted) setState(() => _kinds[id] = k);
+    final p = await PairingService().hasAccess(id);
+    if (mounted) setState(() { _kinds[id] = k; _paired[id] = p; });
   }
 
   // Rząd integracji: podpięte (tap → otwórz, long-press → odepnij) + „Dodaj".
@@ -539,6 +557,7 @@ class _NodesScreenState extends State<NodesScreen> {
 
   Future<void> _addIntegration(String id, String name, Map<String, dynamic>? be) async {
     final fwOk = _fwGt(be?['firmware'], 0.70);
+    final paired = _paired[id] == true;
     final enabled = _kinds[id] ?? const <String>{};
     final addable = IntegrationKind.values.where((k) => !enabled.contains(k.id)).toList();
     final chosen = await showModalBottomSheet<IntegrationKind>(
@@ -555,9 +574,14 @@ class _NodesScreenState extends State<NodesScreen> {
             ListTile(
               leading: Icon(k.icon, color: AppTheme.teal),
               title: Text(tr(k.labelKey), style: const TextStyle(color: AppTheme.text)),
+              // Warunki wstępne wprost przy wyborze. FW jest twardy (blokuje), parowanie tylko
+              // uprzedza — da się je zrobić po dodaniu, byle w sieci noda.
               subtitle: (k.needsTunnel && !fwOk)
                   ? Text(tr('Wymaga FW > 0.70'), style: const TextStyle(color: AppTheme.amber, fontSize: 12))
-                  : null,
+                  : (k.needsTunnel && !paired)
+                      ? Text(tr('Wymaga sparowania noda — tylko w jego sieci WiFi'),
+                          style: const TextStyle(color: AppTheme.amber, fontSize: 12))
+                      : null,
               enabled: !(k.needsTunnel && !fwOk),
               onTap: () => Navigator.pop(context, k),
             ),
@@ -571,6 +595,36 @@ class _NodesScreenState extends State<NodesScreen> {
       ),
     );
     if (chosen == null) return;
+    if (!mounted) return;   // sheet mógł się zamknąć razem z ekranem — dalej idzie context
+    // Parowanie ZARAZ po wyborze, póki user jest w sieci noda — a jest, bo integracje dodaje się
+    // zwykle tuż po onboardingu, w domu. Odłożenie tego do pierwszego użycia znaczy, że o wymogu
+    // dowie się z wakacji, gdzie klucza nie ma jak zapisać (kanał jest wyłącznie lokalny).
+    if (chosen.needsTunnel && _paired[id] != true) {
+      if (_online[id] == true) {
+        await ensurePaired(context, id);
+        if (!mounted) return;
+        setState(() => _paired[id] = true);
+        _loadKinds(id);   // stan z magazynu — ensurePaired mogło zostać anulowane
+      } else {
+        await showDialog<void>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppTheme.card,
+            title: Text(tr('Wymagane sparowanie'), style: const TextStyle(color: AppTheme.text)),
+            content: Text(
+              tr('Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz '
+                 'serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: '
+                 'Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się '
+                 'dopiero po sparowaniu.'),
+              style: const TextStyle(color: AppTheme.muted)),
+            actions: [
+              FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Rozumiem'))),
+            ],
+          ),
+        );
+        if (!mounted) return;
+      }
+    }
     if (chosen.needsConfig) {
       final saved = await Navigator.push<bool>(context, MaterialPageRoute(
           builder: (_) => HaSettingsScreen(deviceId: id, label: name)));
@@ -742,6 +796,13 @@ class _NodesScreenState extends State<NodesScreen> {
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(tr('Integracje wymagają noda online (połączonego z chmurą).'),
                     style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+              ),
+              // Ostrzeżenie zostaje na karcie, a nie znika razem z bottom-sheetem — user widzi je
+              // za każdym razem, gdy jest w domu, a nie dopiero gdy tunel odmówi z wakacji.
+              if (_paired[id] != true && (_kinds[id]?.isNotEmpty ?? false)) Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(tr('Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.'),
+                    style: const TextStyle(color: AppTheme.amber, fontSize: 11)),
               ),
               const SizedBox(height: 14),
               // Dwie ROZNE operacje, wiec dwa osobne przyciski obok siebie:

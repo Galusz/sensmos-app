@@ -74,15 +74,16 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       // Klucz parowania — bez niego node odmówi otwarcia tunelu. Jednorazowo wymaga bycia
       // w tej samej sieci WiFi co node (patrz pair_gate); potem leży w bezpiecznym magazynie.
       if (!mounted) return;
-      final pairKey = await ensurePaired(context, widget.deviceId);
+      final acc = await ensurePaired(context, widget.deviceId);
       if (!mounted) return;
-      if (pairKey == null) { Navigator.pop(context); return; }
+      if (!acc.ok) { Navigator.pop(context); return; }
 
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
-        pairKey: pairKey,
+        pairKey: acc.key,
+        legacy: acc.legacy,
       );
       _relay = relay;
       _evSub = relay.events.listen(_onRelayEvent);

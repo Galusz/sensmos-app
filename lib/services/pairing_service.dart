@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
+import '../l10n.dart';
 
 /// Parowanie telefon↔node — klucz, którego BACKEND NIGDY NIE WIDZI.
 ///
@@ -30,14 +31,40 @@ class PairingService {
 
   String _slot(String deviceId) => '$_prefix$deviceId';
 
-  /// Klucz dla noda albo null, jeśli nie sparowany na TYM telefonie.
+  /// TRYB PRZEJŚCIOWY — do usunięcia ok. miesiąc po wydaniu APK z parowaniem.
+  ///
+  /// Nody na firmwarze sprzed 0.82 nie mają endpointu /node/pair (zwracają 404), więc nie da
+  /// się z nimi sparować. Bez tego znacznika nowa apka nie otworzyłaby tunelu do ŻADNEGO noda
+  /// ze starej floty — a nie ma kolejności wydania, która by tego uniknęła: stary APK nie
+  /// umie dowodu dla FW 0.82, nowy nie umie się sparować z FW ≤0.81.
+  ///
+  /// Znacznik trafia do tego samego slotu co klucz. Jest krótszy niż 64 znaki, więc [keyFor]
+  /// zwraca dla niego null i ścieżka z dowodem sama się nie uruchomi.
+  ///
+  /// USUWANIE: skasować tę stałą, [isLegacy], gałąź 404 w [pair] i gałąź `legacy`
+  /// w TerminalRelay.openTunnel. Reszta zadziała bez zmian.
+  static const String legacyMark = 'legacy';
+
+  /// Klucz dla noda albo null, jeśli nie sparowany na TYM telefonie (także dla trybu legacy).
   Future<Uint8List?> keyFor(String deviceId) async {
     final hex = await _storage.read(key: _slot(deviceId));
     if (hex == null || hex.length != _keyLen * 2) return null;
     return _fromHex(hex);
   }
 
-  Future<bool> hasKey(String deviceId) async => await keyFor(deviceId) != null;
+  /// Node na starym firmwarze — tunel po staremu, bez dowodu.
+  Future<bool> isLegacy(String deviceId) async =>
+      await _storage.read(key: _slot(deviceId)) == legacyMark;
+
+  /// Czy z tym nodem da się w ogóle otworzyć tunel z tego telefonu — kluczem albo po staremu.
+  Future<bool> hasAccess(String deviceId) async {
+    final v = await _storage.read(key: _slot(deviceId));
+    return v != null && (v.length == _keyLen * 2 || v == legacyMark);
+  }
+
+  /// Zapomnij zapisany dostęp bez pytania noda — używane, gdy node okazał się już
+  /// zaktualizowany i stara ścieżka przestała działać.
+  Future<void> forget(String deviceId) => _storage.delete(key: _slot(deviceId));
 
   /// Sparuj: wygeneruj klucz, wyślij do noda po LAN, zapisz lokalnie.
   /// Zwraca null przy sukcesie albo komunikat błędu.
@@ -49,11 +76,19 @@ class PairingService {
               headers: {'Authorization': 'Bearer $pin', 'Content-Type': 'application/json'},
               body: jsonEncode({'key': _toHex(key)}))
           .timeout(const Duration(seconds: 6));
-      if (res.statusCode == 403) return 'Zły PIN noda.';
-      if (res.statusCode != 200) return 'Node odrzucił parowanie (HTTP ${res.statusCode}).';
+      // Komunikaty tłumaczymy TUTAJ: kod HTTP wklejony w string dałby klucz, którego w mapie
+      // nigdy nie ma (każdy kod to inny klucz), więc leci jako argument %s.
+      if (res.statusCode == 403) return tr('Zły PIN noda.');
+      // 404 = firmware sprzed 0.82, endpoint nie istnieje. Nie jest to błąd użytkownika —
+      // zapisujemy znacznik i tunel poleci starą ścieżką (patrz PairingService.legacyMark).
+      if (res.statusCode == 404) {
+        await _storage.write(key: _slot(deviceId), value: legacyMark);
+        return null;
+      }
+      if (res.statusCode != 200) return tr('Node odrzucił parowanie (HTTP %s).', [res.statusCode]);
     } catch (e) {
       // Najczęstszy powód: telefon jest w innej sieci niż node (LTE albo inne WiFi).
-      return 'Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.';
+      return tr('Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.');
     }
     // Zapis lokalny DOPIERO po potwierdzeniu z noda: inaczej apka myślałaby, że jest sparowana,
     // a node by o tym nie wiedział i każdy tunel odbijałby się o „bad proof".
@@ -66,10 +101,13 @@ class PairingService {
     try {
       final res = await http.delete(Uri.parse('http://$nodeIp/node/pair'),
           headers: {'Authorization': 'Bearer $pin'}).timeout(const Duration(seconds: 6));
-      if (res.statusCode == 403) return 'Zły PIN noda.';
-      if (res.statusCode != 200) return 'Node odrzucił żądanie (HTTP ${res.statusCode}).';
+      if (res.statusCode == 403) return tr('Zły PIN noda.');
+      // 404 = stare firmware (tryb legacy) — nie ma czego kasować na nodzie, czyścimy lokalnie.
+      if (res.statusCode != 200 && res.statusCode != 404) {
+        return tr('Node odrzucił żądanie (HTTP %s).', [res.statusCode]);
+      }
     } catch (e) {
-      return 'Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.';
+      return tr('Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.');
     }
     await _storage.delete(key: _slot(deviceId));
     return null;

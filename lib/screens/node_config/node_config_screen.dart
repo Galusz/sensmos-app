@@ -43,7 +43,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   }
 
   Future<void> _loadPairing() async {
-    final has = await PairingService().hasKey(node.id);
+    final has = await PairingService().hasAccess(node.id);
     if (!mounted) return;
     setState(() => _paired = has);
   }
@@ -53,9 +53,9 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   /// po raz trzeci, a user i tak nie wiedziałby, gdzie tego szukać.
   Future<void> _togglePairing() async {
     if (!_paired) {
-      final key = await ensurePaired(context, node.id);
+      final acc = await ensurePaired(context, node.id);
       if (!mounted) return;
-      setState(() => _paired = key != null);
+      setState(() => _paired = acc.ok);
       return;
     }
     final ok = await showDialog<bool>(
@@ -79,7 +79,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
     final err = await PairingService().unpair(node.id, node.ip, pin);
     if (!mounted) return;
     if (err != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr(err))));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
       return;
     }
     setState(() => _paired = false);
