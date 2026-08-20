@@ -46,7 +46,10 @@ class _NodesScreenState extends State<NodesScreen> {
   final _paired = <String, bool>{}; // czy TEN telefon ma klucz do noda (tunel bez niego nie ruszy)
   int _tick = 0;                    // licznik ticków pollingu (saldo rzadziej niż status online)
   final _nodeData = <String, Map<String, dynamic>>{}; // /info z noda (entity_count itd.)
-  final _scarcity = <String, String>{};
+  // Mnożnik geograficzny: im dalej najbliższy sąsiad, tym wyższy. W BE nazywa się
+  // wciąż `scarcity`, ale liczy pokrycie, nie rzadkość danych — nazwa w apce idzie
+  // za znaczeniem, nie za kolumną w bazie.
+  final _coverage = <String, String>{};
   final _beData = <String, Map<String, dynamic>>{}; // /v1/nodes/:id (sąsiedzi/promień/saldo)
   final _kinds = <String, Set<String>>{}; // podpięte integracje per node (opt-in)
   List<Map<String, dynamic>> _myBeNodes = []; // WSZYSTKIE nody walleta wg BE — PRYMARNE źródło
@@ -193,7 +196,7 @@ class _NodesScreenState extends State<NodesScreen> {
     if (!mounted) return;
     setState(() {});
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(tr('Node znaleziony: %s', [ip!]))));
+      content: Text(tr('Node znaleziony: %s', [ip]))));
   }
 
   Future<String?> _askPin() async {
@@ -330,13 +333,19 @@ class _NodesScreenState extends State<NodesScreen> {
       final entities = j['entities'] as List? ?? [];
       final device = j['device'] as Map<String, dynamic>? ?? {};
       final balance = j['balance'] as Map<String, dynamic>? ?? {};
-      String scarcity = '—';
-      if (entities.isNotEmpty) {
-        final mult = entities.first['scarcity_mult'];
-        if (mult != null) scarcity = double.tryParse(mult.toString())?.toStringAsFixed(3) ?? '—';
+      // Mnożnik pokrycia = NAJLEPSZY z encji noda, dokładnie jak MAX(mult) w rozliczeniu
+      // epoki (BE: epoch/rewards.js → nodeWeight) i jak best_mult na mapie. Wcześniej brana
+      // była `entities.first`, a endpoint sortuje po entity_id — apka pokazywała mnożnik
+      // przypadkowej encji (alfabetycznie pierwszej), nie ten, za który node dostaje GALU.
+      // Po dojściu encji lora_* wartość na karcie zmieniła się bez żadnej zmiany w sieci.
+      double? best;
+      for (final e in entities) {
+        final m = double.tryParse('${(e as Map)['scarcity_mult']}');
+        if (m != null && (best == null || m > best)) best = m;
       }
+      final coverage = best?.toStringAsFixed(3) ?? '—';
       if (mounted) setState(() {
-        _scarcity[deviceId] = scarcity;
+        _coverage[deviceId] = coverage;
         _beData[deviceId] = {
           'neighbors': device['neighbor_count']?.toString() ?? '0',
           'radius': device['radius_km'] != null
@@ -757,7 +766,9 @@ class _NodesScreenState extends State<NodesScreen> {
               // Statystyki. Elastyczne, bo na wąskich ekranach (starsze telefony) sztywne
               // odstępy + Spacer wypychały „Pełne ID / Kopiuj" poza kartę.
               Row(children: [
-                Expanded(child: _stat('Scarcity', _scarcity[id] ?? '—')),
+                // „Scarcity" to była nazwa sprzed lat — ten mnożnik liczy się z promienia pokrycia,
+                // nie z rzadkości danych. Nazwa ujednolicona z mapą i stroną noda (2026-08-18).
+                Expanded(child: _stat(tr('Pokrycie'), _coverage[id] ?? '—')),
                 Expanded(child: _stat(tr('Sąsiedzi'), _beData[id]?['neighbors'] ?? '—')),
                 Expanded(child: _stat(tr('Promień'), _beData[id]?['radius'] ?? '—')),
                 const SizedBox(width: 8),

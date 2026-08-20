@@ -15,6 +15,15 @@ const _kMonKeys = {
   'net_score',
 };
 
+// Radio LoRa (kategoria RF). Firmware pcha te encje z prefiksem "mon.", więc bez tej listy
+// lądowały w sekcji „Telemetria" razem z NET — a to dwie różne rzeczy: NET ma każda płytka
+// z definicji i NIE liczy się do nagród, RF ma tylko ten, kto postawił SX1262, i liczy się
+// jak PWR czy ENV. Zlepianie ich w jednym worku było w apce tym samym błędem, przez który
+// po stronie BE encje radiowe wpadały do CUSTOM zamiast do RF.
+const _kRfKeys = {
+  'lora_noise', 'lora_busy', 'lora_pkt', 'lora_rssi', 'lora_cad',
+};
+
 class EntitiesScreen extends StatefulWidget {
   final String ip;
   final String pin;
@@ -27,6 +36,7 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
   String? _error;
   List<dynamic> _pub  = [];
   List<dynamic> _mon  = [];   // telemetria NET (FW 0.75+); starsze FW jej nie mają
+  List<dynamic> _rf   = [];   // radio LoRa (RF) — też przychodzi w "mon", ale to nie telemetria
   List<dynamic> _own  = [];
   List<dynamic> _pool = [];
 
@@ -48,7 +58,8 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
       // (np. wepchnięty POST-em /data) ukryłby realną encję pub.<ten sam klucz>.
       final monKeys = mon.map(_baseId).where(_kMonKeys.contains).toSet();
       setState(() {
-        _mon     = mon;
+        _mon     = mon.where((e) => !_kRfKeys.contains(_baseId(e))).toList();
+        _rf      = mon.where((e) =>  _kRfKeys.contains(_baseId(e))).toList();
         _pub     = (j['pub'] as List? ?? [])
                        .where((e) => !monKeys.contains(_baseId(e))).toList();
         _own     = j['own']  as List? ?? [];
@@ -76,7 +87,7 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Text(tr('Błąd: %s', [_error]),
                       style: const TextStyle(color: AppTheme.red))))
-              : _pub.isEmpty && _mon.isEmpty && _own.isEmpty && _pool.isEmpty
+              : _pub.isEmpty && _mon.isEmpty && _rf.isEmpty && _own.isEmpty && _pool.isEmpty
                   ? Center(child: Text(tr('Brak encji'),
                       style: const TextStyle(color: AppTheme.muted)))
                   : ListView(
@@ -96,6 +107,13 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
                           _sectionHeader(
                               '${tr('Zewnętrzne')} (sub./get./msg.)', _pool.length),
                           ..._pool.map(_buildTile),
+                          const SizedBox(height: 16),
+                        ],
+                        // RF przed telemetrią: to pełnoprawne dane noda (liczą się do nagród),
+                        // a nie służbowe liczniki sieci, które ma każda płytka.
+                        if (_rf.isNotEmpty) ...[
+                          _sectionHeader('${tr('Radio LoRa')} (mon.lora_*)', _rf.length),
+                          ..._rf.map(_buildTile),
                           const SizedBox(height: 16),
                         ],
                         if (_mon.isNotEmpty) ...[
@@ -168,6 +186,9 @@ class _EntitiesScreenState extends State<EntitiesScreen> {
 
   IconData _entityIcon(String id) {
     final s = id.toLowerCase();
+    // Radio PRZED resztą: „lora_rssi" łapało się na regułę rssi i dostawało ikonę WiFi,
+    // czyli obrazek zupełnie innego łącza niż to, co encja mierzy.
+    if (s.contains('lora'))    return Icons.settings_input_antenna;
     if (s.contains('temp'))    return Icons.thermostat_outlined;
     if (s.contains('hum'))     return Icons.water_drop_outlined;
     if (s.contains('volt') || s.contains('bat')) return Icons.battery_5_bar;
