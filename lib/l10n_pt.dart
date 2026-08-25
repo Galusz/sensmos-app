@@ -656,6 +656,17 @@ const Map<String, String> ptMap = {
       "Sem quedas neste período — a conexão funcionou sem interrupções. 🎉",
   "internet nie działał (wina dostawcy)": "a internet caiu (culpa do provedor)",
   "serwis SENSMOS — nie liczy się do raportu": "manutenção do SENSMOS — não conta para o relatório",
+  // ── 1.5.43: plugin Panel LAN ─────────────────────────────────
+  "Panel LAN": "Painel LAN",
+  "Dodaj panel": "Adicionar painel",
+  "Edytuj panel": "Editar painel",
+  "Nazwa": "Nome",
+  "Adres w LAN": "Endereço na LAN",
+  "Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.":
+      "Somente HTTP. Painéis pesados (UniFi, HA) não vão funcionar — o túnel é lento.",
+  "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
+      "Adicione painéis web da rede do node (roteador, impressora, Pi-hole…) — você os abre de qualquer lugar, pelo túnel.",
+  "Otwieram tunel do noda…": "Abrindo o túnel para o node…",
   "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
 };

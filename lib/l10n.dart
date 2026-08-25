@@ -786,6 +786,17 @@ const Map<String, String> _enMap = {
       "No outages in this period — your connection ran uninterrupted. 🎉",
   "internet nie działał (wina dostawcy)": "internet was down (provider's fault)",
   "serwis SENSMOS — nie liczy się do raportu": "SENSMOS maintenance — not counted in the report",
+  // ── 1.5.43: plugin Panel LAN ─────────────────────────────────
+  "Panel LAN": "LAN panel",
+  "Dodaj panel": "Add panel",
+  "Edytuj panel": "Edit panel",
+  "Nazwa": "Name",
+  "Adres w LAN": "LAN address",
+  "Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.":
+      "HTTP only. Heavy panels (UniFi, HA) won't work — the tunnel is slow.",
+  "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
+      "Add web panels from the node's network (router, printer, Pi-hole…) — you'll open them from anywhere, through the tunnel.",
+  "Otwieram tunel do noda…": "Opening the tunnel to the node…",
   "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
 };
@@ -1510,6 +1521,17 @@ const Map<String, String> _deMap = {
       "Keine Ausfälle in diesem Zeitraum — die Verbindung lief ohne Unterbrechung. 🎉",
   "internet nie działał (wina dostawcy)": "Internet war down (Schuld des Anbieters)",
   "serwis SENSMOS — nie liczy się do raportu": "SENSMOS-Wartung — zählt nicht zum Bericht",
+  // ── 1.5.43: plugin Panel LAN ─────────────────────────────────
+  "Panel LAN": "LAN-Panel",
+  "Dodaj panel": "Panel hinzufügen",
+  "Edytuj panel": "Panel bearbeiten",
+  "Nazwa": "Name",
+  "Adres w LAN": "LAN-Adresse",
+  "Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.":
+      "Nur HTTP. Schwere Panels (UniFi, HA) funktionieren nicht — der Tunnel ist langsam.",
+  "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
+      "Füge Web-Panels aus dem Netzwerk des Nodes hinzu (Router, Drucker, Pi-hole…) — du öffnest sie von überall, durch den Tunnel.",
+  "Otwieram tunel do noda…": "Öffne den Tunnel zum Node…",
   "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
 };

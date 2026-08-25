@@ -29,6 +29,21 @@ class HaBinding {
       );
 }
 
+/// Zakładka „Panel LAN" — panel WWW w sieci noda otwierany przez tunel.
+class LanPanel {
+  String name;
+  String host;   // IP/host w LAN noda
+  int port;
+  LanPanel({required this.name, required this.host, this.port = 80});
+
+  Map<String, dynamic> toJson() => {'name': name, 'host': host, 'port': port};
+  static LanPanel fromJson(Map<String, dynamic> j) => LanPanel(
+        name: (j['name'] as String?) ?? '',
+        host: (j['host'] as String?) ?? '',
+        port: (j['port'] as int?) ?? 80,
+      );
+}
+
 class IntegrationStore {
   static String _key(String nodeId) => 'ha_binding_$nodeId';
 
@@ -80,6 +95,29 @@ class IntegrationStore {
     } catch (_) {
       return null;
     }
+  }
+
+  // ── Panel LAN: zakładki paneli WWW w sieci noda (per node) ──
+  // Tylko HTTP — tunel mówi czystym HTTP/1.1 end-to-end (HttpOverTunnel), TLS do hosta
+  // w LAN nie przejdzie. Ciężkie SPA (UniFi/HA/Proxmox) też nie — patrz plugin-y API.
+  static String _lanKey(String nodeId) => 'lan_panels_$nodeId';
+
+  static Future<List<LanPanel>> lanPanels(String nodeId) async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(_lanKey(nodeId));
+    if (s == null) return [];
+    try {
+      return (jsonDecode(s) as List)
+          .map((e) => LanPanel.fromJson((e as Map).cast<String, dynamic>()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> saveLanPanels(String nodeId, List<LanPanel> panels) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_lanKey(nodeId), jsonEncode(panels.map((e) => e.toJson()).toList()));
   }
 
   // ── Podpięte integracje per node (opt-in: terminal, ha, …) ──

@@ -1,7 +1,7 @@
 ﻿name: sensmos_app
 description: SENSMOS â€” sieÄ‡ inteligentnych czujnikĂłw
 publish_to: 'none'
-version: 1.5.42+76
+version: 1.5.43+77
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -40,6 +40,7 @@ dependencies:
   # Secure storage (Keychain / Keystore)
   flutter_secure_storage: ^9.0.0
   shared_preferences: ^2.2.2
+  webview_flutter: ^4.10.0
 
   # Map
   flutter_map: ^6.1.0

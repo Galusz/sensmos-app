@@ -23,6 +23,7 @@ import '../node/node_manager_screen.dart';
 import '../terminal/terminal_screen.dart';
 import '../integrations/ha_panel_screen.dart';
 import '../integrations/link_report_screen.dart';
+import '../integrations/lan_panels_screen.dart';
 import '../integrations/ha_settings_screen.dart';
 import '../../services/integrations/integration_kind.dart';
 import '../../services/integrations/integration_store.dart';
@@ -585,6 +586,7 @@ class _NodesScreenState extends State<NodesScreen> {
       IntegrationKind.terminal => TerminalScreen(deviceId: id, label: name),
       IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
       IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
+      IntegrationKind.lanPanel => LanPanelsScreen(deviceId: id, label: name),
     };
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }
@@ -660,8 +662,13 @@ class _NodesScreenState extends State<NodesScreen> {
       }
     }
     if (chosen.needsConfig) {
-      final saved = await Navigator.push<bool>(context, MaterialPageRoute(
-          builder: (_) => HaSettingsScreen(deviceId: id, label: name)));
+      final Widget cfg = switch (chosen) {
+        IntegrationKind.lanPanel =>
+            LanPanelsScreen(deviceId: id, label: name, configMode: true),
+        _ => HaSettingsScreen(deviceId: id, label: name),
+      };
+      final saved = await Navigator.push<bool>(
+          context, MaterialPageRoute(builder: (_) => cfg));
       if (saved != true) return; // anulował konfigurację → nie podpinaj
     }
     await IntegrationStore.setKind(id, chosen.id, true);
