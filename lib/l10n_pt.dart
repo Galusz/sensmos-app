@@ -635,6 +635,27 @@ const Map<String, String> ptMap = {
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "As notificações se registram automaticamente ao abrir o app — um registro cobre todos os seus nodes (ações de scripts, mensagens, o alarme de perda de conexão via LoRa). Você pode desativá-las nas configurações de notificação do sistema.",
   "Brak powiadomień": "Sem notificações",
+  // ── 1.5.42: plugin Raport łącza ──────────────────────────────
+  "Raport łącza": "Relatório de conexão",
+  "Okres": "Período",
+  "ostatnie %s dni": "últimos %s dias",
+  "Przerwy w dostępie do internetu": "Quedas de internet",
+  "Łączny czas bez internetu": "Tempo total sem internet",
+  "Najdłuższa przerwa": "Queda mais longa",
+  "Pomiar niezależny, 24/7, stempel czasu NTP": "Medição independente, 24/7, carimbo de tempo NTP",
+  "%s dni": "%s dias",
+  "Twój internet (wina dostawcy)": "Sua internet (culpa do provedor)",
+  "przerw": "quedas",
+  "bez internetu": "sem internet",
+  "najdłuższa": "mais longa",
+  "Pozostałe %s przerw to chwilowe prace po stronie SENSMOS — nie liczą się do raportu.":
+      "As outras %s interrupções foram manutenções breves do SENSMOS — não contam para o relatório.",
+  "Raport skopiowany — wklej go do reklamacji": "Relatório copiado — cole na sua reclamação",
+  "Kopiuj raport": "Copiar relatório",
+  "Brak zaników w tym okresie — łącze działało bez przerw. 🎉":
+      "Sem quedas neste período — a conexão funcionou sem interrupções. 🎉",
+  "internet nie działał (wina dostawcy)": "a internet caiu (culpa do provedor)",
+  "serwis SENSMOS — nie liczy się do raportu": "manutenção do SENSMOS — não conta para o relatório",
   "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
 };

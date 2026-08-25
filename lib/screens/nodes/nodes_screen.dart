@@ -22,6 +22,7 @@ import '../setup/setup_screen.dart';
 import '../node/node_manager_screen.dart';
 import '../terminal/terminal_screen.dart';
 import '../integrations/ha_panel_screen.dart';
+import '../integrations/link_report_screen.dart';
 import '../integrations/ha_settings_screen.dart';
 import '../../services/integrations/integration_kind.dart';
 import '../../services/integrations/integration_store.dart';
@@ -550,13 +551,17 @@ class _NodesScreenState extends State<NodesScreen> {
   Widget _integrationsRow(String id, String name, Map<String, dynamic>? be, bool wsOnline) {
     final enabled = _kinds[id] ?? const <String>{};
     final fwOk = _fwGt(be?['firmware'], 0.70);
-    final canOpen = wsOnline && context.read<CoreBloc>().state.wallet != null && fwOk;
+    final hasWallet = context.read<CoreBloc>().state.wallet != null;
+    // Pluginy tunelowe wymagają żywego WS i FW>0.70; chmurowe (Raport łącza) tylko
+    // portfela — działają też, gdy node właśnie leży (to wtedy raport jest najciekawszy).
+    final canOpenTunnel = wsOnline && hasWallet && fwOk;
     final hasAddable = IntegrationKind.values.any((k) => !enabled.contains(k.id));
     return Wrap(spacing: 8, runSpacing: 8, children: [
       for (final kid in enabled)
         if (IntegrationKindX.fromId(kid) case final k?)
           OutlinedButton.icon(
-            onPressed: canOpen ? () => _openIntegration(k, id, name) : null,
+            onPressed: (k.needsTunnel ? canOpenTunnel : hasWallet)
+                ? () => _openIntegration(k, id, name) : null,
             onLongPress: () => _removeIntegration(id, k),
             icon: Icon(k.icon, size: 16),
             label: Text(tr(k.labelKey)),
@@ -579,6 +584,7 @@ class _NodesScreenState extends State<NodesScreen> {
     final screen = switch (k) {
       IntegrationKind.terminal => TerminalScreen(deviceId: id, label: name),
       IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
+      IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
     };
     Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
   }

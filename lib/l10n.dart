@@ -765,6 +765,27 @@ const Map<String, String> _enMap = {
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "Notifications register automatically when the app starts — one registration covers all your nodes (script actions, messages, the LoRa connectivity-loss alarm). You can turn them off in the system notification settings.",
   "Brak powiadomień": "No notifications",
+  // ── 1.5.42: plugin Raport łącza ──────────────────────────────
+  "Raport łącza": "Connection report",
+  "Okres": "Period",
+  "ostatnie %s dni": "last %s days",
+  "Przerwy w dostępie do internetu": "Internet outages",
+  "Łączny czas bez internetu": "Total time without internet",
+  "Najdłuższa przerwa": "Longest outage",
+  "Pomiar niezależny, 24/7, stempel czasu NTP": "Independent measurement, 24/7, NTP timestamps",
+  "%s dni": "%s days",
+  "Twój internet (wina dostawcy)": "Your internet (provider's fault)",
+  "przerw": "outages",
+  "bez internetu": "without internet",
+  "najdłuższa": "longest",
+  "Pozostałe %s przerw to chwilowe prace po stronie SENSMOS — nie liczą się do raportu.":
+      "The remaining %s interruptions were brief SENSMOS maintenance — they don't count toward the report.",
+  "Raport skopiowany — wklej go do reklamacji": "Report copied — paste it into your complaint",
+  "Kopiuj raport": "Copy report",
+  "Brak zaników w tym okresie — łącze działało bez przerw. 🎉":
+      "No outages in this period — your connection ran uninterrupted. 🎉",
+  "internet nie działał (wina dostawcy)": "internet was down (provider's fault)",
+  "serwis SENSMOS — nie liczy się do raportu": "SENSMOS maintenance — not counted in the report",
   "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
 };
@@ -1468,6 +1489,27 @@ const Map<String, String> _deMap = {
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "Benachrichtigungen registrieren sich automatisch beim App-Start — eine Registrierung deckt alle deine Nodes ab (Skript-Aktionen, Nachrichten, der LoRa-Verbindungsverlust-Alarm). Abschalten kannst du sie in den System-Benachrichtigungseinstellungen.",
   "Brak powiadomień": "Keine Benachrichtigungen",
+  // ── 1.5.42: plugin Raport łącza ──────────────────────────────
+  "Raport łącza": "Verbindungsbericht",
+  "Okres": "Zeitraum",
+  "ostatnie %s dni": "letzte %s Tage",
+  "Przerwy w dostępie do internetu": "Internetausfälle",
+  "Łączny czas bez internetu": "Gesamtzeit ohne Internet",
+  "Najdłuższa przerwa": "Längster Ausfall",
+  "Pomiar niezależny, 24/7, stempel czasu NTP": "Unabhängige Messung, 24/7, NTP-Zeitstempel",
+  "%s dni": "%s Tage",
+  "Twój internet (wina dostawcy)": "Dein Internet (Schuld des Anbieters)",
+  "przerw": "Ausfälle",
+  "bez internetu": "ohne Internet",
+  "najdłuższa": "längster",
+  "Pozostałe %s przerw to chwilowe prace po stronie SENSMOS — nie liczą się do raportu.":
+      "Die übrigen %s Unterbrechungen waren kurze SENSMOS-Wartungen — sie zählen nicht zum Bericht.",
+  "Raport skopiowany — wklej go do reklamacji": "Bericht kopiert — füge ihn in deine Beschwerde ein",
+  "Kopiuj raport": "Bericht kopieren",
+  "Brak zaników w tym okresie — łącze działało bez przerw. 🎉":
+      "Keine Ausfälle in diesem Zeitraum — die Verbindung lief ohne Unterbrechung. 🎉",
+  "internet nie działał (wina dostawcy)": "Internet war down (Schuld des Anbieters)",
+  "serwis SENSMOS — nie liczy się do raportu": "SENSMOS-Wartung — zählt nicht zum Bericht",
   "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
 };
