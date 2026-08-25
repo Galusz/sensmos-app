@@ -764,6 +764,7 @@ const Map<String, String> _enMap = {
   "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "Registration failed — check your internet and try again.",
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "Notifications register automatically when the app starts — one registration covers all your nodes (script actions, messages, the LoRa connectivity-loss alarm). You can turn them off in the system notification settings.",
+  "Brak powiadomień": "No notifications",
   "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
 };
@@ -1466,6 +1467,7 @@ const Map<String, String> _deMap = {
   "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "Registrierung fehlgeschlagen — prüfe deine Internetverbindung und versuche es erneut.",
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "Benachrichtigungen registrieren sich automatisch beim App-Start — eine Registrierung deckt alle deine Nodes ab (Skript-Aktionen, Nachrichten, der LoRa-Verbindungsverlust-Alarm). Abschalten kannst du sie in den System-Benachrichtigungseinstellungen.",
+  "Brak powiadomień": "Keine Benachrichtigungen",
   "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
 };

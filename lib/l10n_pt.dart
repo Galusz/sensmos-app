@@ -634,6 +634,7 @@ const Map<String, String> ptMap = {
   "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "O registro falhou — verifique a internet e tente novamente.",
   "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
       "As notificações se registram automaticamente ao abrir o app — um registro cobre todos os seus nodes (ações de scripts, mensagens, o alarme de perda de conexão via LoRa). Você pode desativá-las nas configurações de notificação do sistema.",
+  "Brak powiadomień": "Sem notificações",
   "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
 };
