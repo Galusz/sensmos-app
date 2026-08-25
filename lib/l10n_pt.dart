@@ -597,4 +597,43 @@ const Map<String, String> ptMap = {
       "Node não pareado — o túnel não vai abrir. Pareie enquanto estiver na rede Wi-Fi dele.",
   "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
       "Esta integração abre um túnel para a sua rede, e só o próprio node pode autorizar isso — não o nosso servidor. É preciso gravar uma chave nele estando na mesma rede Wi-Fi: Configurações do node → Acesso remoto.\n\nVou adicionar a integração agora, mas ela só vai conectar depois do pareamento.",
+  // ── 1.5.39/40: MQTT + LoRa awaryjne + push przez BE ──────────
+  "MQTT (lokalny broker)": "MQTT (broker local)",
+  "publikacja statusu i encji do Mosquitto / Home Assistant": "publica status e entidades no Mosquitto / Home Assistant",
+  "LoRa awaryjne": "LoRa de emergência",
+  "encje nadawane radiem przy padzie internetu": "entidades transmitidas por rádio quando a internet cai",
+  "Nie można połączyć z nodem: %s": "Não foi possível conectar ao node: %s",
+  "Ten node nie obsługuje MQTT — zaktualizuj firmware do 0.90 lub nowszego.": "Este node não suporta MQTT — atualize o firmware para 0.90 ou mais novo.",
+  "Podaj adres brokera": "Informe o endereço do broker",
+  "Zapisano — node łączy się z brokerem": "Salvo — o node está se conectando ao broker",
+  "Połączony z brokerem · wysłano %s wiadomości": "Conectado ao broker · %s mensagens enviadas",
+  "Łączenie... %s": "Conectando... %s",
+  "Włączone": "Ativado",
+  "Wyłączone": "Desativado",
+  "Node publikuje do brokera w Twojej sieci: status (online/offline), diagnostykę, encje (z auto-wykryciem w Home Assistant) i wiadomości. Działa też bez internetu — temat net/wan mówi, czy internet w domu żyje.":
+      "O node publica em um broker na sua rede: status (online/offline), diagnóstico, entidades (detectadas automaticamente pelo Home Assistant) e mensagens. Funciona até sem internet — o tópico net/wan diz se a internet da sua casa está viva.",
+  "Adres brokera (IP w LAN)": "Endereço do broker (IP na LAN)",
+  "Użytkownik (opcjonalnie)": "Usuário (opcional)",
+  "Hasło (opcjonalnie)": "Senha (opcional)",
+  "Zapisywanie...": "Salvando...",
+  "Ten node nie obsługuje trybu awaryjnego — wymaga firmware 0.91+ na płytce z radiem LoRa (SX1262, wariant -lora).":
+      "Este node não suporta o modo de emergência — requer firmware 0.91+ em uma placa com rádio LoRa (SX1262, variante -lora).",
+  "Zapisano — node nada te encje przy awarii": "Salvo — o node transmitirá essas entidades durante uma queda",
+  "TRYB AWARYJNY AKTYWNY — node nadaje te encje przez LoRa": "MODO DE EMERGÊNCIA ATIVO — o node está transmitindo essas entidades por LoRa",
+  "Gdy node straci internet, dołączy wybrane encje (max %s) do ramki radiowej LoRa. Jeśli usłyszy go sąsiedni node albo brama, dostaniesz powiadomienie z ostatnimi wartościami — mimo że Twój dom jest offline.":
+      "Quando o node perder a internet, ele anexa as entidades escolhidas (máx. %s) ao seu quadro de rádio LoRa. Se um node vizinho ou gateway o ouvir, você recebe uma notificação com os últimos valores — mesmo com a sua casa offline.",
+  "Node nie ma jeszcze żadnych encji.": "O node ainda não tem entidades.",
+  "Maksymalnie %s encje": "No máximo %s entidades",
+  "Zapisz (%s/%s)": "Salvar (%s/%s)",
+  "Zarejestrowane w SENSMOS": "Registrado no SENSMOS",
+  "Brak tokenu FCM (usługi Google niedostępne?)": "Sem token FCM (serviços do Google indisponíveis?)",
+  "Niezarejestrowane": "Não registrado",
+  "Zarejestruj ponownie": "Registrar novamente",
+  "Rejestrowanie...": "Registrando...",
+  "Token zarejestrowany — powiadomienia aktywne na tym urządzeniu.": "Token registrado — as notificações estão ativas neste aparelho.",
+  "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "O registro falhou — verifique a internet e tente novamente.",
+  "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
+      "As notificações se registram automaticamente ao abrir o app — um registro cobre todos os seus nodes (ações de scripts, mensagens, o alarme de perda de conexão via LoRa). Você pode desativá-las nas configurações de notificação do sistema.",
+  "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
+  "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
 };

@@ -727,6 +727,45 @@ const Map<String, String> _enMap = {
       "Node not paired — the tunnel won't open. Pair it while on its Wi-Fi network.",
   "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
       "This integration opens a tunnel into your network, and only the node itself can allow that — not our server. You need to store a key on it while on the same Wi-Fi: Node settings → Remote access.\n\nI'll add the integration now, but it will only connect once the node is paired.",
+  // ── 1.5.39/40: MQTT + LoRa awaryjne + push przez BE ──────────
+  "MQTT (lokalny broker)": "MQTT (local broker)",
+  "publikacja statusu i encji do Mosquitto / Home Assistant": "publish status and entities to Mosquitto / Home Assistant",
+  "LoRa awaryjne": "LoRa emergency",
+  "encje nadawane radiem przy padzie internetu": "entities broadcast over radio when internet is down",
+  "Nie można połączyć z nodem: %s": "Cannot reach the node: %s",
+  "Ten node nie obsługuje MQTT — zaktualizuj firmware do 0.90 lub nowszego.": "This node does not support MQTT — update the firmware to 0.90 or newer.",
+  "Podaj adres brokera": "Enter the broker address",
+  "Zapisano — node łączy się z brokerem": "Saved — the node is connecting to the broker",
+  "Połączony z brokerem · wysłano %s wiadomości": "Connected to the broker · %s messages sent",
+  "Łączenie... %s": "Connecting... %s",
+  "Włączone": "Enabled",
+  "Wyłączone": "Disabled",
+  "Node publikuje do brokera w Twojej sieci: status (online/offline), diagnostykę, encje (z auto-wykryciem w Home Assistant) i wiadomości. Działa też bez internetu — temat net/wan mówi, czy internet w domu żyje.":
+      "The node publishes to a broker on your network: status (online/offline), diagnostics, entities (auto-discovered by Home Assistant) and messages. Works without internet too — the net/wan topic tells you whether your home's internet is alive.",
+  "Adres brokera (IP w LAN)": "Broker address (LAN IP)",
+  "Użytkownik (opcjonalnie)": "Username (optional)",
+  "Hasło (opcjonalnie)": "Password (optional)",
+  "Zapisywanie...": "Saving...",
+  "Ten node nie obsługuje trybu awaryjnego — wymaga firmware 0.91+ na płytce z radiem LoRa (SX1262, wariant -lora).":
+      "This node does not support emergency mode — it needs firmware 0.91+ on a board with a LoRa radio (SX1262, -lora variant).",
+  "Zapisano — node nada te encje przy awarii": "Saved — the node will broadcast these entities during an outage",
+  "TRYB AWARYJNY AKTYWNY — node nadaje te encje przez LoRa": "EMERGENCY MODE ACTIVE — the node is broadcasting these entities over LoRa",
+  "Gdy node straci internet, dołączy wybrane encje (max %s) do ramki radiowej LoRa. Jeśli usłyszy go sąsiedni node albo brama, dostaniesz powiadomienie z ostatnimi wartościami — mimo że Twój dom jest offline.":
+      "When the node loses internet, it attaches the selected entities (max %s) to its LoRa radio frame. If a neighboring node or gateway hears it, you get a notification with the last values — even though your home is offline.",
+  "Node nie ma jeszcze żadnych encji.": "The node has no entities yet.",
+  "Maksymalnie %s encje": "At most %s entities",
+  "Zapisz (%s/%s)": "Save (%s/%s)",
+  "Zarejestrowane w SENSMOS": "Registered with SENSMOS",
+  "Brak tokenu FCM (usługi Google niedostępne?)": "No FCM token (Google services unavailable?)",
+  "Niezarejestrowane": "Not registered",
+  "Zarejestruj ponownie": "Register again",
+  "Rejestrowanie...": "Registering...",
+  "Token zarejestrowany — powiadomienia aktywne na tym urządzeniu.": "Token registered — notifications are active on this device.",
+  "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "Registration failed — check your internet and try again.",
+  "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
+      "Notifications register automatically when the app starts — one registration covers all your nodes (script actions, messages, the LoRa connectivity-loss alarm). You can turn them off in the system notification settings.",
+  "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
+  "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
@@ -1390,4 +1429,43 @@ const Map<String, String> _deMap = {
       "Node nicht gekoppelt — der Tunnel startet nicht. Koppeln, solange du in seinem WLAN bist.",
   "Ta integracja otwiera tunel do Twojej sieci, a zgodę na to daje sam node — nie nasz serwer. Trzeba zapisać w nim klucz, będąc w tej samej sieci WiFi: Ustawienia noda → Zdalny dostęp.\n\nIntegrację dodam już teraz, ale połączy się dopiero po sparowaniu.":
       "Diese Integration öffnet einen Tunnel in dein Netzwerk, und das erlaubt nur der Node selbst — nicht unser Server. Dafür musst du einen Schlüssel auf ihm speichern, während du im selben WLAN bist: Node-Einstellungen → Fernzugriff.\n\nIch füge die Integration jetzt hinzu, aber sie verbindet sich erst nach der Kopplung.",
+  // ── 1.5.39/40: MQTT + LoRa awaryjne + push przez BE ──────────
+  "MQTT (lokalny broker)": "MQTT (lokaler Broker)",
+  "publikacja statusu i encji do Mosquitto / Home Assistant": "Status und Entitäten an Mosquitto / Home Assistant veröffentlichen",
+  "LoRa awaryjne": "LoRa-Notfall",
+  "encje nadawane radiem przy padzie internetu": "Entitäten, die bei Internetausfall per Funk gesendet werden",
+  "Nie można połączyć z nodem: %s": "Node nicht erreichbar: %s",
+  "Ten node nie obsługuje MQTT — zaktualizuj firmware do 0.90 lub nowszego.": "Dieser Node unterstützt kein MQTT — aktualisiere die Firmware auf 0.90 oder neuer.",
+  "Podaj adres brokera": "Broker-Adresse eingeben",
+  "Zapisano — node łączy się z brokerem": "Gespeichert — der Node verbindet sich mit dem Broker",
+  "Połączony z brokerem · wysłano %s wiadomości": "Mit dem Broker verbunden · %s Nachrichten gesendet",
+  "Łączenie... %s": "Verbinde... %s",
+  "Włączone": "Aktiviert",
+  "Wyłączone": "Deaktiviert",
+  "Node publikuje do brokera w Twojej sieci: status (online/offline), diagnostykę, encje (z auto-wykryciem w Home Assistant) i wiadomości. Działa też bez internetu — temat net/wan mówi, czy internet w domu żyje.":
+      "Der Node veröffentlicht an einen Broker in deinem Netzwerk: Status (online/offline), Diagnose, Entitäten (automatisch von Home Assistant erkannt) und Nachrichten. Funktioniert auch ohne Internet — das Topic net/wan sagt dir, ob das Internet zu Hause lebt.",
+  "Adres brokera (IP w LAN)": "Broker-Adresse (LAN-IP)",
+  "Użytkownik (opcjonalnie)": "Benutzer (optional)",
+  "Hasło (opcjonalnie)": "Passwort (optional)",
+  "Zapisywanie...": "Speichern...",
+  "Ten node nie obsługuje trybu awaryjnego — wymaga firmware 0.91+ na płytce z radiem LoRa (SX1262, wariant -lora).":
+      "Dieser Node unterstützt den Notfallmodus nicht — er braucht Firmware 0.91+ auf einer Platine mit LoRa-Funk (SX1262, Variante -lora).",
+  "Zapisano — node nada te encje przy awarii": "Gespeichert — der Node sendet diese Entitäten bei einem Ausfall",
+  "TRYB AWARYJNY AKTYWNY — node nadaje te encje przez LoRa": "NOTFALLMODUS AKTIV — der Node sendet diese Entitäten über LoRa",
+  "Gdy node straci internet, dołączy wybrane encje (max %s) do ramki radiowej LoRa. Jeśli usłyszy go sąsiedni node albo brama, dostaniesz powiadomienie z ostatnimi wartościami — mimo że Twój dom jest offline.":
+      "Verliert der Node das Internet, hängt er die gewählten Entitäten (max. %s) an seinen LoRa-Funkrahmen. Hört ihn ein Nachbar-Node oder ein Gateway, bekommst du eine Benachrichtigung mit den letzten Werten — obwohl dein Zuhause offline ist.",
+  "Node nie ma jeszcze żadnych encji.": "Der Node hat noch keine Entitäten.",
+  "Maksymalnie %s encje": "Höchstens %s Entitäten",
+  "Zapisz (%s/%s)": "Speichern (%s/%s)",
+  "Zarejestrowane w SENSMOS": "Bei SENSMOS registriert",
+  "Brak tokenu FCM (usługi Google niedostępne?)": "Kein FCM-Token (Google-Dienste nicht verfügbar?)",
+  "Niezarejestrowane": "Nicht registriert",
+  "Zarejestruj ponownie": "Erneut registrieren",
+  "Rejestrowanie...": "Registriere...",
+  "Token zarejestrowany — powiadomienia aktywne na tym urządzeniu.": "Token registriert — Benachrichtigungen sind auf diesem Gerät aktiv.",
+  "Rejestracja nie powiodła się — sprawdź internet i spróbuj ponownie.": "Registrierung fehlgeschlagen — prüfe deine Internetverbindung und versuche es erneut.",
+  "Powiadomienia rejestrują się automatycznie przy starcie aplikacji — jedna rejestracja obejmuje wszystkie Twoje nody (akcje skryptów, wiadomości, alarm o utracie łączności przez LoRa). Wyłączysz je w systemowych ustawieniach powiadomień.":
+      "Benachrichtigungen registrieren sich automatisch beim App-Start — eine Registrierung deckt alle deine Nodes ab (Skript-Aktionen, Nachrichten, der LoRa-Verbindungsverlust-Alarm). Abschalten kannst du sie in den System-Benachrichtigungseinstellungen.",
+  "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
+  "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
 };
