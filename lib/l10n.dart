@@ -797,6 +797,7 @@ const Map<String, String> _enMap = {
   "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
       "Add web panels from the node's network (router, printer, Pi-hole…) — you'll open them from anywhere, through the tunnel.",
   "Otwieram tunel do noda…": "Opening the tunnel to the node…",
+  "Podaj adres w LAN": "Enter the LAN address",
   "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
 };
@@ -1532,6 +1533,7 @@ const Map<String, String> _deMap = {
   "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
       "Füge Web-Panels aus dem Netzwerk des Nodes hinzu (Router, Drucker, Pi-hole…) — du öffnest sie von überall, durch den Tunnel.",
   "Otwieram tunel do noda…": "Öffne den Tunnel zum Node…",
+  "Podaj adres w LAN": "Gib die LAN-Adresse ein",
   "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
 };

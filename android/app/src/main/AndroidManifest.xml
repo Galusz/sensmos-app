@@ -13,9 +13,14 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
 
+    <!-- cleartext: WebView (Panel LAN) ładuje http://127.0.0.1 (lokalne proxy tunelu)
+         i panele HTTP w LAN — od Androida 9 wymaga jawnej zgody. Dartowy HTTP i tak
+         tej polityki nie respektuje (LAN do noda działał zawsze), więc realna
+         ekspozycja się nie zmienia. -->
     <application
         android:label="Sensmos"
         android:name="${applicationName}"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

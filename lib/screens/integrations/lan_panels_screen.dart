@@ -41,14 +41,19 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
         backgroundColor: AppTheme.card,
         title: Text(existing == null ? tr('Dodaj panel') : tr('Edytuj panel'),
             style: const TextStyle(color: AppTheme.text)),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          _field(name, tr('Nazwa'), hint: 'Router'),
-          _field(host, tr('Adres w LAN'), hint: '192.168.1.1'),
-          _field(port, tr('Port'), hint: '80', number: true),
-          const SizedBox(height: 6),
-          Text(tr('Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.'),
-              style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-        ]),
+        // Adres PIERWSZY (to on jest obowiązkowy — z IP wpisanym w „Nazwę" zapis kończył
+        // się cichym niczym); SizedBox daje TextFieldom skończoną szerokość w AlertDialog.
+        content: SizedBox(
+          width: 320,
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _field(host, tr('Adres w LAN'), hint: '192.168.1.1'),
+            _field(port, tr('Port'), hint: '80', number: true),
+            _field(name, tr('Nazwa'), hint: 'Router'),
+            const SizedBox(height: 6),
+            Text(tr('Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+          ]),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
           FilledButton(
@@ -60,8 +65,25 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
       ),
     );
     if (saved != true) return;
-    final h = host.text.trim().replaceFirst(RegExp(r'^https?://'), '').split('/').first;
-    if (h.isEmpty) return;
+    var h = host.text.trim().replaceFirst(RegExp(r'^https?://'), '').split('/').first;
+    // Ratunek: adres wpisany w polu „Nazwa" (wygląda jak IP/host) — bierzemy go stamtąd.
+    if (h.isEmpty) {
+      final n = name.text.trim().replaceFirst(RegExp(r'^https?://'), '').split('/').first;
+      if (n.contains('.') && !n.contains(' ')) h = n;
+    }
+    // Adres z doklejonym portem ("192.168.1.1:8080") — rozdziel.
+    if (h.contains(':')) {
+      final parts = h.split(':');
+      h = parts[0];
+      if (int.tryParse(parts[1]) != null) port.text = parts[1];
+    }
+    if (h.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(tr('Podaj adres w LAN')), backgroundColor: AppTheme.red));
+      }
+      return;
+    }
     setState(() {
       if (existing != null) {
         existing.name = name.text.trim().isEmpty ? h : name.text.trim();
@@ -95,7 +117,9 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    // W trybie konfiguracji systemowe „wstecz" też ma podpiąć plugin, jeśli user dodał
+    // choć jeden panel — bez tego dodanie kończyło się niczym, gdy ominął „Gotowe".
+    final scaffold = Scaffold(
       appBar: AppBar(
         title: Text('${tr('Panel LAN')} · ${widget.label}'),
         actions: [
@@ -155,6 +179,16 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
                     );
                   },
                 ),
+    );
+    if (!widget.configMode) return scaffold;
+    // Tryb konfiguracji: systemowe „wstecz" podpina plugin, jeśli jest choć jeden panel —
+    // wcześniej dodanie kończyło się niczym, gdy user ominął przycisk „Gotowe".
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) Navigator.pop(context, _panels.isNotEmpty);
+      },
+      child: scaffold,
     );
   }
 }

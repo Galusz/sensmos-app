@@ -667,6 +667,7 @@ const Map<String, String> ptMap = {
   "Dodaj panele WWW z sieci noda (router, drukarka, Pi-hole…) — otworzysz je stąd z dowolnego miejsca, przez tunel.":
       "Adicione painéis web da rede do node (roteador, impressora, Pi-hole…) — você os abre de qualquer lugar, pelo túnel.",
   "Otwieram tunel do noda…": "Abrindo o túnel para o node…",
+  "Podaj adres w LAN": "Informe o endereço na LAN",
   "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
 };
