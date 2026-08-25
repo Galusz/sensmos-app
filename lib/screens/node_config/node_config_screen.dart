@@ -15,6 +15,8 @@ import '../../services/pairing_service.dart';
 import '../../util/pair_gate.dart';
 import 'trust_screen.dart';
 import 'service_screen.dart';
+import 'mqtt_screen.dart';
+import 'lora_emerg_screen.dart';
 
 class NodeConfigScreen extends StatefulWidget {
   final SavedNode node;
@@ -162,6 +164,26 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
             title: tr('Integracja (webhook)'),
             sub: tr('URL wywoływany przy zdarzeniach noda'),
             onTap: _editIntegration,
+          ),
+          _tile(
+            icon: Icons.hub_outlined,
+            title: tr('MQTT (lokalny broker)'),
+            sub: tr('publikacja statusu i encji do Mosquitto / Home Assistant'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => MqttScreen(node: node, pin: pin)),
+            ),
+          ),
+          _tile(
+            icon: Icons.cell_tower,
+            title: tr('LoRa awaryjne'),
+            sub: tr('encje nadawane radiem przy padzie internetu'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => LoraEmergScreen(node: node, pin: pin)),
+            ),
           ),
           // Zdalny dostęp — JEDNO centralne miejsce. Klucz da się zapisać w nodzie wyłącznie
           // po LAN, więc user musi się o tym dowiedzieć TERAZ, gdy jest w domu, a nie dopiero

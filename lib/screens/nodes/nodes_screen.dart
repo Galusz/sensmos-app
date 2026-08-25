@@ -251,7 +251,7 @@ class _NodesScreenState extends State<NodesScreen> {
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
-        headers: const {'X-App-Key': 'sensmos2025'},
+        headers: {'X-App-Key': 'sensmos2025', 'X-App-Version': Config.appVersion},
       ).timeout(const Duration(seconds: 6));
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       if (mounted) setState(() => _myBeNodes = List<Map<String, dynamic>>.from(j['nodes'] ?? []));
@@ -469,6 +469,25 @@ class _NodesScreenState extends State<NodesScreen> {
     if (secs < 3600) return '${(secs / 60).floor()}m';
     if (secs < 86400) return '${(secs / 3600).floor()}h';
     return '${(secs / 86400).floor()}d';
+  }
+
+  // ── LoRa awaryjne (FW 0.91): node offline, ale słyszany radiem przez sąsiada ──
+  // BE zapisuje ostatnie wartości z ramki E1 w lora_emerg_last (+ stempel lora_emerg_at).
+  // Pokazujemy tylko, gdy node NIE ma żywego WS, a ramka jest świeża (≤12 h).
+  Map<String, dynamic>? _emergInfo(Map<String, dynamic>? be) {
+    if (be == null || be['ws_online'] == true) return null;
+    final at = DateTime.tryParse((be['lora_emerg_at'] ?? '').toString());
+    if (at == null) return null;
+    final secs = DateTime.now().difference(at).inSeconds;
+    if (secs > 12 * 3600) return null;
+    final last = be['lora_emerg_last'];
+    if (last is! Map) return null;
+    final vals = last['vals'];
+    return {
+      'secs': secs,
+      'rx': (last['rx'] ?? '').toString(),
+      'vals': vals is Map ? vals : const {},
+    };
   }
 
   int get _totalNodes => _myBeNodes.length;
@@ -752,6 +771,10 @@ class _NodesScreenState extends State<NodesScreen> {
                 ]),
                 Text(healthText, style: TextStyle(color: healthColor, fontSize: 11),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
+                if (_emergInfo(be) != null)
+                  Text('⚠ ${tr('LoRa awaryjne — słyszany radiem')}',
+                      style: TextStyle(color: Colors.amber.shade700, fontSize: 11),
+                      maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
               const SizedBox(width: 8),
               Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.muted, size: 20),
@@ -763,6 +786,43 @@ class _NodesScreenState extends State<NodesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // LoRa awaryjne: node bez internetu, ale sąsiad słyszy jego beacon z encjami.
+              if (_emergInfo(be) case final emerg?) ...[
+                Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+                  ),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Icon(Icons.cell_tower, size: 16, color: Colors.amber.shade700),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          tr('LoRa awaryjne — bez internetu, słyszany %s temu przez %s',
+                              [_ago(emerg['secs'] as int), emerg['rx']]),
+                          style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                        ),
+                      ),
+                    ]),
+                    if ((emerg['vals'] as Map).isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        (emerg['vals'] as Map)
+                            .entries
+                            .map((e) => '${e.key}: ${e.value}')
+                            .join('   '),
+                        style: const TextStyle(
+                            color: AppTheme.text, fontSize: 12, fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ]),
+                ),
+              ],
               // Statystyki. Elastyczne, bo na wąskich ekranach (starsze telefony) sztywne
               // odstępy + Spacer wypychały „Pełne ID / Kopiuj" poza kartę.
               Row(children: [

@@ -1,15 +1,23 @@
+import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:http/http.dart' as http;
-import 'node_service.dart';
+import '../config.dart';
+import 'wallet_service.dart';
 
-/// PushService — token FCM + propagacja na nody.
-/// Token (telefonu) zapisywany na każdym nodzie (POST /config push_token);
-/// node przekazuje go do BE przy akcji push, BE wysyła FCM.
+/// PushService — token FCM rejestrowany w BE (przebudowa 2026-08-24).
+/// Jedno źródło prawdy: BE trzyma tokeny per wallet (podpis właściciela), wysyła
+/// wszystkie powiadomienia — zarówno te z akcji nodów, jak i alerty o padzie noda
+/// (LoRa awaryjne), których martwy node z definicji sam nie wyśle.
+/// Stara ścieżka (token na nodzie przez POST /config) wycofana z apki; stare FW
+/// dokleja token z NVS jako fallback i BE go użyje, dopóki wallet nie ma rejestracji.
 class PushService {
   String? _token;
   bool _inited = false;
+  WalletService? _wallet;   // do re-rejestracji przy rotacji tokenu
+  DateTime? _registeredAt;
 
   String? get token => _token;
+  bool get registered => _registeredAt != null;
 
   /// Inicjalizacja po Firebase.initializeApp(). Zwraca token (lub null).
   Future<String?> init() async {
@@ -19,31 +27,37 @@ class PushService {
     try {
       await fm.requestPermission(alert: true, badge: true, sound: true);
       _token = await fm.getToken();
-      fm.onTokenRefresh.listen((t) => _token = t);
+      fm.onTokenRefresh.listen((t) {
+        _token = t;
+        final w = _wallet;
+        if (w != null) registerToBackend(w);   // rotacja tokenu → cicha re-rejestracja
+      });
     } catch (_) {
       _token = null;
     }
     return _token;
   }
 
-  /// Wyślij token na wszystkie zapisane nody. Zwraca liczbę nodów OK.
-  Future<int> syncToNodes(NodeService nodes, {String? override}) async {
-    final tok = override ?? _token;
-    if (tok == null || tok.isEmpty) return 0;
-    int ok = 0;
-    for (final n in nodes.nodes) {
-      try {
-        final res = await http
-            .post(Uri.parse('http://${n.ip}/config'),
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': 'Bearer ${n.pin}',
-                },
-                body: '{"push_token":"$tok"}')
-            .timeout(const Duration(seconds: 5));
-        if (res.statusCode == 200) ok++;
-      } catch (_) {}
-    }
-    return ok;
+  /// Rejestracja tokenu w BE podpisem walleta. BE odzyskuje adres z podpisu
+  /// (ethers.verifyMessage), więc nie da się zapisać tokenu na cudzy wallet.
+  Future<bool> registerToBackend(WalletService wallet) async {
+    _wallet = wallet;
+    final tok = _token;
+    if (tok == null || tok.isEmpty) return false;
+    try {
+      final ts = (DateTime.now().millisecondsSinceEpoch / 1000).round();
+      final sig = await wallet.signMessage('sensmos:push:$tok:$ts');
+      final res = await http
+          .post(Uri.parse('${Config.beUrl}/v1/nodes/push-token'),
+              headers: {'Content-Type': 'application/json'},
+              body: jsonEncode({'token': tok, 'ts': ts, 'sig': sig,
+                                'app_version': Config.appVersion}))
+          .timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        _registeredAt = DateTime.now();
+        return true;
+      }
+    } catch (_) {}
+    return false;
   }
 }

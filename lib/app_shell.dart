@@ -5,7 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'theme.dart';
 import 'l10n.dart';
 import 'services/push_service.dart';
-import 'services/node_service.dart';
+import 'services/wallet_service.dart';
 import 'screens/nodes/nodes_screen.dart';
 import 'screens/wallet/wallet_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -24,15 +24,18 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
-    // Po wejściu do panelu rozprowadź token FCM na nody (fire-and-forget)
+    // Po wejściu do panelu zarejestruj token FCM w BE podpisem walleta (fire-and-forget).
+    // Przebudowa 2026-08-24: tokeny mieszkają w BE, nie na nodach — dzięki temu BE umie
+    // powiadomić także o MARTWYM nodzie (LoRa awaryjne), a rotacja tokenu nie wymaga LAN.
     final push = context.read<PushService>();
-    final nodes = context.read<NodeService>();
+    final wallet = context.read<WalletService>();
     push.init().then((t) {
-      if (t != null) push.syncToNodes(nodes);
+      if (t != null) push.registerToBackend(wallet);
     });
-    // Powiadomienie gdy apka na pierwszym planie → dzwoneczek (treść jest w skrzynce)
+    // Powiadomienie gdy apka na pierwszym planie → dzwoneczek z treścią
     try {
-      _fcmSub = FirebaseMessaging.onMessage.listen((_) => _showBell());
+      _fcmSub = FirebaseMessaging.onMessage.listen((m) => _showBell(
+          m.notification?.title, m.notification?.body));
     } catch (_) {}
   }
 
@@ -44,10 +47,14 @@ class _AppShellState extends State<AppShell> {
     super.dispose();
   }
 
-  void _showBell() {
+  void _showBell(String? title, String? body) {
     _bellTimer?.cancel();
     _bell?.remove();
     final top = MediaQuery.of(context).padding.top + 8;
+    final text = [
+      if (title != null && title.isNotEmpty) title,
+      if (body != null && body.isNotEmpty) body,
+    ].join('\n');
     _bell = OverlayEntry(
       builder: (_) => Positioned(
         top: top,
@@ -55,6 +62,7 @@ class _AppShellState extends State<AppShell> {
         child: Material(
           color: Colors.transparent,
           child: Container(
+            constraints: const BoxConstraints(maxWidth: 300),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: AppTheme.card,
@@ -67,15 +75,18 @@ class _AppShellState extends State<AppShell> {
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               const Icon(Icons.notifications_active, color: AppTheme.teal, size: 20),
               const SizedBox(width: 10),
-              Text(tr('Nowe powiadomienie\nsprawdź skrzynkę noda'),
-                  style: const TextStyle(color: AppTheme.text, fontSize: 12, height: 1.3)),
+              Flexible(
+                child: Text(
+                    text.isEmpty ? tr('Nowe powiadomienie\nsprawdź skrzynkę noda') : text,
+                    style: const TextStyle(color: AppTheme.text, fontSize: 12, height: 1.3)),
+              ),
             ]),
           ),
         ),
       ),
     );
     Overlay.of(context).insert(_bell!);
-    _bellTimer = Timer(const Duration(seconds: 4), () {
+    _bellTimer = Timer(const Duration(seconds: 5), () {
       _bell?.remove();
       _bell = null;
     });
