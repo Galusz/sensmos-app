@@ -14,6 +14,7 @@ import '../../core/core_event.dart';
 import '../../services/ble_service.dart';
 import '../../services/node_service.dart';
 import '../../services/attest_service.dart';
+import '../../services/pairing_service.dart';
 import '../../l10n.dart';
 
 class SetupScreen extends StatefulWidget {
@@ -160,6 +161,8 @@ class _SetupScreenState extends State<SetupScreen> {
     final coreBloc      = context.read<CoreBloc>();
     final navigator     = Navigator.of(context);
     String? restoreBleName;   // przy restore node zwraca nową nazwę BLE (SENSMOS-<nowe ID>)
+    bool restoredId = false;  // ID przywrócone na innej płytce → każdy import = nowe parowanie
+    bool wasPaired  = false;  // node był sparowany na TYM telefonie → dogramy świeży klucz
 
     setState(() { _step = _Step.connecting; _error = null; _status = tr('Sprawdzam połączenie...'); });
 
@@ -225,6 +228,13 @@ class _SetupScreenState extends State<SetupScreen> {
         }
         _authDeviceId = (r['device_id'] as String?) ?? _restoreFrom!.id;
         restoreBleName = r['ble_name'] as String?;   // node zmienił nazwę BLE na nowe ID
+        // Inna płytka pod starym ID = klucz parowania w telefonie jest martwy (żył w NVS
+        // poprzedniej płytki). Kasujemy od razu; jeśli node był sparowany, na końcu setupu
+        // dogrywamy świeży klucz — cicho skasowany klucz zostawiłby usera w przekonaniu,
+        // że node wciąż jest sparowany.
+        wasPaired = await PairingService().hasAccess(_restoreFrom!.id);
+        await PairingService().forgetLocal(_restoreFrom!.id);
+        restoredId = true;
         print('[Setup] ID odtworzone: ${_authDeviceId.substring(0, 8)}… ble_name=$restoreBleName');
       }
 
@@ -317,6 +327,26 @@ class _SetupScreenState extends State<SetupScreen> {
                  'Powtórz ceremonię w ustawieniach noda (Zaufanie).'),
               style: const TextStyle(color: Colors.black)),
         ));
+      }
+
+      // Import noda sparowanego na tym telefonie → dogrywamy świeży klucz od razu:
+      // jesteśmy fizycznie przy nodzie (BLE), znamy PIN, node właśnie wszedł do LAN-u.
+      // Nie uda się (telefon w innej sieci itp.) → mówimy wprost, że trzeba sparować ręcznie.
+      if (restoredId && wasPaired && mounted) {
+        setState(() => _status = tr('Odtwarzam parowanie...'));
+        final perr = await PairingService().pair(_authDeviceId, _nodeIp!, nodePin);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(perr == null
+              ? SnackBar(content: Text(tr('Zdalny dostęp sparowany ponownie.')))
+              : SnackBar(
+                  backgroundColor: AppTheme.amber,
+                  duration: const Duration(seconds: 10),
+                  content: Text(
+                      tr('Nowa płytka przejęła ID noda — zdalny dostęp wymaga ponownego sparowania: '
+                         'Ustawienia noda → Zdalny dostęp, będąc w jego sieci WiFi.'),
+                      style: const TextStyle(color: Colors.black)),
+                ));
+        }
       }
 
       setState(() { _step = _Step.done; _doneCountdown = 3; });
