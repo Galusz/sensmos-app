@@ -230,6 +230,18 @@ const Map<String, String> _enMap = {
   "Usuń skrypt": "Delete script",
   "Skrypty wykonywane lokalnie na nodzie — uruchamiane przez akcje wiadomości.":
       "Scripts run locally on the node — triggered by message actions.",
+  "Skrypty wykonywane lokalnie na nodzie — przez akcje wiadomości, cyklicznie (interwał) albo przyciskiem Uruchom.":
+      "Scripts run locally on the node — via message actions, on a schedule (interval) or with the Run button.",
+  "Pętla zatrzymana.": "Loop stopped.",
+  "Pętla uruchomiona.": "Loop started.",
+  "Skrypt wykonany.": "Script executed.",
+  "co %s": "every %s",
+  "wstrzymany": "paused",
+  "Stop": "Stop",
+  "Start": "Start",
+  "Interwał (sekundy)": "Interval (seconds)",
+  "Puste lub 0 = skrypt odpalany tylko wyzwalaczem albo przyciskiem Uruchom. Wartość (min 60) = chodzi w pętli co N sekund — start i stop przyciskiem na liście. Pętlę może mieć jeden skrypt.":
+      "Empty or 0 = the script runs only from a trigger or the Run button. A value (min 60) = it runs in a loop every N seconds — start and stop with the button on the list. Only one script can have a loop.",
   "Brak skryptów. Dodaj przyciskiem +": "No scripts. Add one with +",
   "Kroki: %s": "Steps: %s",
   "Edytuj skrypt": "Edit script",
@@ -1052,6 +1064,18 @@ const Map<String, String> _deMap = {
   "Usuń skrypt": "Skript löschen",
   "Skrypty wykonywane lokalnie na nodzie — uruchamiane przez akcje wiadomości.":
       "Skripte laufen lokal auf dem Node — ausgelöst durch Nachrichten-Aktionen.",
+  "Skrypty wykonywane lokalnie na nodzie — przez akcje wiadomości, cyklicznie (interwał) albo przyciskiem Uruchom.":
+      "Skripte laufen lokal auf dem Node — über Nachrichten-Aktionen, zyklisch (Intervall) oder mit dem Ausführen-Button.",
+  "Pętla zatrzymana.": "Schleife gestoppt.",
+  "Pętla uruchomiona.": "Schleife gestartet.",
+  "Skrypt wykonany.": "Skript ausgeführt.",
+  "co %s": "alle %s",
+  "wstrzymany": "pausiert",
+  "Stop": "Stopp",
+  "Start": "Start",
+  "Interwał (sekundy)": "Intervall (Sekunden)",
+  "Puste lub 0 = skrypt odpalany tylko wyzwalaczem albo przyciskiem Uruchom. Wartość (min 60) = chodzi w pętli co N sekund — start i stop przyciskiem na liście. Pętlę może mieć jeden skrypt.":
+      "Leer oder 0 = das Skript läuft nur über einen Auslöser oder den Ausführen-Button. Ein Wert (min 60) = es läuft in einer Schleife alle N Sekunden — Start und Stopp mit dem Button in der Liste. Nur ein Skript kann eine Schleife haben.",
   "Brak skryptów. Dodaj przyciskiem +": "Keine Skripte. Mit + hinzufügen",
   "Kroki: %s": "Schritte: %s",
   "Edytuj skrypt": "Skript bearbeiten",

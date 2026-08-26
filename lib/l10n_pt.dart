@@ -158,6 +158,18 @@ const Map<String, String> ptMap = {
   // ── Skrypty ──
   "Usuń skrypt": "Excluir script",
   "Skrypty wykonywane lokalnie na nodzie — uruchamiane przez akcje wiadomości.": "Scripts executados localmente no node — acionados por ações de mensagens.",
+  "Skrypty wykonywane lokalnie na nodzie — przez akcje wiadomości, cyklicznie (interwał) albo przyciskiem Uruchom.":
+      "Scripts executados localmente no node — por ações de mensagens, ciclicamente (intervalo) ou com o botão Executar.",
+  "Pętla zatrzymana.": "Loop parado.",
+  "Pętla uruchomiona.": "Loop iniciado.",
+  "Skrypt wykonany.": "Script executado.",
+  "co %s": "a cada %s",
+  "wstrzymany": "pausado",
+  "Stop": "Parar",
+  "Start": "Iniciar",
+  "Interwał (sekundy)": "Intervalo (segundos)",
+  "Puste lub 0 = skrypt odpalany tylko wyzwalaczem albo przyciskiem Uruchom. Wartość (min 60) = chodzi w pętli co N sekund — start i stop przyciskiem na liście. Pętlę może mieć jeden skrypt.":
+      "Vazio ou 0 = o script roda apenas por um acionador ou pelo botão Executar. Um valor (mín. 60) = roda em loop a cada N segundos — inicie e pare com o botão na lista. Apenas um script pode ter loop.",
   "Brak skryptów. Dodaj przyciskiem +": "Sem scripts. Adicione com o botão +",
   "Kroki: %s": "Passos: %s",
   "Edytuj skrypt": "Editar script",

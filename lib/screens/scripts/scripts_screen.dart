@@ -68,7 +68,7 @@ class _ScriptsScreenState extends State<ScriptsScreen> {
     }
   }
 
-  Future<void> _save(Map<String, dynamic> script) async {
+  Future<bool> _save(Map<String, dynamic> script) async {
     try {
       final res = await http
           .post(
@@ -79,6 +79,7 @@ class _ScriptsScreenState extends State<ScriptsScreen> {
           .timeout(const Duration(seconds: 5));
       if (res.statusCode == 200) {
         await _load();
+        return true;
       } else {
         final msg = (jsonDecode(res.body) as Map<String, dynamic>)['error']
                 as String? ??
@@ -87,6 +88,24 @@ class _ScriptsScreenState extends State<ScriptsScreen> {
       }
     } catch (e) {
       if (mounted) _snack(tr('Błąd: %s', [e]), error: true);
+    }
+    return false;
+  }
+
+  /// PLAY/STOP: skrypt z interwałem — start/stop pętli (run w NVS noda);
+  /// bez interwału — jednorazowe wykonanie (FW odpala i NIE zapisuje flagi).
+  Future<void> _onPlay(Map<String, dynamic> s) async {
+    final iv = (s['interval_s'] as num?)?.toInt() ?? 0;
+    final copy = Map<String, dynamic>.from(s);
+    if (iv > 0) {
+      final running = s['run'] as bool? ?? true;
+      copy['run'] = !running;
+      if (await _save(copy) && mounted) {
+        _snack(running ? tr('Pętla zatrzymana.') : tr('Pętla uruchomiona.'));
+      }
+    } else {
+      copy['run'] = true;
+      if (await _save(copy) && mounted) _snack(tr('Skrypt wykonany.'));
     }
   }
 
@@ -152,8 +171,8 @@ class _ScriptsScreenState extends State<ScriptsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 _badge(
-                    tr('Skrypty wykonywane lokalnie na nodzie — uruchamiane przez '
-                        'akcje wiadomości.'),
+                    tr('Skrypty wykonywane lokalnie na nodzie — przez akcje wiadomości, '
+                        'cyklicznie (interwał) albo przyciskiem Uruchom.'),
                     '${_nodeScripts.length}/$_nodeMax'),
                 const SizedBox(height: 14),
                 if (_nodeScripts.isEmpty)
@@ -163,6 +182,7 @@ class _ScriptsScreenState extends State<ScriptsScreen> {
                         script: s,
                         onEdit: () => _openEditor(existing: s),
                         onDelete: () => _confirmDelete(s['id'] as String? ?? ''),
+                        onPlay: () => _onPlay(s),
                       )),
                 const SizedBox(height: 80),
               ],
@@ -198,14 +218,21 @@ class _NodeScriptCard extends StatelessWidget {
   final Map<String, dynamic> script;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final VoidCallback onPlay;
 
   const _NodeScriptCard(
-      {required this.script, required this.onEdit, required this.onDelete});
+      {required this.script,
+      required this.onEdit,
+      required this.onDelete,
+      required this.onPlay});
 
   @override
   Widget build(BuildContext context) {
     final id = script['id'] as String? ?? '?';
     final steps = script['steps'] as List? ?? [];
+    final interval = (script['interval_s'] as num?)?.toInt() ?? 0;
+    final running = interval > 0 && (script['run'] as bool? ?? true);
+    final ivLabel = interval % 60 == 0 ? '${interval ~/ 60} min' : '$interval s';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -231,6 +258,11 @@ class _NodeScriptCard extends StatelessWidget {
                         fontSize: 14,
                         fontFamily: 'monospace')),
               ),
+              if (interval > 0) ...[
+                _chip(running ? tr('co %s', [ivLabel]) : tr('wstrzymany'),
+                    running ? AppTheme.teal : AppTheme.muted),
+                const SizedBox(width: 6),
+              ],
               _chip(tr('Kroki: %s', [steps.length]), AppTheme.purple),
             ]),
             if (steps.isNotEmpty) ...[
@@ -241,6 +273,20 @@ class _NodeScriptCard extends StatelessWidget {
             const SizedBox(height: 6),
             const Divider(color: AppTheme.border, height: 1),
             Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              // PLAY/STOP: z interwałem steruje pętlą, bez interwału odpala raz.
+              TextButton.icon(
+                onPressed: onPlay,
+                icon: Icon(running ? Icons.stop : Icons.play_arrow,
+                    size: 18, color: running ? AppTheme.amber : AppTheme.teal),
+                label: Text(
+                    interval > 0
+                        ? (running ? tr('Stop') : tr('Start'))
+                        : tr('Uruchom'),
+                    style: TextStyle(
+                        color: running ? AppTheme.amber : AppTheme.teal,
+                        fontSize: 13)),
+              ),
+              const Spacer(),
               TextButton.icon(
                 onPressed: onEdit,
                 icon: const Icon(Icons.edit_outlined,
@@ -505,12 +551,15 @@ class ScriptEditorScreen extends StatefulWidget {
 class _ScriptEditorScreenState extends State<ScriptEditorScreen> {
   late final List<_StepData> _steps;
   late final String? _existingId;
+  late final TextEditingController _intervalCtrl;
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
     _existingId = e?['id'] as String?;
+    final iv = (e?['interval_s'] as num?)?.toInt() ?? 0;
+    _intervalCtrl = TextEditingController(text: iv > 0 ? '$iv' : '');
 
     if (e != null) {
       final rawSteps = e['steps'] as List? ?? [];
@@ -526,6 +575,7 @@ class _ScriptEditorScreenState extends State<ScriptEditorScreen> {
 
   @override
   void dispose() {
+    _intervalCtrl.dispose();
     for (final s in _steps) {
       s.dispose();
     }
@@ -536,8 +586,13 @@ class _ScriptEditorScreenState extends State<ScriptEditorScreen> {
 
   void _save() {
     final id = _existingId ?? _genId();
+    final iv = int.tryParse(_intervalCtrl.text.trim()) ?? 0;
     final script = {
       'id': id,
+      // run tylko przy interwale: bez interwału run:true znaczy „wykonaj RAZ" (FW),
+      // a zwykły zapis skryptu nie może niczego odpalać.
+      if (iv > 0) 'interval_s': iv,
+      if (iv > 0 && widget.existing?['run'] is bool) 'run': widget.existing!['run'],
       'steps': _steps.map((s) => s.toJson()).toList(),
     };
     Navigator.pop(context, script);
@@ -593,6 +648,32 @@ class _ScriptEditorScreenState extends State<ScriptEditorScreen> {
             ),
             const SizedBox(height: 12),
           ],
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                TextField(
+                  controller: _intervalCtrl,
+                  keyboardType: TextInputType.number,
+                  style: const TextStyle(color: AppTheme.text, fontSize: 14),
+                  decoration: InputDecoration(
+                    labelText: tr('Interwał (sekundy)'),
+                    labelStyle: const TextStyle(color: AppTheme.muted, fontSize: 13),
+                    hintText: '0',
+                    hintStyle: const TextStyle(color: AppTheme.muted),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  tr('Puste lub 0 = skrypt odpalany tylko wyzwalaczem albo przyciskiem '
+                      'Uruchom. Wartość (min 60) = chodzi w pętli co N sekund — start i '
+                      'stop przyciskiem na liście. Pętlę może mieć jeden skrypt.'),
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 11),
+                ),
+              ]),
+            ),
+          ),
           ..._steps.asMap().entries.map((e) => _StepCard(
                 index: e.key,
                 data: e.value,
