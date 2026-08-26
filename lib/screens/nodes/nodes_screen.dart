@@ -594,7 +594,10 @@ class _NodesScreenState extends State<NodesScreen> {
       IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
       IntegrationKind.lanPanel => LanPanelsScreen(deviceId: id, label: name),
     };
-    Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+    // Po powrocie odśwież parowanie — ekran mógł je zmienić (parowanie w terminalu,
+    // samonaprawa kasująca martwy klucz przy „node not paired").
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
+        .then((_) { if (mounted) _loadKinds(id); });
   }
 
   Future<void> _addIntegration(String id, String name, Map<String, dynamic>? be) async {
@@ -643,10 +646,12 @@ class _NodesScreenState extends State<NodesScreen> {
     // dowie się z wakacji, gdzie klucza nie ma jak zapisać (kanał jest wyłącznie lokalny).
     if (chosen.needsTunnel && _paired[id] != true) {
       if (_online[id] == true) {
-        await ensurePaired(context, id);
+        final acc = await ensurePaired(context, id);
         if (!mounted) return;
-        setState(() => _paired[id] = true);
-        _loadKinds(id);   // stan z magazynu — ensurePaired mogło zostać anulowane
+        // Prawda z wyniku, nie życzeniowe true: anulowane parowanie zostawiało
+        // kartę w stanie „sparowany" — odwrotne kłamstwo niż to z ustawień.
+        setState(() => _paired[id] = acc.ok);
+        _loadKinds(id);   // i tak przeładuj z magazynu (źródło prawdy)
       } else {
         await showDialog<void>(
           context: context,
@@ -967,8 +972,12 @@ class _NodesScreenState extends State<NodesScreen> {
                   )),
                   const SizedBox(width: 8),
                   Expanded(child: OutlinedButton.icon(
+                    // Po powrocie odśwież stan parowania: user mógł sparować/rozparować
+                    // w ustawieniach, a karta trzymała starą mapkę i „kłamała" (niesparowany
+                    // mimo świeżego klucza — zgłoszone 2026-08-26).
                     onPressed: () => Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => NodeConfigScreen(node: saved))),
+                        builder: (_) => NodeConfigScreen(node: saved)))
+                        .then((_) { if (mounted) _loadKinds(saved.id); }),
                     icon: const Icon(Icons.settings_outlined, size: 16),
                     label: Text(tr('Ustawienia')),
                     style: OutlinedButton.styleFrom(foregroundColor: AppTheme.text, side: const BorderSide(color: AppTheme.border)),
