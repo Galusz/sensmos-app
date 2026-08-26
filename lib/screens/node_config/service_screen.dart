@@ -189,21 +189,29 @@ class _ServiceScreenState extends State<ServiceScreen> {
       final nodeAddr = (st['addr'] as String?) ?? '';
 
       final hasCurrent = await wallet.exists();
+      final pwProtected = await wallet.isPasswordProtected();
       if (hasCurrent) {
         final cur = await wallet.load();
         final curAddr = cur?.address ?? '';
-        if (nodeAddr.isNotEmpty && curAddr.isNotEmpty &&
-            nodeAddr.toLowerCase() == curAddr.toLowerCase()) {
+        final sameWallet = nodeAddr.isNotEmpty && curAddr.isNotEmpty &&
+            nodeAddr.toLowerCase() == curAddr.toLowerCase();
+        // TEN SAM portfel + BEZ hasła → naprawdę nic do zrobienia. Ale gdy jest pod hasłem,
+        // odzysk z noda to jedyna droga RESETU zapomnianego hasła (restore oddaje jawny klucz
+        // i czyści ochronę), więc wtedy kontynuujemy.
+        if (sameWallet && !pwProtected) {
           if (!mounted) return;
           setState(() { _phase = _Phase.connected; _status = ''; });
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
               content: Text(tr('Na nodzie jest kopia TEGO SAMEGO portfela — nic nie zmieniam.'))));
           return;
         }
-        if (!mounted) return;
-        if (!await _confirmOverwrite(curAddr, nodeAddr)) {
-          if (mounted) setState(() { _phase = _Phase.connected; _status = ''; });
-          return;
+        // Różny portfel → ostrzeż o nadpisaniu. Ten sam pod hasłem → to reset, nie nadpisanie.
+        if (!sameWallet) {
+          if (!mounted) return;
+          if (!await _confirmOverwrite(curAddr, nodeAddr)) {
+            if (mounted) setState(() { _phase = _Phase.connected; _status = ''; });
+            return;
+          }
         }
       }
 
@@ -227,6 +235,7 @@ class _ServiceScreenState extends State<ServiceScreen> {
       messenger.showSnackBar(SnackBar(content: Text(tr('Portfel odzyskany: %s', [w.short]))));
       navigator.popUntil((r) => r.isFirst);
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _phase = _Phase.connected;
         _error = e.toString().replaceAll('Exception: ', '');

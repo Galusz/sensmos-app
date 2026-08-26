@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme.dart';
 import '../../config.dart';
 import '../../l10n.dart';
@@ -40,12 +41,17 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _loading = true;
   bool _busy = false;
   bool _keysOpen = false;
+  bool _pwProtected = false;   // portfel zabezpieczony hasłem
+  bool _unlocked = false;      // sesja odblokowana (klucz w RAM)
+  final _unlockCtrl = TextEditingController();
   String? _address;
+
+  WalletService get _wallet => context.read<WalletService>();
 
   // saldo z BE (GALU, human)
   double _available = 0;
-  double _pending = 0;
   double _earned = 0;
+  double _spent = 0;
   double _deposited = 0;
   double _claimed = 0;
   double _claimPending = 0;   // hold claim-intent (wypłata w toku, czeka na event on-chain)
@@ -67,6 +73,12 @@ class _WalletScreenState extends State<WalletScreen> {
     _load();
   }
 
+  @override
+  void dispose() {
+    _unlockCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _load() async {
     final addr = _address;
     if (addr == null) {
@@ -74,9 +86,69 @@ class _WalletScreenState extends State<WalletScreen> {
       return;
     }
     setState(() => _loading = true);
+    _pwProtected = await _wallet.isPasswordProtected();
+    _unlocked = await _wallet.isUnlocked();
+    // Gate zablokowanego portfela renderuje build() (_unlockView) — bez dialogu w initState,
+    // który wracał „w próżnię". Danych z sieci nie ciągniemy, dopóki nie odblokowane.
+    if (_pwProtected && !_unlocked) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     await _loadBe(addr);
-    await Future.wait([_loadChain(addr), _loadPending(addr)]);
+    await _loadChain(addr);
     if (mounted) setState(() => _loading = false);
+  }
+
+  // Dialog odblokowania sesji hasłem (z opcją recovery przez BLE).
+  Future<void> _promptUnlock() async {
+    final ctrl = TextEditingController();
+    while (mounted && !await _wallet.isUnlocked()) {
+      final action = await showDialog<String>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.card,
+          title: Text(tr('Odblokuj portfel'), style: const TextStyle(color: AppTheme.text)),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(tr('Portfel jest chroniony hasłem. Podaj je, aby wykonywać operacje.'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+            const SizedBox(height: 12),
+            TextField(controller: ctrl, obscureText: true, autofocus: true,
+                style: const TextStyle(color: AppTheme.text),
+                decoration: _pwDec(tr('Hasło'))),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, 'forgot'),
+                child: Text(tr('Zapomniałem'), style: const TextStyle(color: AppTheme.muted))),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+              onPressed: () => Navigator.pop(ctx, 'ok'),
+              child: Text(tr('Odblokuj'), style: const TextStyle(color: Colors.black))),
+          ],
+        ),
+      );
+      if (action == 'forgot') {
+        if (mounted) {
+          _snack(tr('Odzyskaj portfel z noda (Ustawienia noda → tryb serwisowy Bluetooth) — to zresetuje hasło.'));
+        }
+        return;   // recovery robi osobny flow (service_screen); tu tylko kierujemy
+      }
+      try {
+        await _wallet.unlock(ctrl.text);
+      } catch (e) {
+        if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''), error: true);
+      }
+    }
+  }
+
+  // Zapewnia odblokowany klucz przed operacją (claim/deposit/export). null = brak/nieodblokowany.
+  Future<String?> _ensureUnlockedKey() async {
+    if (!await _wallet.isUnlocked()) {
+      await _promptUnlock();
+      if (!mounted || !await _wallet.isUnlocked()) return null;
+    }
+    final pk = (await _wallet.load())?.privateKeyHex;
+    return (pk == null || pk.isEmpty) ? null : pk;
   }
 
   /// Dobijanie po claimie, aż listener zaksięguje zdarzenie z łańcucha.
@@ -93,7 +165,6 @@ class _WalletScreenState extends State<WalletScreen> {
       await Future.delayed(const Duration(seconds: 5));
       if (!mounted) return;
       await _loadBe(addr);
-      await _loadPending(addr);
       if (!mounted) return;
       setState(() {});
       if (_claimed > claimedBefore + 0.0001) return;   // zaksięgowane — hold schodzi tym samym UPDATE-em
@@ -108,29 +179,11 @@ class _WalletScreenState extends State<WalletScreen> {
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       _available = _d(j['available']);
       _earned = _d(j['total_earned']);
+      _spent = _d(j['total_spent']);
       _deposited = _d(j['total_deposited']);
       _claimed = _d(j['claimed_galu']);
       _claimPending = _d(j['claim_pending']);
     } catch (_) {}
-  }
-
-  // v9: „Do odebrania" = cumulative (lifetime entitlement z /proof) − odebrane − w toku.
-  Future<void> _loadPending(String addr) async {
-    try {
-      final res = await http
-          .get(Uri.parse('${Config.beUrl}/v1/wallet/$addr/proof'))
-          .timeout(const Duration(seconds: 6));
-      if (res.statusCode != 200) {
-        _pending = 0;
-        return;
-      }
-      final j = jsonDecode(res.body) as Map<String, dynamic>;
-      final cumulative = _d(j['cumulative']);
-      _pending =
-          (cumulative - _claimed - _claimPending).clamp(0, double.infinity).toDouble();
-    } catch (_) {
-      _pending = 0;
-    }
   }
 
   Future<void> _loadChain(String addr) async {
@@ -157,7 +210,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
   // ── Deposit ─────────────────────────────────────────────────
   Future<void> _deposit() async {
-    final pk = context.read<CoreBloc>().state.wallet?.privateKeyHex;
+    final pk = await _ensureUnlockedKey();
     final amount = await _amountDialog(tr('Wpłać GALU na nody'), _dhvHuman());
     if (amount == null || pk == null) return;
     final wei = _toWei(amount);
@@ -213,7 +266,7 @@ class _WalletScreenState extends State<WalletScreen> {
   // hold do 2h. Fallback na stary GET /proof gdy intent niedostępny (stary BE/offline).
   Future<void> _claim() async {
     final addr = _address;
-    final pk = context.read<CoreBloc>().state.wallet?.privateKeyHex;
+    final pk = await _ensureUnlockedKey();
     if (addr == null || pk == null) return;
 
     setState(() => _busy = true);
@@ -250,7 +303,6 @@ class _WalletScreenState extends State<WalletScreen> {
       // „do odebrania"→0, „wypłata w toku"→kwota), nie czekając na potwierdzenie tx on-chain (~20-30 s).
       if (viaIntent) {
         await _loadBe(addr);
-        await _loadPending(addr);
         if (mounted) setState(() {});
       }
 
@@ -274,6 +326,161 @@ class _WalletScreenState extends State<WalletScreen> {
       if (mounted) setState(() => _busy = false);
     }
   }
+
+  // ── Wysyłka na dowolny adres (np. sprzętowy portfel) — GALU (ERC-20) albo POL (natywny) ──
+  static final BigInt _polReserve = BigInt.from(10).pow(17); // 0.1 POL zostaje na gas
+
+  Future<void> _sendGalu() => _sendAsset(pol: false);
+  Future<void> _sendPol() => _sendAsset(pol: true);
+
+  Future<void> _sendAsset({required bool pol}) async {
+    final asset = pol ? 'POL' : 'GALU';
+    final bal = pol ? _matic : _dhv;
+    if (bal <= BigInt.zero) { _snack(tr('Brak %s w portfelu', [asset]), error: true); return; }
+    // Przy POL zostaw rezerwę na gas — inaczej „wyślij wszystko" i tx nie ma czym opłacić.
+    final maxWei = pol ? (bal > _polReserve ? bal - _polReserve : BigInt.zero) : bal;
+    if (maxWei <= BigInt.zero) {
+      _snack(tr('Za mało POL — zostaw rezerwę na gas'), error: true);
+      return;
+    }
+    final pk = await _ensureUnlockedKey();
+    if (pk == null) return;
+    final res = await _sendDialog(asset, maxWei, isPol: pol);
+    if (res == null || !mounted) return;
+    final to = res['to'] ?? '';
+    final amountStr = res['amount'] ?? '';
+    if (!EthService.isValidAddress(to)) {
+      _snack(tr('Nieprawidłowy adres odbiorcy'), error: true);
+      return;
+    }
+    final wei = _toWei(amountStr);
+    if (wei <= BigInt.zero) { _snack(tr('Podaj kwotę'), error: true); return; }
+    if (wei > maxWei) {
+      _snack(pol ? tr('Za mało POL — zostaw rezerwę na gas') : tr('Za mało GALU w portfelu'), error: true);
+      return;
+    }
+    if (_lowGas) { _snack(tr('Za mało POL na gas — dopłać POL, aby wysłać'), error: true); return; }
+    if (await _confirmSend(to, amountStr, asset) != true || !mounted) return;
+
+    setState(() => _busy = true);
+    try {
+      _snack(tr('Wysyłanie…'));
+      final h = pol ? await _eth.sendNative(pk, to, wei) : await _eth.transfer(pk, to, wei);
+      final ok = await _eth.waitReceipt(h);
+      _snack(ok ? tr('Wysłano %s %s', [amountStr, asset]) : tr('Transakcja zrewertowana'), error: !ok);
+      await _load();
+    } catch (e) {
+      _snack(tr('Błąd: %s', [e]), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  // Wyciągnij adres 0x… z surowego QR: goły adres albo EIP-681 (ethereum:0x..@137?value=..).
+  String? _parseEthAddress(String raw) {
+    var s = raw.trim();
+    if (s.toLowerCase().startsWith('ethereum:')) s = s.substring('ethereum:'.length);
+    for (final sep in ['@', '?', '/']) {
+      final i = s.indexOf(sep);
+      if (i >= 0) s = s.substring(0, i);
+    }
+    s = s.trim();
+    return EthService.isValidAddress(s) ? s : null;
+  }
+
+  Future<Map<String, String>?> _sendDialog(String asset, BigInt maxWei, {required bool isPol}) {
+    final toCtrl = TextEditingController();
+    final amtCtrl = TextEditingController();
+    final maxStr = _weiToHuman6(maxWei);   // floor do 6 miejsc — MAX nigdy > salda
+    return showDialog<Map<String, String>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Wyślij %s', [asset]), style: const TextStyle(color: AppTheme.text)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(controller: toCtrl, autofocus: true, maxLines: 2,
+                style: const TextStyle(color: AppTheme.text, fontSize: 13, fontFamily: 'monospace'),
+                decoration: _pwDec(tr('Adres odbiorcy (0x…)')).copyWith(
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.qr_code_scanner, color: AppTheme.teal),
+                    tooltip: tr('Skanuj QR'),
+                    onPressed: () async {
+                      final raw = await Navigator.of(ctx).push<String>(
+                          MaterialPageRoute(builder: (_) => const _QrScanScreen()));
+                      if (raw == null) return;
+                      final addr = _parseEthAddress(raw);
+                      if (addr == null) {
+                        _snack(tr('W kodzie QR nie ma poprawnego adresu'), error: true);
+                        return;
+                      }
+                      toCtrl.text = addr;
+                    },
+                  ),
+                )),
+            const SizedBox(height: 14),
+            TextField(controller: amtCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(color: AppTheme.text, fontSize: 18),
+                decoration: InputDecoration(
+                  hintText: '0.0', hintStyle: const TextStyle(color: AppTheme.muted),
+                  suffixText: asset, suffixStyle: const TextStyle(color: AppTheme.muted))),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () => amtCtrl.text = maxStr,
+              child: Text(tr('Dostępne: %s (MAX)', [maxStr]),
+                  style: const TextStyle(color: AppTheme.teal, fontSize: 12)),
+            ),
+            const SizedBox(height: 10),
+            Text(isPol
+                    ? tr('Zostawiam 0.1 POL na gas. Wysyłka jest nieodwracalna — sprawdź adres.')
+                    : tr('Gas zapłacisz w POL. Wysyłka jest nieodwracalna — sprawdź adres.'),
+                style: const TextStyle(color: AppTheme.amber, fontSize: 11)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Anuluj'))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
+            onPressed: () => Navigator.pop(ctx, {'to': toCtrl.text.trim(), 'amount': amtCtrl.text.trim()}),
+            child: Text(tr('Dalej'), style: const TextStyle(color: Colors.black))),
+        ],
+      ),
+    );
+  }
+
+  Future<bool?> _confirmSend(String to, String amount, String asset) => showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.card,
+          title: Text(tr('Potwierdź wysyłkę'), style: const TextStyle(color: AppTheme.text)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(tr('Wysyłasz %s %s', [amount, asset]),
+                  style: const TextStyle(color: AppTheme.text, fontSize: 15, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 10),
+              Text(tr('na adres:'), style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+              const SizedBox(height: 2),
+              SelectableText(to,
+                  style: const TextStyle(color: AppTheme.text, fontSize: 12, fontFamily: 'monospace')),
+              const SizedBox(height: 12),
+              Text(tr('Tej operacji NIE można cofnąć.'),
+                  style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(tr('Wyślij'), style: const TextStyle(color: Colors.black))),
+          ],
+        ),
+      );
 
   // ── Eksport klucza (PIN noda) ───────────────────────────────
   Future<void> _exportKey() async {
@@ -312,7 +519,7 @@ class _WalletScreenState extends State<WalletScreen> {
     }
     if (!mounted) return;
 
-    final pk = context.read<CoreBloc>().state.wallet?.privateKeyHex;
+    final pk = await _ensureUnlockedKey();
     if (pk == null) return;
     _showKeyDialog(pk);
   }
@@ -320,15 +527,19 @@ class _WalletScreenState extends State<WalletScreen> {
   // ── UI ──────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Portfel potrafi zmienic sie POD tym ekranem: odzysk kopii z noda albo import
-    // w trybie serwisowym podmienia adres w CoreBloc. Bez tego `_address` zostawal
-    // z initState i panel pokazywal same zera az do restartu apki.
-    final cur = context.watch<CoreBloc>().state.wallet?.address;
-    if (cur != _address) {
-      _address = cur;
-      WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) _load(); });
-    }
-    return Scaffold(
+    // Portfel potrafi zmienic sie POD tym ekranem: odzysk kopii z noda / import w trybie
+    // serwisowym dispatchuje WalletImported. Reaguj na zmiane ADRESU (inny portfel) ORAZ
+    // KLUCZA (odzysk TEGO SAMEGO adresu resetuje haslo: privateKeyHex leci z '' na jawny,
+    // wiec sam adres by tego nie wykryl i gate „zablokowany" wisialby do recznego odswiezenia).
+    return BlocListener<CoreBloc, CoreState>(
+      listenWhen: (p, c) =>
+          p.wallet?.address != c.wallet?.address ||
+          p.wallet?.privateKeyHex != c.wallet?.privateKeyHex,
+      listener: (_, state) {
+        _address = state.wallet?.address;
+        _load();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: Text(tr('Portfel')),
         actions: [
@@ -339,7 +550,9 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
-          : BlocBuilder<CoreBloc, CoreState>(
+          : (_pwProtected && !_unlocked)
+              ? _unlockView()
+              : BlocBuilder<CoreBloc, CoreState>(
               builder: (context, state) {
                 return Stack(children: [
                   ListView(
@@ -348,10 +561,14 @@ class _WalletScreenState extends State<WalletScreen> {
                       _addressCard(state.wallet?.address ?? '—'),
                       const SizedBox(height: 16),
                       _balanceCard(),
-                      const SizedBox(height: 16),
-                      _actions(),
+                      if (kDepositEnabled) ...[
+                        const SizedBox(height: 16),
+                        _actions(),
+                      ],
                       const SizedBox(height: 16),
                       _onchainCard(),
+                      const SizedBox(height: 16),
+                      _securitySection(),
                       const SizedBox(height: 16),
                       _keysSection(),
                     ],
@@ -366,8 +583,177 @@ class _WalletScreenState extends State<WalletScreen> {
                 ]);
               },
             ),
+    ),
     );
   }
+
+  // Pełnoekranowy gate odblokowania (zamiast dialogu — deterministyczny render).
+  Widget _unlockView() => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.lock, color: AppTheme.teal, size: 48),
+            const SizedBox(height: 16),
+            Text(tr('Portfel zablokowany'),
+                style: const TextStyle(color: AppTheme.text, fontSize: 18, fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text(tr('Podaj hasło, aby odblokować portfel.'),
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _unlockCtrl, obscureText: true, autofocus: true,
+              onSubmitted: (_) => _doUnlock(),
+              style: const TextStyle(color: AppTheme.text),
+              decoration: _pwDec(tr('Hasło')),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(width: double.infinity, child: FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, padding: const EdgeInsets.symmetric(vertical: 14)),
+              onPressed: _doUnlock,
+              child: Text(tr('Odblokuj'), style: const TextStyle(color: Colors.black)))),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => _snack(tr('Odzyskaj portfel z noda (Ustawienia noda → tryb serwisowy Bluetooth) — to zresetuje hasło.')),
+              child: Text(tr('Zapomniałem hasła'), style: const TextStyle(color: AppTheme.muted))),
+          ]),
+        ),
+      );
+
+  Future<void> _doUnlock() async {
+    try {
+      await _wallet.unlock(_unlockCtrl.text);
+      _unlockCtrl.clear();
+      if (!mounted) return;
+      setState(() => _unlocked = true);
+      _load();   // odblokowane → dociągnij dane i pokaż portfel
+    } catch (e) {
+      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''), error: true);
+    }
+  }
+
+  // ── Zabezpieczenie portfela hasłem (opt-in, zalecane) ────────
+  Widget _securitySection() => Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Icon(_pwProtected ? Icons.lock : Icons.lock_open,
+                  color: _pwProtected ? AppTheme.teal : AppTheme.amber, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(tr('Hasło portfela'),
+                    style: const TextStyle(color: AppTheme.text, fontSize: 15, fontWeight: FontWeight.w600)),
+              ),
+              if (!_pwProtected)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                      color: AppTheme.amber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4)),
+                  child: Text(tr('Zalecane'),
+                      style: const TextStyle(color: AppTheme.amber, fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+            ]),
+            const SizedBox(height: 10),
+            Text(
+              _pwProtected
+                  ? tr('Klucz zaszyfrowany hasłem. Zapomniane hasło zresetujesz przy nodzie (tryb serwisowy + PIN).')
+                  : tr('Zaszyfruj klucz hasłem — chroni środki, gdyby ktoś wykradł dane aplikacji. Zapomniane hasło zresetujesz przy nodzie.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12.5, height: 1.5),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _busy ? null : (_pwProtected ? _disablePasswordFlow : _enablePasswordFlow),
+                icon: Icon(_pwProtected ? Icons.lock_open : Icons.lock, size: 18),
+                label: Text(_pwProtected ? tr('Wyłącz hasło') : tr('Włącz hasło')),
+                style: OutlinedButton.styleFrom(
+                    foregroundColor: _pwProtected ? AppTheme.muted : AppTheme.teal,
+                    side: BorderSide(color: (_pwProtected ? AppTheme.muted : AppTheme.teal).withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 12)),
+              ),
+            ),
+          ]),
+        ),
+      );
+
+  // Włączenie: hasło 2× (potwierdzenie), potem zaszyfrowanie klucza.
+  Future<void> _enablePasswordFlow() async {
+    if (!await _wallet.isUnlocked()) { await _promptUnlock(); if (!await _wallet.isUnlocked()) return; }
+    final p1 = TextEditingController(), p2 = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Ustaw hasło portfela'), style: const TextStyle(color: AppTheme.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: p1, obscureText: true, autofocus: true,
+              style: const TextStyle(color: AppTheme.text),
+              decoration: _pwDec(tr('Hasło'))),
+          const SizedBox(height: 12),
+          TextField(controller: p2, obscureText: true,
+              style: const TextStyle(color: AppTheme.text),
+              decoration: _pwDec(tr('Powtórz hasło'))),
+          const SizedBox(height: 8),
+          Text(tr('Zapamiętaj PIN swojego noda — to jedyna droga odzysku, jeśli zapomnisz hasła.'),
+              style: const TextStyle(color: AppTheme.amber, fontSize: 11)),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(tr('Zapisz'), style: const TextStyle(color: Colors.black))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (p1.text.isEmpty || p1.text != p2.text) { _snack(tr('Hasła nie są takie same'), error: true); return; }
+    setState(() => _busy = true);
+    try {
+      await _wallet.enablePassword(p1.text);
+      _pwProtected = true;
+      _unlocked = true;   // enablePassword zostawia sesję odblokowaną
+      if (mounted) _snack(tr('Hasło włączone — portfel zaszyfrowany.'));
+    } catch (e) {
+      if (mounted) _snack(tr('Błąd: %s', [e.toString().replaceFirst('Exception: ', '')]), error: true);
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
+  Future<void> _disablePasswordFlow() async {
+    final ctrl = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Wyłączyć hasło?'), style: const TextStyle(color: AppTheme.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(tr('Klucz wróci do ochrony samego telefonu. Podaj obecne hasło.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+          const SizedBox(height: 10),
+          TextField(controller: ctrl, obscureText: true, autofocus: true,
+              style: const TextStyle(color: AppTheme.text),
+              decoration: _pwDec(tr('Hasło'))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Wyłącz'))),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await _wallet.disablePassword(ctrl.text);
+      _pwProtected = false;
+      if (mounted) _snack(tr('Hasło wyłączone.'));
+    } catch (e) {
+      if (mounted) _snack(e.toString().replaceFirst('Exception: ', ''), error: true);
+    } finally { if (mounted) setState(() => _busy = false); }
+  }
+
 
   Widget _addressCard(String addr) => Card(
         child: Padding(
@@ -414,38 +800,49 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr('SALDO W SIECI (GALU)'),
+              Text(tr('DO ODBIORU'),
                   style: const TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 11,
-                      letterSpacing: 0.8)),
-              const SizedBox(height: 12),
-              _bigRow(tr('Do wydania na nody'), _available, AppTheme.teal),
-              const Divider(color: AppTheme.border, height: 20),
-              _smallRow(tr('Zarobione (nagrody)'), _earned),
-              // Zostaje widoczne komuś, kto już kiedyś wpłacił — inaczej „Do wydania" nie zgadzałoby
-              // się z sumą pozostałych wierszy i wyglądałoby na błąd. Reszta floty tego nie widzi.
+                      color: AppTheme.muted, fontSize: 11, letterSpacing: 0.8)),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(_available.toStringAsFixed(3),
+                      style: const TextStyle(
+                          color: AppTheme.teal, fontSize: 34, fontWeight: FontWeight.bold)),
+                  const SizedBox(width: 8),
+                  const Text('GALU',
+                      style: TextStyle(color: AppTheme.muted, fontSize: 14, fontWeight: FontWeight.w600)),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(
+                      backgroundColor: AppTheme.teal,
+                      padding: const EdgeInsets.symmetric(vertical: 14)),
+                  onPressed: _busy ? null : _claim,
+                  icon: const Icon(Icons.download, color: Colors.black, size: 18),
+                  label: Text(tr('Odbierz (Claim)'),
+                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.w600)),
+                ),
+              ),
+              if (_claimPending > 0) ...[
+                const SizedBox(height: 6),
+                _smallRow(tr('Wypłata w toku'), _claimPending),
+              ],
+              const Divider(color: AppTheme.border, height: 24),
+              _smallRow(tr('Zarobione'), _earned),
+              if (_spent > 0) _smallRow(tr('Wydane'), _spent),
               if (kDepositEnabled || _deposited > 0)
-                _smallRow(tr('Wpłacone (Twój kapitał)'), _deposited),
+                _smallRow(tr('Zdeponowane'), _deposited),
               if (_depositPending > 0) _smallRow(tr('Wpłata w toku'), _depositPending),
-              const Divider(color: AppTheme.border, height: 20),
-              _smallRow(tr('Do odebrania (claim)'), _pending),
-              if (_claimPending > 0) _smallRow(tr('Wypłata w toku'), _claimPending),
-              _smallRow(tr('Odebrano'), _claimed),
+              _smallRow(tr('Odebrane'), _claimed),
             ],
           ),
         ),
-      );
-
-  Widget _bigRow(String label, double v, Color c) => Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(label,
-              style: const TextStyle(color: AppTheme.text, fontSize: 14)),
-          Text(v.toStringAsFixed(3),
-              style: TextStyle(
-                  color: c, fontSize: 22, fontWeight: FontWeight.bold)),
-        ],
       );
 
   Widget _smallRow(String label, double v) => Padding(
@@ -461,32 +858,19 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       );
 
+  // Wpłata (Deposit) — wygaszona (kDepositEnabled=false), kod celowo zostaje.
   Widget _actions() => Row(children: [
         Expanded(
-          child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.teal,
+          child: OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.teal,
+                side: const BorderSide(color: AppTheme.teal),
                 padding: const EdgeInsets.symmetric(vertical: 14)),
-            onPressed: _busy ? null : _claim,
-            icon: const Icon(Icons.download, color: Colors.black, size: 18),
-            label: Text(tr('Odbierz (Claim)'),
-                style: const TextStyle(color: Colors.black)),
+            onPressed: _busy ? null : _deposit,
+            icon: const Icon(Icons.upload, size: 18),
+            label: Text(tr('Wpłać (Deposit)')),
           ),
         ),
-        if (kDepositEnabled) ...[
-          const SizedBox(width: 12),
-          Expanded(
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                  foregroundColor: AppTheme.teal,
-                  side: const BorderSide(color: AppTheme.teal),
-                  padding: const EdgeInsets.symmetric(vertical: 14)),
-              onPressed: _busy ? null : _deposit,
-              icon: const Icon(Icons.upload, size: 18),
-              label: Text(tr('Wpłać (Deposit)')),
-            ),
-          ),
-        ],
       ]);
 
   Widget _onchainCard() => Card(
@@ -495,36 +879,21 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(tr('SALDO ON-CHAIN (Polygon)'),
+              Text(tr('PORTFEL ON-CHAIN (Polygon)'),
                   style: const TextStyle(
-                      color: AppTheme.muted,
-                      fontSize: 11,
-                      letterSpacing: 0.8)),
-              const SizedBox(height: 12),
-              _smallRow(tr('GALU w portfelu'), _weiToDouble(_dhv)),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(tr('POL (gas)'),
-                        style: const TextStyle(
-                            color: AppTheme.muted, fontSize: 13)),
-                    Text(_weiToDouble(_matic).toStringAsFixed(4),
-                        style: TextStyle(
-                            color: _lowGas ? AppTheme.red : AppTheme.text,
-                            fontSize: 13)),
-                  ],
-                ),
-              ),
+                      color: AppTheme.muted, fontSize: 11, letterSpacing: 0.8)),
+              const SizedBox(height: 16),
+              _assetRow('GALU', _weiToDouble(_dhv), AppTheme.amber, 3, 26,
+                  onSend: (_busy || _dhv <= BigInt.zero) ? null : _sendGalu),
+              const SizedBox(height: 16),
+              _assetRow('POL', _weiToDouble(_matic),
+                  _lowGas ? AppTheme.red : AppTheme.text, 4, 20,
+                  onSend: (_busy || _matic <= BigInt.zero) ? null : _sendPol),
               if (_lowGas) ...[
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Text(
-                    tr(kDepositEnabled
-                        ? 'Za mało POL — transakcje (claim/deposit) wymagają gazu. '
-                          'Wpłać POL na adres portfela (QR powyżej).'
-                        : 'Za mało POL — odbiór nagród (claim) wymaga gazu. '
-                          'Wpłać POL na adres portfela (QR powyżej).'),
+                    tr('Za mało POL — odbiór nagród (claim) wymaga gazu. '
+                       'Wpłać POL na adres portfela (QR na górze).'),
                     style: const TextStyle(color: AppTheme.amber, fontSize: 12)),
               ],
             ],
@@ -532,14 +901,53 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       );
 
+  // Wiersz aktywa: napis nad DUŻĄ wartością (jak realny portfel), „Wyślij →" wyśrodkowane po prawej.
+  Widget _assetRow(String label, double value, Color valueColor, int decimals, double fontSize,
+          {VoidCallback? onSend}) =>
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: const TextStyle(
+                        color: AppTheme.muted, fontSize: 13, letterSpacing: 0.5, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(value.toStringAsFixed(decimals),
+                    style: TextStyle(
+                        color: valueColor, fontSize: fontSize, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+          InkWell(
+            onTap: onSend,
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(tr('Wyślij'),
+                    style: TextStyle(
+                        color: onSend == null ? AppTheme.muted : AppTheme.teal,
+                        fontSize: 14, fontWeight: FontWeight.w600)),
+                const SizedBox(width: 3),
+                Icon(Icons.arrow_forward, size: 16,
+                    color: onSend == null ? AppTheme.muted : AppTheme.teal),
+              ]),
+            ),
+          ),
+        ],
+      );
+
   // Klucz portfela — zwinięte pod jeden kafel (zaawansowane, rzadko potrzebne)
   Widget _keysSection() => Card(
         child: Column(children: [
           ListTile(
-            leading: const Icon(Icons.vpn_key_outlined, color: AppTheme.muted),
-            title: Text(tr('Klucz portfela (zaawansowane)'),
+            leading: const Icon(Icons.shield_outlined, color: AppTheme.muted),
+            title: Text(tr('Kopia zapasowa i odzysk'),
                 style: const TextStyle(color: AppTheme.text)),
-            subtitle: Text(tr('import / eksport klucza prywatnego'),
+            subtitle: Text(tr('zapisz klucz offline albo odzyskaj portfel'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
             trailing: Icon(_keysOpen ? Icons.expand_less : Icons.expand_more,
                 color: AppTheme.muted),
@@ -554,20 +962,20 @@ class _WalletScreenState extends State<WalletScreen> {
       );
 
   Widget _exportTile() => ListTile(
-        leading: const Icon(Icons.key_outlined, color: AppTheme.amber),
-        title: Text(tr('Eksportuj klucz (MetaMask)'),
+        leading: const Icon(Icons.save_outlined, color: AppTheme.amber),
+        title: Text(tr('Zapisz kopię zapasową'),
             style: const TextStyle(color: AppTheme.text)),
-        subtitle: Text(tr('wymaga PIN-u dowolnego Twojego noda'),
+        subtitle: Text(tr('klucz do zapisania offline — na wypadek utraty telefonu i noda'),
             style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
         onTap: _busy ? null : _exportKey,
       );
 
   Widget _importTile() => ListTile(
-        leading: const Icon(Icons.download_outlined, color: AppTheme.amber),
-        title: Text(tr('Importuj klucz prywatny'),
+        leading: const Icon(Icons.restore, color: AppTheme.amber),
+        title: Text(tr('Odzyskaj portfel z kopii'),
             style: const TextStyle(color: AppTheme.text)),
-        subtitle: Text(tr('wklej klucz z MetaMask (0x… lub 64 hex)'),
+        subtitle: Text(tr('wpisz zapisany klucz — tylko jeśli sam go stworzyłeś'),
             style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
         trailing: const Icon(Icons.chevron_right, color: AppTheme.muted),
         onTap: _busy ? null : _importKey,
@@ -579,10 +987,11 @@ class _WalletScreenState extends State<WalletScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.card,
-        title: Text(tr('Importuj klucz prywatny'),
+        title: Text(tr('Odzyskaj portfel z kopii'),
             style: const TextStyle(color: AppTheme.text)),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(tr('Wklej klucz prywatny (np. z MetaMask). Rób to tylko na swoim telefonie.'),
+          Text(tr('Wpisz klucz z własnej kopii zapasowej, aby odzyskać portfel. '
+                  'Rób to tylko na swoim telefonie i tylko kluczem, który sam stworzyłeś.'),
               style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
           const SizedBox(height: 10),
           TextField(controller: ctrl, autofocus: true, maxLines: 2,
@@ -760,8 +1169,10 @@ class _WalletScreenState extends State<WalletScreen> {
                   color: AppTheme.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8)),
               child: Text(
-                  tr('⚠️ Nigdy nikomu nie pokazuj tego klucza. Kto go ma, '
-                      'kontroluje portfel i wszystkie GALU.'),
+                  tr('⚠️ To jest klucz do Twoich środków. NIKT — ani my, ani żadna strona, '
+                      'giełda czy „pomoc na forum" — nie ma prawa Cię o niego prosić. '
+                      'Nie wysyłaj go, nie wklejaj online, nie rób zdjęcia. '
+                      'Zapisz go na papierze i trzymaj offline.'),
                   style: const TextStyle(color: AppTheme.red, fontSize: 12)),
             ),
             const SizedBox(height: 12),
@@ -772,7 +1183,8 @@ class _WalletScreenState extends State<WalletScreen> {
                     fontFamily: 'monospace')),
             const SizedBox(height: 8),
             Text(
-                tr('MetaMask → Importuj konto → Private Key → wklej.'),
+                tr('Przepisz na kartkę i schowaj. To Twoja kopia zapasowa na wypadek '
+                    'utraty telefonu — nie służy do wklejania w innych aplikacjach.'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
           ],
         ),
@@ -825,13 +1237,23 @@ class _WalletScreenState extends State<WalletScreen> {
               child: QrImageView(
                   data: addr, size: 200, backgroundColor: Colors.white),
             ),
-            const SizedBox(height: 16),
-            SelectableText(addr,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                    color: AppTheme.text,
-                    fontSize: 12,
-                    fontFamily: 'monospace')),
+            const SizedBox(height: 18),
+            // Adres celowo łamany na 2 RÓWNE połowy (nie przypadkowy wrap „ostatniej cyfry").
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                  color: AppTheme.surface,
+                  borderRadius: BorderRadius.circular(8)),
+              child: SelectableText(
+                  addr.length >= 42 ? '${addr.substring(0, 21)}\n${addr.substring(21)}' : addr,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                      color: AppTheme.text,
+                      fontSize: 15,
+                      fontFamily: 'monospace',
+                      letterSpacing: 1.2,
+                      height: 1.7)),
+            ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               style: OutlinedButton.styleFrom(
@@ -851,11 +1273,27 @@ class _WalletScreenState extends State<WalletScreen> {
     );
   }
 
+  // Dekoracja pola hasła z JAWNĄ ramką (motywowa jest niewidoczna na ciemnym tle).
+  InputDecoration _pwDec(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: AppTheme.muted),
+        enabledBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.border)),
+        focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: AppTheme.teal, width: 1.6)),
+      );
+
   // ── Helpers ─────────────────────────────────────────────────
   double _dhvHuman() => _weiToDouble(_dhv);
 
   double _weiToDouble(BigInt wei) =>
       wei / BigInt.from(10).pow(18);
+
+  // Human string floorowany do 6 miejsc (NIE zaokrągla w górę — inaczej MAX > salda i tx odrzucona).
+  String _weiToHuman6(BigInt wei) {
+    final micro = wei ~/ BigInt.from(10).pow(12);   // jednostki 1e-6 (floor)
+    final whole = micro ~/ BigInt.from(1000000);
+    final frac = (micro % BigInt.from(1000000)).toString().padLeft(6, '0');
+    return '$whole.$frac';
+  }
 
   BigInt _toWei(String amount) {
     final parts = amount.replaceAll(',', '.').split('.');
@@ -868,5 +1306,51 @@ class _WalletScreenState extends State<WalletScreen> {
     } catch (_) {
       return BigInt.zero;
     }
+  }
+}
+
+/// Ekran skanera QR — zwraca surową zawartość kodu (pop). Uprawnienie kamery
+/// ogarnia mobile_scanner przy starcie podglądu (Android/iOS).
+class _QrScanScreen extends StatefulWidget {
+  const _QrScanScreen();
+  @override
+  State<_QrScanScreen> createState() => _QrScanScreenState();
+}
+
+class _QrScanScreenState extends State<_QrScanScreen> {
+  bool _done = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(tr('Zeskanuj adres (QR)'))),
+      body: Stack(children: [
+        MobileScanner(
+          onDetect: (capture) {
+            if (_done) return;
+            final code = capture.barcodes.isNotEmpty
+                ? capture.barcodes.first.rawValue : null;
+            if (code == null || code.isEmpty) return;
+            _done = true;
+            Navigator.of(context).pop(code);
+          },
+        ),
+        Center(
+          child: Container(
+            width: 220, height: 220,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppTheme.teal, width: 2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0, right: 0, bottom: 40,
+          child: Text(tr('Skieruj aparat na kod QR z adresem portfela'),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white, fontSize: 13)),
+        ),
+      ]),
+    );
   }
 }

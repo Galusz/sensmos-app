@@ -73,13 +73,50 @@ class EthService {
     return _send(pkHex, c, c.function('claim'), [cumulativeAmount, proof]);
   }
 
+  /// Zwykły przelew GALU (ERC-20 transfer) na dowolny adres. Gas płacony w POL.
+  Future<String> transfer(String pkHex, String to, BigInt amount) {
+    final c = _rp;
+    return _send(pkHex, c, c.function('transfer'),
+        [EthereumAddress.fromHex(to.trim()), amount]);
+  }
+
+  /// Natywny przelew POL (gaz Polygon) na dowolny adres.
+  Future<String> sendNative(String pkHex, String to, BigInt amountWei) async {
+    final cred = EthPrivateKey.fromHex(pkHex);
+    return _client.sendTransaction(
+      cred,
+      Transaction(
+          to: EthereumAddress.fromHex(to.trim()),
+          value: EtherAmount.inWei(amountWei),
+          gasPrice: await _gasPrice()),
+      chainId: _chainId,
+    );
+  }
+
+  // Cena gazu z RPC + 20% bezpiecznika — na Polygonie auto-estimate bywa zaniżony i tx utyka.
+  Future<EtherAmount> _gasPrice() async {
+    final gp = await _client.getGasPrice();
+    return EtherAmount.inWei(gp.getInWei * BigInt.from(120) ~/ BigInt.from(100));
+  }
+
+  /// Walidacja adresu odbiorcy (checksum/format) bez rzucania w UI.
+  static bool isValidAddress(String a) {
+    try {
+      EthereumAddress.fromHex(a.trim());
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<String> _send(String pkHex, DeployedContract c,
       ContractFunction fn, List<dynamic> params) async {
     final cred = EthPrivateKey.fromHex(pkHex);
     return _client.sendTransaction(
       cred,
       Transaction.callContract(
-          contract: c, function: fn, parameters: params),
+          contract: c, function: fn, parameters: params,
+          gasPrice: await _gasPrice()),
       chainId: _chainId,
     );
   }
@@ -114,6 +151,9 @@ const _rpAbi = '''
    "outputs":[{"name":"","type":"uint256"}]},
   {"type":"function","stateMutability":"nonpayable","name":"approve",
    "inputs":[{"name":"spender","type":"address"},{"name":"amount","type":"uint256"}],
+   "outputs":[{"name":"","type":"bool"}]},
+  {"type":"function","stateMutability":"nonpayable","name":"transfer",
+   "inputs":[{"name":"to","type":"address"},{"name":"amount","type":"uint256"}],
    "outputs":[{"name":"","type":"bool"}]},
   {"type":"function","stateMutability":"nonpayable","name":"deposit",
    "inputs":[{"name":"amount","type":"uint256"}],"outputs":[]},

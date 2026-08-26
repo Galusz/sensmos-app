@@ -8,6 +8,8 @@
     <string>Sensmos łączy się z czujnikami przez Bluetooth</string>
     <key>NSLocalNetworkUsageDescription</key>
     <string>Sensmos komunikuje się z czujnikami w sieci lokalnej</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Sensmos używa aparatu do skanowania kodów QR z adresem portfela</string>
     <key>NSBonjourServices</key>
     <array>
     <string>_sensmos._tcp</string>

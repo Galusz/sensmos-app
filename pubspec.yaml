@@ -1,7 +1,7 @@
 ﻿name: sensmos_app
 description: SENSMOS â€” sieÄ‡ inteligentnych czujnikĂłw
 publish_to: 'none'
-version: 1.5.47+81
+version: 1.5.48+82
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -27,6 +27,9 @@ dependencies:
   # BLE + discovery
   flutter_blue_plus: ^1.31.15
   multicast_dns: ^0.3.2+6
+
+  # QR scan (adres odbiorcy przy wysyłce GALU)
+  mobile_scanner: ^5.2.3
 
   # Crypto wallet
   web3dart: ^2.7.3
