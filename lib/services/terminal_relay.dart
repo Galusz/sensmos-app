@@ -112,16 +112,21 @@ class TerminalRelay {
           );
           if (_open != null && !_open!.isCompleted) _open!.complete(_sock!);
         } else if (st == 'closed' || st == 'error') {
-          // Node dostał w międzyczasie 0.82 i odrzuca starą ścieżkę. Kasujemy znacznik
-          // zgodności, żeby przy następnej próbie apka poprosiła o prawdziwe parowanie
-          // zamiast w kółko dobijać się nieakceptowanym już żądaniem.
-          if (legacy && st == 'error' && '${m['msg'] ?? ''}'.contains('not paired')) {
+          // „node not paired" jest autorytatywne: node mówi, że nie ma ŻADNYCH kluczy —
+          // reflash albo wymiana płytki z przywróconym ID. Lokalny klucz jest wtedy martwy
+          // i trzymanie go blokowało parowanie na zawsze (apka uważała node za sparowany
+          // i nigdy nie pokazywała dialogu). Kasujemy klucz/znacznik legacy, żeby następna
+          // próba przeszła przez ensurePaired i zaproponowała parowanie od nowa.
+          final notPaired = st == 'error' && '${m['msg'] ?? ''}'.contains('not paired');
+          if (notPaired) {
             legacy = false;
             PairingService().forget(deviceId);
           }
           _sock?.remoteClosed();
           if (_open != null && !_open!.isCompleted) {
-            _open!.completeError(Exception('tunnel $st: ${m['msg'] ?? ''}'));
+            _open!.completeError(Exception(notPaired
+                ? tr('Node nie ma zapisanych kluczy (przeflashowany?) — sparuj go ponownie, będąc w jego sieci WiFi.')
+                : 'tunnel $st: ${m['msg'] ?? ''}'));
           }
         }
         break;

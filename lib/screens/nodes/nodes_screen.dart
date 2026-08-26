@@ -278,6 +278,10 @@ class _NodesScreenState extends State<NodesScreen> {
       ),
     );
     if (ok != true || !mounted) return;
+    // Klucz parowania też — sierota w secure storage blokowałaby parowanie po ponownym
+    // dodaniu noda (apka uważałaby go za sparowanego martwym kluczem).
+    await PairingService().forgetLocal(id);
+    if (!mounted) return;
     context.read<CoreBloc>().add(NodeRemoved(id));
     setState(() { _expanded.remove(id); _online.remove(id); _nodeData.remove(id); });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -314,6 +318,8 @@ class _NodesScreenState extends State<NodesScreen> {
         body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) throw Exception(jsonDecode(res.body)['error'] ?? res.statusCode);
+      if (!mounted) return;
+      await PairingService().forgetLocal(id);
       if (!mounted) return;
       final ns = context.read<NodeService>();
       if (ns.nodes.any((x) => x.id == id)) context.read<CoreBloc>().add(NodeRemoved(id));

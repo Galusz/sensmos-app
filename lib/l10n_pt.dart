@@ -585,6 +585,8 @@ const Map<String, String> ptMap = {
   "Zły PIN noda.": "PIN do node incorreto.",
   "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
       "Não encontro o node nesta rede — conecte o celular à mesma rede Wi-Fi do node.",
+  "Node nie ma zapisanych kluczy (przeflashowany?) — sparuj go ponownie, będąc w jego sieci WiFi.":
+      "O node não tem chaves salvas (reflasheado?) — pareie-o novamente na rede Wi-Fi dele.",
   "Node odrzucił parowanie (HTTP %s).": "O node recusou o pareamento (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "O node recusou a solicitação (HTTP %s).",
   "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":

@@ -715,6 +715,8 @@ const Map<String, String> _enMap = {
   "Zły PIN noda.": "Wrong node PIN.",
   "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
       "Can't see the node on this network — connect your phone to the same Wi-Fi as the node.",
+  "Node nie ma zapisanych kluczy (przeflashowany?) — sparuj go ponownie, będąc w jego sieci WiFi.":
+      "The node has no saved keys (reflashed?) — pair it again while on its Wi-Fi network.",
   "Node odrzucił parowanie (HTTP %s).": "The node refused pairing (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "The node refused the request (HTTP %s).",
   "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":
@@ -1451,6 +1453,8 @@ const Map<String, String> _deMap = {
   "Zły PIN noda.": "Falsche Node-PIN.",
   "Nie widzę noda w tej sieci — połącz telefon z tym samym WiFi co node.":
       "Node in diesem Netzwerk nicht gefunden — verbinde das Telefon mit demselben WLAN wie den Node.",
+  "Node nie ma zapisanych kluczy (przeflashowany?) — sparuj go ponownie, będąc w jego sieci WiFi.":
+      "Der Node hat keine gespeicherten Schlüssel (neu geflasht?) — kopple ihn erneut in seinem WLAN.",
   "Node odrzucił parowanie (HTTP %s).": "Der Node hat die Kopplung abgelehnt (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "Der Node hat die Anfrage abgelehnt (HTTP %s).",
   "Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.":
