@@ -590,6 +590,8 @@ const Map<String, String> ptMap = {
   "Nowa płytka przejęła ID noda — zdalny dostęp wymaga ponownego sparowania: Ustawienia noda → Zdalny dostęp, będąc w jego sieci WiFi.":
       "Uma nova placa assumiu o ID deste node — o acesso remoto exige novo pareamento: Configurações do node → Acesso remoto, na rede Wi-Fi dele.",
   "Odtwarzam parowanie...": "Restaurando o pareamento...",
+  "Uwaga: to lekka wersja proxy, nie pełny tunel — jedno połączenie naraz, bez WebSocketów i strumieni. Proste panele HTTP zadziałają, ciężkie aplikacje nie.":
+      "Atenção: este é um proxy leve, não um túnel completo — uma conexão por vez, sem WebSockets ou streams. Painéis HTTP simples funcionam, aplicativos pesados não.",
   "Zdalny dostęp sparowany ponownie.": "Acesso remoto pareado novamente.",
   "Node odrzucił parowanie (HTTP %s).": "O node recusou o pareamento (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "O node recusou a solicitação (HTTP %s).",

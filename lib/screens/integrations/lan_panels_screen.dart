@@ -151,8 +151,22 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
                 )
               : ListView.builder(
                   padding: const EdgeInsets.all(12),
-                  itemCount: _panels.length,
+                  // +1: żółta notka pod listą — uczciwe zarządzanie oczekiwaniami, żeby
+                  // „nie działa mi UniFi/kamera" nie wracało jako zgłoszenie błędu.
+                  itemCount: _panels.length + 1,
                   itemBuilder: (_, i) {
+                    if (i == _panels.length) {
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 14, 8, 80),
+                        child: Text(
+                          tr('Uwaga: to lekka wersja proxy, nie pełny tunel — jedno połączenie '
+                              'naraz, bez WebSocketów i strumieni. Proste panele HTTP zadziałają, '
+                              'ciężkie aplikacje nie.'),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppTheme.amber, fontSize: 11),
+                        ),
+                      );
+                    }
                     final p = _panels[i];
                     return Card(
                       child: ListTile(

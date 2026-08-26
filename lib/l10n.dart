@@ -720,6 +720,8 @@ const Map<String, String> _enMap = {
   "Nowa płytka przejęła ID noda — zdalny dostęp wymaga ponownego sparowania: Ustawienia noda → Zdalny dostęp, będąc w jego sieci WiFi.":
       "A new board took over this node's ID — remote access requires pairing again: Node settings → Remote access, while on its Wi-Fi network.",
   "Odtwarzam parowanie...": "Restoring pairing...",
+  "Uwaga: to lekka wersja proxy, nie pełny tunel — jedno połączenie naraz, bez WebSocketów i strumieni. Proste panele HTTP zadziałają, ciężkie aplikacje nie.":
+      "Note: this is a lightweight proxy, not a full tunnel — one connection at a time, no WebSockets or streams. Simple HTTP panels will work, heavy apps won't.",
   "Zdalny dostęp sparowany ponownie.": "Remote access paired again.",
   "Node odrzucił parowanie (HTTP %s).": "The node refused pairing (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "The node refused the request (HTTP %s).",
@@ -1462,6 +1464,8 @@ const Map<String, String> _deMap = {
   "Nowa płytka przejęła ID noda — zdalny dostęp wymaga ponownego sparowania: Ustawienia noda → Zdalny dostęp, będąc w jego sieci WiFi.":
       "Eine neue Platine hat die ID dieses Nodes übernommen — Fernzugriff erfordert erneute Kopplung: Node-Einstellungen → Fernzugriff, im WLAN des Nodes.",
   "Odtwarzam parowanie...": "Kopplung wird wiederhergestellt...",
+  "Uwaga: to lekka wersja proxy, nie pełny tunel — jedno połączenie naraz, bez WebSocketów i strumieni. Proste panele HTTP zadziałają, ciężkie aplikacje nie.":
+      "Hinweis: das ist ein leichtes Proxy, kein voller Tunnel — eine Verbindung auf einmal, keine WebSockets oder Streams. Einfache HTTP-Panels funktionieren, schwere Apps nicht.",
   "Zdalny dostęp sparowany ponownie.": "Fernzugriff erneut gekoppelt.",
   "Node odrzucił parowanie (HTTP %s).": "Der Node hat die Kopplung abgelehnt (HTTP %s).",
   "Node odrzucił żądanie (HTTP %s).": "Der Node hat die Anfrage abgelehnt (HTTP %s).",
