@@ -1,6 +1,9 @@
 // pt-BR (Português do Brasil). PIERWSZY PRZELOT tłumaczenia — do przejrzenia przez native speakera.
 // Klucz = polski oryginał (MUSI zgadzać się z _enMap w l10n.dart). %s i {{...}} zachowane.
 const Map<String, String> ptMap = {
+  // ── Alias/tag do nó (1.5.49) ──
+  "Nazwa / tag noda": "Nome / tag do nó",
+  "Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.": "Sua etiqueta para reconhecer o nó mais facilmente — ex.: Garagem ou Roteador.",
   // ── Carteira: senha / envio / QR / reformulação do saldo (1.5.48) ──
   "DO ODBIORU": "A RECEBER",
   "Zarobione": "Ganho",

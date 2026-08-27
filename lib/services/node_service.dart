@@ -138,6 +138,20 @@ class NodeService {
     if (_activeNode?.deviceId == deviceId) _activePin = newPin;
   }
 
+  /// Ustaw lokalny alias/tag noda (etykieta w apce). Persystowane lokalnie.
+  Future<void> renameNode(String deviceId, String alias) async {
+    final idx = _nodes.indexWhere((n) => n.id == deviceId);
+    if (idx < 0) return;
+    final old = _nodes[idx];
+    _nodes[idx] = SavedNode(id: old.id, ip: old.ip, pin: old.pin,
+        hostname: old.hostname, label: alias);
+    await _saveList();
+    if (_activeNode?.deviceId == deviceId) {
+      _activeNode = DeviceNode(deviceId: deviceId, ip: old.ip,
+          online: _activeNode!.online, label: alias);
+    }
+  }
+
   Map<String, String> get _headers => {
     'Content-Type': 'application/json',
     if (_activePin != null) 'Authorization': 'Bearer $_activePin',

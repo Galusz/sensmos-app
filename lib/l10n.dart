@@ -68,6 +68,9 @@ String tr(String pl, [List<Object?> args = const []]) {
 
 /// Nadpisania angielskie. Brak wpisu → pokazujemy klucz (PL).
 const Map<String, String> _enMap = {
+  // ── Node alias/tag (1.5.49) ──
+  "Nazwa / tag noda": "Node name / tag",
+  "Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.": "Your own label to recognise the node — e.g. Garage or Router.",
   // ── Portfel: hasło / wysyłka / QR / przebudowa salda (1.5.48) ──
   "DO ODBIORU": "TO COLLECT",
   "Zarobione": "Earned",
@@ -884,6 +887,9 @@ const Map<String, String> _enMap = {
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
 const Map<String, String> _deMap = {
+  // ── Node-Alias/Tag (1.5.49) ──
+  "Nazwa / tag noda": "Node-Name / Tag",
+  "Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.": "Dein eigenes Label, um den Node leichter zu erkennen — z. B. Garage oder Router.",
   // ── Wallet: Passwort / Senden / QR / Saldo-Umbau (1.5.48) ──
   "DO ODBIORU": "ABZUHOLEN",
   "Zarobione": "Verdient",

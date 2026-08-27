@@ -706,6 +706,37 @@ class _NodesScreenState extends State<NodesScreen> {
   }
 
   // ── Karta noda (zunifikowana) ──
+  Future<void> _editAlias(String id, SavedNode saved) async {
+    final ctrl = TextEditingController(text: saved.label == 'Node' ? '' : saved.label);
+    final v = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Nazwa / tag noda'), style: const TextStyle(color: AppTheme.text)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          const SizedBox(height: 10),
+          TextField(controller: ctrl, autofocus: true, maxLength: 24,
+              style: const TextStyle(color: AppTheme.text),
+              decoration: InputDecoration(
+                  hintText: 'sensmos-${id.substring(0, id.length >= 6 ? 6 : id.length)}',
+                  hintStyle: const TextStyle(color: AppTheme.muted))),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Anuluj'))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: Text(tr('Zapisz'), style: const TextStyle(color: Colors.black))),
+        ],
+      ),
+    );
+    if (v == null || !mounted) return;
+    await context.read<NodeService>().renameNode(id, v.isEmpty ? 'Node' : v);
+    if (mounted) setState(() {});
+  }
+
   Widget _buildCard(_UnifiedNode u) {
     final be = u.be;
     final saved = u.saved;
@@ -782,6 +813,11 @@ class _NodesScreenState extends State<NodesScreen> {
                   if (be?['ghost'] == true)
                     const Padding(padding: EdgeInsets.only(left: 8),
                         child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
+                  if (saved != null)
+                    Padding(padding: const EdgeInsets.only(left: 8),
+                        child: InkWell(
+                          onTap: () => _editAlias(id, saved),
+                          child: const Icon(Icons.edit_outlined, size: 15, color: AppTheme.muted))),
                 ]),
                 // Linia 2: miejscowość z lewej, znacznik sieci z prawej. Badge zszedł
                 // z głównego rzędu — tam zabierał szerokość wszystkim trzem liniom naraz
