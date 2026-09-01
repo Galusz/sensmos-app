@@ -753,4 +753,40 @@ const Map<String, String> ptMap = {
   "Podaj adres w LAN": "Informe o endereço na LAN",
   "LoRa awaryjne — słyszany radiem": "LoRa de emergência — ouvido pelo rádio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa de emergência — sem internet, ouvido há %s por %s",
+  // ── Panel Emergency (model v2) ──
+  "Panel Emergency": "Painel de Emergência",
+  "Panel Emergency — encje i komenda": "Painel de Emergência — entidades e comando",
+  "Node bez internetu — nadaje przez LoRa": "Node sem internet — transmitindo via LoRa",
+  "Node ma łączność z serwerem (WS)": "Node conectado ao servidor (WS)",
+  "Ostatnia ramka %s temu · usłyszał %s": "Último frame há %s · ouvido por %s",
+  "Brak ramek emergency — czekam na pierwszy beacon": "Sem frames de emergência — aguardando o primeiro beacon",
+  "Ostatni kontakt WS: %s temu": "Último contato WS: há %s",
+  "Encje awaryjne": "Entidades de emergência",
+  "Nie wybrano encji awaryjnych (Ustawienia noda → LoRa awaryjne)":
+      "Nenhuma entidade de emergência selecionada (Config. do node → LoRa de emergência)",
+  "odebrano %s temu": "recebido há %s",
+  "Komenda do noda": "Comando para o node",
+  "Max 8 znaków. Node przekaże ją do inboxu, MQTT/HA i webhooka (jeśli ustawiony).":
+      "Máx. 8 caracteres. O node encaminha para o inbox, MQTT/HA e o webhook (se configurado).",
+  "Webhook przy komendzie (opcjonalny)": "Webhook no comando (opcional)",
+  "Gdy node odbierze komendę przez LoRa, wyśle POST na ten adres w Twojej sieci (np. UniFi Protect). Komenda trafia też do inboxu i MQTT/HA.":
+      "Quando o node receber um comando via LoRa, fará um POST para este endereço na sua rede (ex.: UniFi Protect). O comando também vai para o inbox e MQTT/HA.",
+  "Wyślij przez LoRa": "Enviar via LoRa",
+  "Komenda w kolejce — poleci przez najbliższy przekaźnik": "Comando na fila — será enviado pelo relé mais próximo",
+  "Historia komend": "Histórico de comandos",
+  "ODEBRANA przez node": "RECEBIDO pelo node",
+  "wysłana": "enviado",
+  "nieudana": "falhou",
+  "w kolejce": "na fila",
+  "Wpisz komendę: 1-8 znaków ASCII, bez spacji": "Digite um comando: 1-8 caracteres ASCII, sem espaços",
+  "Złe hasło": "Senha incorreta",
+  "%s temu": "há %s",
+  "Tryb LoRa uzbraja się ~2 min po padzie; ramka leci co ~4 min":
+      "O modo LoRa arma ~2 min após a queda; um frame sai a cada ~4 min",
+  "Komenda LoRa jest dostępna, gdy node straci łączność z serwerem":
+      "O comando LoRa fica disponível quando o node perde a conexão com o servidor",
+  "LoRa awaryjne — ostatni epizod %s temu": "LoRa de emergência — último episódio há %s",
+  "Limit komend wyczerpany — spróbuj za ~%s min": "Limite de comandos atingido — tente novamente em ~%s min",
+  "Komendy w tej godzinie: %s/%s — airtime LoRa jest wspólny":
+      "Comandos nesta hora: %s/%s — o airtime LoRa é compartilhado",
 };

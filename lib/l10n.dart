@@ -883,6 +883,42 @@ const Map<String, String> _enMap = {
   "Podaj adres w LAN": "Enter the LAN address",
   "LoRa awaryjne — słyszany radiem": "LoRa emergency — heard over radio",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa emergency — no internet, heard %s ago by %s",
+  // ── Panel Emergency (model v2) ──
+  "Panel Emergency": "Emergency Panel",
+  "Panel Emergency — encje i komenda": "Emergency Panel — entities & command",
+  "Node bez internetu — nadaje przez LoRa": "Node offline — transmitting over LoRa",
+  "Node ma łączność z serwerem (WS)": "Node is connected to the server (WS)",
+  "Ostatnia ramka %s temu · usłyszał %s": "Last frame %s ago · heard by %s",
+  "Brak ramek emergency — czekam na pierwszy beacon": "No emergency frames yet — waiting for the first beacon",
+  "Ostatni kontakt WS: %s temu": "Last WS contact: %s ago",
+  "Encje awaryjne": "Emergency entities",
+  "Nie wybrano encji awaryjnych (Ustawienia noda → LoRa awaryjne)":
+      "No emergency entities selected (Node settings → Emergency LoRa)",
+  "odebrano %s temu": "received %s ago",
+  "Komenda do noda": "Command to node",
+  "Max 8 znaków. Node przekaże ją do inboxu, MQTT/HA i webhooka (jeśli ustawiony).":
+      "Max 8 chars. The node forwards it to the inbox, MQTT/HA and the webhook (if set).",
+  "Webhook przy komendzie (opcjonalny)": "Webhook on command (optional)",
+  "Gdy node odbierze komendę przez LoRa, wyśle POST na ten adres w Twojej sieci (np. UniFi Protect). Komenda trafia też do inboxu i MQTT/HA.":
+      "When the node receives a command over LoRa, it POSTs to this address on your network (e.g. UniFi Protect). The command also goes to the inbox and MQTT/HA.",
+  "Wyślij przez LoRa": "Send via LoRa",
+  "Komenda w kolejce — poleci przez najbliższy przekaźnik": "Command queued — will go out via the nearest relay",
+  "Historia komend": "Command history",
+  "ODEBRANA przez node": "RECEIVED by node",
+  "wysłana": "sent",
+  "nieudana": "failed",
+  "w kolejce": "queued",
+  "Wpisz komendę: 1-8 znaków ASCII, bez spacji": "Enter a command: 1-8 ASCII chars, no spaces",
+  "Złe hasło": "Wrong password",
+  "%s temu": "%s ago",
+  "Tryb LoRa uzbraja się ~2 min po padzie; ramka leci co ~4 min":
+      "LoRa mode arms ~2 min after the outage; a frame goes out every ~4 min",
+  "Komenda LoRa jest dostępna, gdy node straci łączność z serwerem":
+      "The LoRa command is available when the node loses its server connection",
+  "LoRa awaryjne — ostatni epizod %s temu": "LoRa emergency — last episode %s ago",
+  "Limit komend wyczerpany — spróbuj za ~%s min": "Command limit reached — try again in ~%s min",
+  "Komendy w tej godzinie: %s/%s — airtime LoRa jest wspólny":
+      "Commands this hour: %s/%s — LoRa airtime is shared",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
@@ -1702,4 +1738,40 @@ const Map<String, String> _deMap = {
   "Podaj adres w LAN": "Gib die LAN-Adresse ein",
   "LoRa awaryjne — słyszany radiem": "LoRa-Notfall — per Funk gehört",
   "LoRa awaryjne — bez internetu, słyszany %s temu przez %s": "LoRa-Notfall — kein Internet, vor %s gehört von %s",
+  // ── Panel Emergency (model v2) ──
+  "Panel Emergency": "Emergency-Panel",
+  "Panel Emergency — encje i komenda": "Emergency-Panel — Entitäten & Befehl",
+  "Node bez internetu — nadaje przez LoRa": "Node offline — sendet über LoRa",
+  "Node ma łączność z serwerem (WS)": "Node ist mit dem Server verbunden (WS)",
+  "Ostatnia ramka %s temu · usłyszał %s": "Letzter Frame vor %s · gehört von %s",
+  "Brak ramek emergency — czekam na pierwszy beacon": "Noch keine Notfall-Frames — warte auf den ersten Beacon",
+  "Ostatni kontakt WS: %s temu": "Letzter WS-Kontakt: vor %s",
+  "Encje awaryjne": "Notfall-Entitäten",
+  "Nie wybrano encji awaryjnych (Ustawienia noda → LoRa awaryjne)":
+      "Keine Notfall-Entitäten gewählt (Node-Einstellungen → Notfall-LoRa)",
+  "odebrano %s temu": "empfangen vor %s",
+  "Komenda do noda": "Befehl an den Node",
+  "Max 8 znaków. Node przekaże ją do inboxu, MQTT/HA i webhooka (jeśli ustawiony).":
+      "Max. 8 Zeichen. Der Node leitet ihn an Inbox, MQTT/HA und den Webhook (falls gesetzt) weiter.",
+  "Webhook przy komendzie (opcjonalny)": "Webhook bei Befehl (optional)",
+  "Gdy node odbierze komendę przez LoRa, wyśle POST na ten adres w Twojej sieci (np. UniFi Protect). Komenda trafia też do inboxu i MQTT/HA.":
+      "Wenn der Node einen Befehl über LoRa empfängt, sendet er einen POST an diese Adresse in deinem Netzwerk (z. B. UniFi Protect). Der Befehl geht auch an Inbox und MQTT/HA.",
+  "Wyślij przez LoRa": "Über LoRa senden",
+  "Komenda w kolejce — poleci przez najbliższy przekaźnik": "Befehl in der Warteschlange — geht über das nächste Relais raus",
+  "Historia komend": "Befehlsverlauf",
+  "ODEBRANA przez node": "Vom Node EMPFANGEN",
+  "wysłana": "gesendet",
+  "nieudana": "fehlgeschlagen",
+  "w kolejce": "in Warteschlange",
+  "Wpisz komendę: 1-8 znaków ASCII, bez spacji": "Befehl eingeben: 1-8 ASCII-Zeichen, ohne Leerzeichen",
+  "Złe hasło": "Falsches Passwort",
+  "%s temu": "vor %s",
+  "Tryb LoRa uzbraja się ~2 min po padzie; ramka leci co ~4 min":
+      "Der LoRa-Modus aktiviert sich ~2 Min. nach dem Ausfall; ein Frame geht alle ~4 Min. raus",
+  "Komenda LoRa jest dostępna, gdy node straci łączność z serwerem":
+      "Der LoRa-Befehl ist verfügbar, wenn der Node die Serververbindung verliert",
+  "LoRa awaryjne — ostatni epizod %s temu": "LoRa-Notfall — letzte Episode vor %s",
+  "Limit komend wyczerpany — spróbuj za ~%s min": "Befehlslimit erreicht — versuch es in ~%s Min. erneut",
+  "Komendy w tej godzinie: %s/%s — airtime LoRa jest wspólny":
+      "Befehle in dieser Stunde: %s/%s — LoRa-Airtime wird geteilt",
 };

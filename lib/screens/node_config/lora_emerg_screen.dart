@@ -27,6 +27,16 @@ class _LoraEmergScreenState extends State<LoraEmergScreen> {
   final Set<String> _selected = {};
   // [{entity_id, value, unit}] — pub + own z /data/status
   final List<Map<String, String>> _entities = [];
+  // Webhook dla komend emergency (CMD, model v2): POST {"source":"lora_cmd","cmd":...}
+  // albo GET ?cmd=... (proste systemy typu UniFi nie mają POST).
+  final _hookCtrl = TextEditingController();
+  bool _hookGet = false;
+
+  @override
+  void dispose() {
+    _hookCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -47,6 +57,8 @@ class _LoraEmergScreenState extends State<LoraEmergScreen> {
       if (cfg.statusCode == 200) {
         final j = jsonDecode(cfg.body) as Map<String, dynamic>;
         _active = j['active'] == true;
+        _hookCtrl.text = (j['webhook'] ?? '').toString();
+        _hookGet = j['webhook_get'] == true;
         for (final e in (j['eids'] as List? ?? const [])) {
           _selected.add(e.toString());
         }
@@ -96,7 +108,9 @@ class _LoraEmergScreenState extends State<LoraEmergScreen> {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ${widget.pin}',
               },
-              body: jsonEncode({'eids': _selected.toList()}))
+              body: jsonEncode({'eids': _selected.toList(),
+                                'webhook': _hookCtrl.text.trim(),
+                                'webhook_get': _hookGet}))
           .timeout(const Duration(seconds: 6));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -212,6 +226,44 @@ class _LoraEmergScreenState extends State<LoraEmergScreen> {
                         ),
                       );
                     }),
+                    const SizedBox(height: 16),
+                    Text(tr('Webhook przy komendzie (opcjonalny)'),
+                        style: const TextStyle(
+                            color: AppTheme.text, fontSize: 13, fontWeight: FontWeight.w600)),
+                    const SizedBox(height: 4),
+                    Text(
+                      tr('Gdy node odbierze komendę przez LoRa, wyśle POST na ten adres w Twojej '
+                          'sieci (np. UniFi Protect). Komenda trafia też do inboxu i MQTT/HA.'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _hookCtrl,
+                      keyboardType: TextInputType.url,
+                      style: const TextStyle(
+                          color: AppTheme.text, fontSize: 13, fontFamily: 'monospace'),
+                      decoration: const InputDecoration(
+                        hintText: 'http://192.168.1.10/hook',
+                        hintStyle: TextStyle(color: AppTheme.muted),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Metoda: POST z JSON-em albo GET ?cmd= — bez tłumaczeń, to nazwy techniczne.
+                    Row(children: [
+                      ChoiceChip(
+                        label: const Text('POST', style: TextStyle(fontSize: 12)),
+                        selected: !_hookGet,
+                        selectedColor: AppTheme.teal.withValues(alpha: 0.25),
+                        onSelected: (_) => setState(() => _hookGet = false),
+                      ),
+                      const SizedBox(width: 8),
+                      ChoiceChip(
+                        label: const Text('GET ?cmd=', style: TextStyle(fontSize: 12)),
+                        selected: _hookGet,
+                        selectedColor: AppTheme.teal.withValues(alpha: 0.25),
+                        onSelected: (_) => setState(() => _hookGet = true),
+                      ),
+                    ]),
                     const SizedBox(height: 16),
                     FilledButton(
                       style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),

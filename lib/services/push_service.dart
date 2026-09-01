@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 import 'wallet_service.dart';
@@ -11,6 +12,11 @@ import 'wallet_service.dart';
 /// Stara ścieżka (token na nodzie przez POST /config) wycofana z apki; stare FW
 /// dokleja token z NVS jako fallback i BE go użyje, dopóki wallet nie ma rejestracji.
 class PushService {
+  /// Globalny messenger apki — pushe FCM w foregroundzie Android NIE pokazuje sam
+  /// (oddaje je do onMessage), więc rysujemy własny baner. main.dart wpina ten klucz
+  /// w MaterialApp.scaffoldMessengerKey.
+  static final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
   String? _token;
   bool _inited = false;
   WalletService? _wallet;   // do re-rejestracji przy rotacji tokenu
@@ -31,6 +37,19 @@ class PushService {
         _token = t;
         final w = _wallet;
         if (w != null) registerToBackend(w);   // rotacja tokenu → cicha re-rejestracja
+      });
+      // Foreground: system nie pokaże banera — rysujemy własny (emergency na bursztynowo).
+      FirebaseMessaging.onMessage.listen((msg) {
+        final n = msg.notification;
+        if (n == null) return;
+        final emerg = msg.data['type'] == 'lora_emerg';
+        messengerKey.currentState?.showSnackBar(SnackBar(
+          behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: emerg ? 8 : 5),
+          backgroundColor: emerg ? Colors.amber.shade800 : null,
+          content: Text('${n.title ?? ''}${n.body?.isNotEmpty == true ? '\n${n.body}' : ''}',
+              maxLines: 4, overflow: TextOverflow.ellipsis),
+        ));
       });
     } catch (_) {
       _token = null;

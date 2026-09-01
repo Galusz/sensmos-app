@@ -74,6 +74,9 @@ class SensmosApp extends StatelessWidget {
             // inaczej const-owe ekrany (IndexedStack) zostają w starym języku.
             key: ValueKey('lang-${L10n.mode}'),
             title: 'SENSMOS',
+            // Globalny messenger — baner dla pushy FCM przychodzących w foregroundzie
+            // (Android sam ich wtedy nie pokazuje; patrz PushService.onMessage).
+            scaffoldMessengerKey: PushService.messengerKey,
             debugShowCheckedModeBanner: false,
             theme: AppTheme.dark,
             locale: Locale(L10n.lang),

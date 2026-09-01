@@ -20,6 +20,7 @@ import '../../config.dart';
 import '../entities/entities_screen.dart';
 import '../setup/setup_screen.dart';
 import '../node/node_manager_screen.dart';
+import '../node/emergency_screen.dart';
 import '../terminal/terminal_screen.dart';
 import '../integrations/ha_panel_screen.dart';
 import '../integrations/link_report_screen.dart';
@@ -479,20 +480,23 @@ class _NodesScreenState extends State<NodesScreen> {
     return '${(secs / 86400).floor()}d';
   }
 
-  // ── LoRa awaryjne (FW 0.91): node offline, ale słyszany radiem przez sąsiada ──
-  // BE zapisuje ostatnie wartości z ramki E1 w lora_emerg_last (+ stempel lora_emerg_at).
-  // Pokazujemy tylko, gdy node NIE ma żywego WS, a ramka jest świeża (≤12 h).
+  // ── LoRa awaryjne (FW 0.91 + model v2): baner na karcie noda ──
+  // active=true: node BEZ żywego WS + świeża ramka (≤12 h) → bursztynowy alarm.
+  // active=false: epizod HISTORYCZNY (≤48 h, node może być online) → wyciszony wpis,
+  // żeby wejście do Panelu Emergency nie znikało razem z alarmem (dane/historia komend).
   Map<String, dynamic>? _emergInfo(Map<String, dynamic>? be) {
-    if (be == null || be['ws_online'] == true) return null;
+    if (be == null) return null;
     final at = DateTime.tryParse((be['lora_emerg_at'] ?? '').toString());
     if (at == null) return null;
     final secs = DateTime.now().difference(at).inSeconds;
-    if (secs > 12 * 3600) return null;
+    if (secs > 48 * 3600) return null;
     final last = be['lora_emerg_last'];
     if (last is! Map) return null;
     final vals = last['vals'];
+    final active = be['ws_online'] != true && secs <= 12 * 3600;
     return {
       'secs': secs,
+      'active': active,
       'rx': (last['rx'] ?? '').toString(),
       'vals': vals is Map ? vals : const {},
     };
@@ -734,6 +738,16 @@ class _NodesScreenState extends State<NodesScreen> {
     );
     if (v == null || !mounted) return;
     await context.read<NodeService>().renameNode(id, v.isEmpty ? 'Node' : v);
+    // Dosyłka aliasu na node (NVS, widoczny w /info) — best-effort, tylko gdy znamy IP
+    // z LAN; poza siecią etykieta i tak żyje lokalnie, node dostanie ją następnym razem.
+    if (saved.ip.isNotEmpty) {
+      http.post(Uri.parse('http://${saved.ip}/node/alias'),
+          headers: {'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ${saved.pin}'},
+          body: jsonEncode({'alias': v}))
+        .timeout(const Duration(seconds: 4))
+        .catchError((_) => http.Response('', 0));
+    }
     if (mounted) setState(() {});
   }
 
@@ -785,6 +799,12 @@ class _NodesScreenState extends State<NodesScreen> {
               Container(width: 10, height: 10, decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: be?['ghost'] == true ? const Color(0xFF3B82F6) : healthColor)),
+              if (saved != null) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                    onTap: () => _editAlias(id, saved),
+                    child: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.muted)),
+              ],
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 // ID na pierwszym planie — to ono identyfikuje node jednoznacznie,
@@ -813,11 +833,6 @@ class _NodesScreenState extends State<NodesScreen> {
                   if (be?['ghost'] == true)
                     const Padding(padding: EdgeInsets.only(left: 8),
                         child: Icon(Icons.visibility_off_outlined, size: 15, color: Color(0xFF3B82F6))),
-                  if (saved != null)
-                    Padding(padding: const EdgeInsets.only(left: 8),
-                        child: InkWell(
-                          onTap: () => _editAlias(id, saved),
-                          child: const Icon(Icons.edit_outlined, size: 15, color: AppTheme.muted))),
                 ]),
                 // Linia 2: miejscowość z lewej, znacznik sieci z prawej. Badge zszedł
                 // z głównego rzędu — tam zabierał szerokość wszystkim trzem liniom naraz
@@ -831,7 +846,7 @@ class _NodesScreenState extends State<NodesScreen> {
                 ]),
                 Text(healthText, style: TextStyle(color: healthColor, fontSize: 11),
                     maxLines: 1, overflow: TextOverflow.ellipsis),
-                if (_emergInfo(be) != null)
+                if (_emergInfo(be)?['active'] == true)
                   Text('⚠ ${tr('LoRa awaryjne — słyszany radiem')}',
                       style: TextStyle(color: Colors.amber.shade700, fontSize: 11),
                       maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -846,42 +861,56 @@ class _NodesScreenState extends State<NodesScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // LoRa awaryjne: node bez internetu, ale sąsiad słyszy jego beacon z encjami.
+              // LoRa awaryjne (model v2): kompaktowy banner — encje, historia i komenda
+              // awaryjna żyją na osobnym ekranie (Panel Emergency), nie na kafelku.
               if (_emergInfo(be) case final emerg?) ...[
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
-                  ),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Row(children: [
-                      Icon(Icons.cell_tower, size: 16, color: Colors.amber.shade700),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          tr('LoRa awaryjne — bez internetu, słyszany %s temu przez %s',
-                              [_ago(emerg['secs'] as int), emerg['rx']]),
-                          style: TextStyle(color: Colors.amber.shade700, fontSize: 12),
+                Builder(builder: (context) {
+                  final active = emerg['active'] == true;
+                  final col = active ? Colors.amber.shade700 : AppTheme.muted;
+                  final bg  = active ? Colors.amber : Colors.grey;
+                  return Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: bg.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: bg.withValues(alpha: 0.35)),
+                    ),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Icon(Icons.cell_tower, size: 16, color: col),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            active
+                                ? tr('LoRa awaryjne — bez internetu, słyszany %s temu przez %s',
+                                    [_ago(emerg['secs'] as int), emerg['rx']])
+                                : tr('LoRa awaryjne — ostatni epizod %s temu',
+                                    [_ago(emerg['secs'] as int)]),
+                            style: TextStyle(color: col, fontSize: 12),
+                          ),
+                        ),
+                      ]),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: col,
+                            side: BorderSide(color: bg.withValues(alpha: 0.5)),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                          ),
+                          icon: const Icon(Icons.emergency_share, size: 16),
+                          label: Text(tr('Panel Emergency — encje i komenda'),
+                              style: const TextStyle(fontSize: 12)),
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(
+                              builder: (_) => EmergencyScreen(deviceId: id, name: name))),
                         ),
                       ),
                     ]),
-                    if ((emerg['vals'] as Map).isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        (emerg['vals'] as Map)
-                            .entries
-                            .map((e) => '${e.key}: ${e.value}')
-                            .join('   '),
-                        style: const TextStyle(
-                            color: AppTheme.text, fontSize: 12, fontFamily: 'monospace'),
-                      ),
-                    ],
-                  ]),
-                ),
+                  );
+                }),
               ],
               // Statystyki. Elastyczne, bo na wąskich ekranach (starsze telefony) sztywne
               // odstępy + Spacer wypychały „Pełne ID / Kopiuj" poza kartę.
