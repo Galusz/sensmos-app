@@ -3,9 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
+import 'config.dart';
 import 'l10n.dart';
+import 'core/core_bloc.dart';
 import 'services/push_service.dart';
 import 'services/wallet_service.dart';
 import 'screens/nodes/nodes_screen.dart';
@@ -17,18 +20,25 @@ class AppShell extends StatefulWidget {
   @override State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   int _index = 0;
   StreamSubscription? _fcmSub;
-  // Skrzynka powiadomień (decyzja 2026-08-25): push nie znika po kilku sekundach —
-  // dzwoneczek wisi na wierzchu ekranu, klik pokazuje treści. Ostatnie 20 w prefsach.
-  final List<Map<String, dynamic>> _inbox = [];
-  int _unread = 0;
+  Timer? _refetch;
+  // Skrzynka powiadomień — źródło prawdy w BE (2026-09-01): historia składana lokalnie
+  // z FCM gubiła pushe odebrane w tle (Android oddaje je tylko do zasobnika systemu).
+  // BE loguje każdą wysyłkę, apka pobiera GET-em; lokalnie tylko cache (offline),
+  // znacznik „ostatnio widziane" (licznik) i „wyczyszczone przed" (przycisk Wyczyść).
+  List<Map<String, dynamic>> _inbox = [];
+  int _seenTs = 0;
+  int _hideBefore = 0;
+
+  int get _unread => _inbox.where((n) => ((n['ts'] ?? 0) as num) > _seenTs).length;
 
   @override
   void initState() {
     super.initState();
-    _loadInbox();
+    WidgetsBinding.instance.addObserver(this);
+    _loadLocal().then((_) => _fetchInbox());
     // Po wejściu do panelu zarejestruj token FCM w BE podpisem walleta (fire-and-forget).
     // Przebudowa 2026-08-24: tokeny mieszkają w BE, nie na nodach — dzięki temu BE umie
     // powiadomić także o MARTWYM nodzie (LoRa awaryjne), a rotacja tokenu nie wymaga LAN.
@@ -38,48 +48,62 @@ class _AppShellState extends State<AppShell> {
       if (t != null) push.registerToBackend(wallet);
     });
     try {
-      _fcmSub = FirebaseMessaging.onMessage.listen(_onPush);
+      _fcmSub = FirebaseMessaging.onMessage.listen((_) => _fetchInbox());
     } catch (_) {}
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _fcmSub?.cancel();
+    _refetch?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadInbox() async {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _fetchInbox();
+  }
+
+  Future<void> _loadLocal() async {
     try {
       final p = await SharedPreferences.getInstance();
-      final raw = p.getString('push_inbox');
+      _seenTs = p.getInt('push_seen_ts') ?? 0;
+      _hideBefore = p.getInt('push_hide_before') ?? 0;
+      final raw = p.getString('push_inbox_cache');
       if (raw != null) {
-        _inbox.addAll(List<Map<String, dynamic>>.from(jsonDecode(raw)));
+        _inbox = List<Map<String, dynamic>>.from(jsonDecode(raw));
       }
-      _unread = p.getInt('push_unread') ?? 0;
       if (mounted) setState(() {});
     } catch (_) {}
   }
 
-  Future<void> _saveInbox() async {
+  Future<void> _saveLocal() async {
     try {
       final p = await SharedPreferences.getInstance();
-      await p.setString('push_inbox', jsonEncode(_inbox));
-      await p.setInt('push_unread', _unread);
+      await p.setInt('push_seen_ts', _seenTs);
+      await p.setInt('push_hide_before', _hideBefore);
+      await p.setString('push_inbox_cache', jsonEncode(_inbox));
     } catch (_) {}
   }
 
-  void _onPush(RemoteMessage m) {
-    final title = m.notification?.title ?? '';
-    final body  = m.notification?.body ?? '';
-    if (title.isEmpty && body.isEmpty) return;
-    setState(() {
-      _inbox.insert(0, {
-        't': title, 'b': body, 'ts': DateTime.now().millisecondsSinceEpoch,
+  Future<void> _fetchInbox() async {
+    final owner = context.read<CoreBloc>().state.wallet?.address;
+    if (owner == null) return;
+    try {
+      final res = await http.get(
+        Uri.parse('${Config.beUrl}/v1/nodes/push-inbox?owner=$owner'),
+        headers: {'X-App-Key': 'sensmos2025'},
+      ).timeout(const Duration(seconds: 8));
+      if (res.statusCode != 200) return;
+      final items = List<Map<String, dynamic>>.from(
+          (jsonDecode(res.body) as Map)['items'] ?? []);
+      if (!mounted) return;
+      setState(() {
+        _inbox = items.where((n) => ((n['ts'] ?? 0) as num) > _hideBefore).toList();
       });
-      while (_inbox.length > 20) _inbox.removeLast();
-      _unread++;
-    });
-    _saveInbox();
+      _saveLocal();
+    } catch (_) {}
   }
 
   String _agoTs(int ts) {
@@ -91,8 +115,8 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _openInbox() {
-    setState(() => _unread = 0);
-    _saveInbox();
+    setState(() => _seenTs = DateTime.now().millisecondsSinceEpoch);
+    _saveLocal();
     showModalBottomSheet(
       context: context,
       backgroundColor: AppTheme.card,
@@ -113,8 +137,11 @@ class _AppShellState extends State<AppShell> {
               if (_inbox.isNotEmpty)
                 TextButton(
                   onPressed: () {
-                    setState(() => _inbox.clear());
-                    _saveInbox();
+                    setState(() {
+                      _hideBefore = DateTime.now().millisecondsSinceEpoch;
+                      _inbox.clear();
+                    });
+                    _saveLocal();
                     Navigator.pop(ctx);
                   },
                   child: Text(tr('Wyczyść'),
