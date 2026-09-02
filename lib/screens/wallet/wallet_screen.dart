@@ -568,6 +568,8 @@ class _WalletScreenState extends State<WalletScreen> {
                       const SizedBox(height: 16),
                       _onchainCard(),
                       const SizedBox(height: 16),
+                      _expensesSection(state.wallet?.address),
+                      const SizedBox(height: 16),
                       _securitySection(),
                       const SizedBox(height: 16),
                       _keysSection(),
@@ -584,6 +586,95 @@ class _WalletScreenState extends State<WalletScreen> {
               },
             ),
     ),
+    );
+  }
+
+  // ── Wydatki usług (cennik 2026-09-01): ryczałty dobowe z BE (service_days). ──
+  // Skoro brak salda niczego nie blokuje, przejrzystość naliczeń jest całym zaufaniem.
+  Future<List<Map<String, dynamic>>>? _expFuture;
+  Future<List<Map<String, dynamic>>> _fetchExpenses(String addr) async {
+    final r = await http.get(
+      Uri.parse('${Config.beUrl}/v1/nodes/expenses?owner=$addr'),
+      headers: {'X-App-Key': 'sensmos2025'},
+    ).timeout(const Duration(seconds: 8));
+    if (r.statusCode != 200) return const [];
+    return List<Map<String, dynamic>>.from((jsonDecode(r.body) as Map)['items'] ?? []);
+  }
+
+  static const _serviceNames = {
+    'lora_rx_aes': 'LoRa: odbiór ramek (AES)',
+    'lora_rx_open': 'LoRa: odbiór ramek jawnych',
+    'lora_send': 'LoRa: wysyłka ramek',
+    'tunnel': 'Tunel (SSH / HA / panel)',
+  };
+
+  Widget _expensesSection(String? addr) {
+    if (addr == null) return const SizedBox.shrink();
+    _expFuture ??= _fetchExpenses(addr);
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.border),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          title: Text(tr('Wydatki usług'),
+              style: const TextStyle(
+                  color: AppTheme.text, fontSize: 14, fontWeight: FontWeight.w600)),
+          subtitle: Text(tr('ryczałty dobowe — ostatnie 30 dni'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+          children: [
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _expFuture,
+              builder: (ctx, snap) {
+                final items = snap.data ?? const [];
+                if (snap.connectionState != ConnectionState.done) {
+                  return const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)));
+                }
+                if (items.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(tr('Brak naliczeń — płatne funkcje nie były używane.'),
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+                  );
+                }
+                return Column(
+                  children: items.map((e) {
+                    final svc = (e['service'] ?? '').toString();
+                    return Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                      child: Row(children: [
+                        Expanded(
+                          child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(tr(_serviceNames[svc] ?? svc),
+                                    style: const TextStyle(
+                                        color: AppTheme.text, fontSize: 12)),
+                                Text((e['day'] ?? '').toString(),
+                                    style: const TextStyle(
+                                        color: AppTheme.muted, fontSize: 10)),
+                              ]),
+                        ),
+                        Text('-${e['amount']} GALU',
+                            style: TextStyle(
+                                color: Colors.amber.shade600,
+                                fontSize: 12,
+                                fontFamily: 'monospace')),
+                      ]),
+                    );
+                  }).toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 

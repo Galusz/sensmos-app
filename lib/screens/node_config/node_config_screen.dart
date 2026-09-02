@@ -16,7 +16,7 @@ import '../../util/pair_gate.dart';
 import 'trust_screen.dart';
 import 'service_screen.dart';
 import 'mqtt_screen.dart';
-import 'lora_emerg_screen.dart';
+import 'lora_screen.dart';
 
 class NodeConfigScreen extends StatefulWidget {
   final SavedNode node;
@@ -31,6 +31,9 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   String? _fw;
   String? _pinOverride;
   bool _paired = false;
+  // Kafel LoRa tylko dla noda z radiem: od FW lora9 /info niesie pole `lora`
+  // (obecne wyłącznie, gdy sonda pinów znalazła SX1262). Brak pola/odpowiedzi = bez kafla.
+  bool _hasLora = false;
 
   SavedNode get node => widget.node;
   String get pin => _pinOverride ?? widget.node.pin;
@@ -99,6 +102,7 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
       setState(() {
         _city = j['city'] as String?;
         _fw = (j['version'] ?? j['firmware']) as String?;
+        _hasLora = j['lora'] is Map;
       });
     } catch (_) {}
   }
@@ -175,16 +179,17 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
                   builder: (_) => MqttScreen(node: node, pin: pin)),
             ),
           ),
-          _tile(
-            icon: Icons.cell_tower,
-            title: tr('LoRa awaryjne'),
-            sub: tr('encje nadawane radiem przy padzie internetu'),
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => LoraEmergScreen(node: node, pin: pin)),
+          if (_hasLora)
+            _tile(
+              icon: Icons.cell_tower,
+              title: tr('LoRa'),
+              sub: tr('awaryjne, odbiór czujników, wysyłka, inbox'),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => LoraScreen(node: node, pin: pin)),
+              ),
             ),
-          ),
           // Zdalny dostęp — JEDNO centralne miejsce. Klucz da się zapisać w nodzie wyłącznie
           // po LAN, więc user musi się o tym dowiedzieć TERAZ, gdy jest w domu, a nie dopiero
           // przy próbie użycia terminala czy panelu HA z wakacji, gdzie nie ma jak tego zrobić.

@@ -49,9 +49,12 @@ class AppTheme {
         // Jednolite pola tekstowe w CAŁEJ apce: ten sam fill/label/ikony i to samo teal-owe
         // podświetlenie na focusie. Wcześniej każdy TextField miał własną dekorację → różne
         // kolory/ramki/podświetlenia. Pola mogą nadpisać label/icon, resztę dziedziczą stąd.
+        // fillColor=surface (CIEMNIEJSZY niż card) + stała subtelna ramka: pole jest
+        // widoczne na KAŻDYM tle — wcześniej fill==card zlewał się z kaflami (pola
+        // "znikały", a ekrany łatały to każdy po swojemu; fix 2026-09-01).
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: card,
+          fillColor: surface,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           hintStyle: const TextStyle(color: muted),
@@ -60,9 +63,11 @@ class AppTheme {
           prefixIconColor: muted,
           suffixIconColor: muted,
           border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: border)),
           enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: border)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
               borderSide: const BorderSide(color: teal, width: 1.5)),
