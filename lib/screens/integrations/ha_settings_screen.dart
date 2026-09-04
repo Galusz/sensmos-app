@@ -21,6 +21,7 @@ class _HaSettingsScreenState extends State<HaSettingsScreen> {
   HaBinding? _existing;
   bool _loading = true;
   bool _showToken = false;
+  bool _isWidgetTarget = false;   // „V" — widget „Panel HA" otwiera ten node bez pytania
 
   @override
   void initState() {
@@ -30,9 +31,11 @@ class _HaSettingsScreenState extends State<HaSettingsScreen> {
 
   Future<void> _load() async {
     final b = await IntegrationStore.load(widget.deviceId);
+    final wt = await IntegrationStore.widgetHaTarget();
     if (!mounted) return;
     setState(() {
       _existing = b;
+      _isWidgetTarget = wt == widget.deviceId;
       if (b != null) {
         _host.text = b.host;
         _port.text = b.port.toString();
@@ -78,7 +81,7 @@ class _HaSettingsScreenState extends State<HaSettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: Text(tr('Home Assistant'))),
+      appBar: AppBar(title: Text('${tr('Panel HA')} · ${widget.label}')),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
           : ListView(
@@ -113,6 +116,25 @@ class _HaSettingsScreenState extends State<HaSettingsScreen> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                     ),
+                  ),
+                ),
+                // Cel widgetu: jeden na całą apkę, więc zaznaczenie tutaj przejmuje go
+                // innemu nodowi. Bez celu widget pyta, który node otworzyć.
+                Card(
+                  color: AppTheme.card,
+                  child: SwitchListTile(
+                    value: _isWidgetTarget,
+                    activeColor: AppTheme.teal,
+                    onChanged: (v) async {
+                      await IntegrationStore.setWidgetHaTarget(v ? widget.deviceId : null);
+                      if (mounted) setState(() => _isWidgetTarget = v);
+                    },
+                    title: Text(tr('Cel widgetu „Panel HA"'),
+                        style: const TextStyle(color: AppTheme.text, fontSize: 14)),
+                    subtitle: Text(
+                        tr('Widget na pulpicie otworzy od razu ten node, bez pytania.'),
+                        style: const TextStyle(color: AppTheme.muted, fontSize: 11.5)),
+                    secondary: const Icon(Icons.widgets_outlined, color: AppTheme.muted),
                   ),
                 ),
                 const SizedBox(height: 8),

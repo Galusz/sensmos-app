@@ -3,6 +3,7 @@ import '../../theme.dart';
 import '../../l10n.dart';
 import '../../services/integrations/integration_store.dart';
 import 'lan_web_screen.dart';
+import 'lan_panel_edit_screen.dart';
 
 /// Plugin „Panel LAN" — zakładki do paneli WWW w sieci noda (router, drukarka, Pi-hole…),
 /// otwierane przez tunel z dowolnego miejsca. Ten ekran = konfiguracja + lista.
@@ -31,88 +32,29 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
     });
   }
 
-  Future<void> _addOrEdit([LanPanel? existing]) async {
-    final name = TextEditingController(text: existing?.name ?? '');
-    final host = TextEditingController(text: existing?.host ?? '');
-    final port = TextEditingController(text: '${existing?.port ?? 80}');
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.card,
-        title: Text(existing == null ? tr('Dodaj panel') : tr('Edytuj panel'),
-            style: const TextStyle(color: AppTheme.text)),
-        // Adres PIERWSZY (to on jest obowiązkowy — z IP wpisanym w „Nazwę" zapis kończył
-        // się cichym niczym); SizedBox daje TextFieldom skończoną szerokość w AlertDialog.
-        content: SizedBox(
-          width: 320,
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            _field(host, tr('Adres w LAN'), hint: '192.168.1.1'),
-            _field(port, tr('Port'), hint: '80', number: true),
-            _field(name, tr('Nazwa'), hint: 'Router'),
-            const SizedBox(height: 6),
-            Text(tr('Tylko HTTP. Ciężkie panele (UniFi, HA) nie zadziałają — tunel jest wolny.'),
-                style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
-          ]),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(tr('Zapisz'), style: const TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
+  Future<void> _addOrEdit({LanPanel? existing, bool oneOff = false}) async {
+    final res = await Navigator.push<(LanPanel, bool, bool)>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => LanPanelEditScreen(
+              deviceId: widget.deviceId, existing: existing, oneOff: oneOff)),
     );
-    if (saved != true) return;
-    var h = host.text.trim().replaceFirst(RegExp(r'^https?://'), '').split('/').first;
-    // Ratunek: adres wpisany w polu „Nazwa" (wygląda jak IP/host) — bierzemy go stamtąd.
-    if (h.isEmpty) {
-      final n = name.text.trim().replaceFirst(RegExp(r'^https?://'), '').split('/').first;
-      if (n.contains('.') && !n.contains(' ')) h = n;
+    if (res == null) return;
+    final (panel, connect, wasOneOff) = res;
+    if (!wasOneOff) {
+      final list = List<LanPanel>.from(_panels);
+      if (existing != null) list.removeWhere((e) => e.host == existing.host && e.port == existing.port);
+      list.removeWhere((e) => e.host == panel.host && e.port == panel.port);
+      list.add(panel);
+      await IntegrationStore.saveLanPanels(widget.deviceId, list);
+      if (mounted) setState(() => _panels = list);
     }
-    // Adres z doklejonym portem ("192.168.1.1:8080") — rozdziel.
-    if (h.contains(':')) {
-      final parts = h.split(':');
-      h = parts[0];
-      if (int.tryParse(parts[1]) != null) port.text = parts[1];
-    }
-    if (h.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(tr('Podaj adres w LAN')), backgroundColor: AppTheme.red));
-      }
-      return;
-    }
-    setState(() {
-      if (existing != null) {
-        existing.name = name.text.trim().isEmpty ? h : name.text.trim();
-        existing.host = h;
-        existing.port = int.tryParse(port.text.trim()) ?? 80;
-      } else {
-        _panels.add(LanPanel(
-            name: name.text.trim().isEmpty ? h : name.text.trim(),
-            host: h,
-            port: int.tryParse(port.text.trim()) ?? 80));
-      }
-    });
-    await IntegrationStore.saveLanPanels(widget.deviceId, _panels);
+    if (connect && mounted) _open(panel);
   }
 
-  Widget _field(TextEditingController c, String label, {String? hint, bool number = false}) =>
-      Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: TextField(
-          controller: c,
-          keyboardType: number ? TextInputType.number : TextInputType.url,
-          style: const TextStyle(color: AppTheme.text, fontSize: 14),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: const TextStyle(color: AppTheme.muted, fontSize: 13),
-            hintText: hint,
-            hintStyle: const TextStyle(color: AppTheme.muted),
-          ),
-        ),
+  void _open(LanPanel p) => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LanWebScreen(deviceId: widget.deviceId, panel: p)),
       );
 
   @override
@@ -121,7 +63,7 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
     // choć jeden panel — bez tego dodanie kończyło się niczym, gdy ominął „Gotowe".
     final scaffold = Scaffold(
       appBar: AppBar(
-        title: Text('${tr('Panel LAN')} · ${widget.label}'),
+        title: Text('${tr('HTTP w LAN')} · ${widget.label}'),
         actions: [
           if (widget.configMode && _panels.isNotEmpty)
             TextButton(
@@ -132,7 +74,7 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppTheme.teal,
-        onPressed: _addOrEdit,
+        onPressed: () => _addOrEdit(),
         child: const Icon(Icons.add, color: Colors.black),
       ),
       body: _loading
@@ -156,7 +98,15 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
                   itemCount: _panels.length + 1,
                   itemBuilder: (_, i) {
                     if (i == _panels.length) {
-                      return Padding(
+                      return Column(children: [
+                        const SizedBox(height: 8),
+                        OutlinedButton.icon(
+                          onPressed: () => _addOrEdit(oneOff: true),
+                          icon: const Icon(Icons.open_in_browser, size: 18),
+                          label: Text(tr('Połączenie jednorazowe')),
+                          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.muted),
+                        ),
+                        Padding(
                         padding: const EdgeInsets.fromLTRB(8, 14, 8, 80),
                         child: Text(
                           tr('Uwaga: to lekka wersja proxy, nie pełny tunel — jedno połączenie '
@@ -165,7 +115,7 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: AppTheme.amber, fontSize: 11),
                         ),
-                      );
+                      )]);
                     }
                     final p = _panels[i];
                     return Card(
@@ -188,7 +138,7 @@ class _LanPanelsScreenState extends State<LanPanelsScreen> {
                               builder: (_) => LanWebScreen(
                                   deviceId: widget.deviceId, panel: p)),
                         ),
-                        onLongPress: () => _addOrEdit(p),
+                        onLongPress: () => _addOrEdit(existing: p),
                       ),
                     );
                   },

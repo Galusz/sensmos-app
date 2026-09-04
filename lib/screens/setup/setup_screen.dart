@@ -189,6 +189,11 @@ class _SetupScreenState extends State<SetupScreen> {
       await _ble.connect(_selected!.device);
 
       final nodePin = _pinCtrl.text.trim().isNotEmpty ? _pinCtrl.text.trim() : '123456';
+      // Przy parowaniu PIN ustala user — pytanie o stary nie ma sensu, bo nikt go nie pamieta,
+      // a BLE i tak oznacza dostep fizyczny do noda. Ustawiamy bezwarunkowo, PRZED auth.
+      // Stare FW nie zna set_pin i odpowie "unknown" — wtedy auth idzie po staremu.
+      setState(() => _status = tr('Ustawiam PIN na nodzie...'));
+      await _ble.setPin(nodePin);
       setState(() => _status = tr('Autoryzacja BLE...'));
       final authResp = await _ble.sendCommand({'cmd': 'auth', 'pin': nodePin});
       // Zły PIN → node zwraca {status:error, msg:wrong_pin} BEZ nonce. Rozpoznaj to, zanim
@@ -250,16 +255,37 @@ class _SetupScreenState extends State<SetupScreen> {
 
       if (hasWallet) {
         ownerAddress = (await walletService.load())!.address;
-        if (!nodeHasBackup) {
-          walletBlob = await walletService.exportEncrypted(nodePin);
-        }
+        // Zawsze, nie tylko przy braku kopii: PIN wlasnie zostal ustawiony, a kopia jest nim
+        // szyfrowana — zostawiona stara przestalaby sie odszyfrowywac.
+        walletBlob = await walletService.exportEncrypted(nodePin);
       } else if (nodeHasBackup) {
         setState(() => _status = tr('Odzyskiwanie portfela z noda...'));
         final r = await _ble.walletRestore();
         final blob = r['blob'] as String?;
         if (blob == null || blob.isEmpty) throw Exception(tr('Brak kopii na nodzie'));
-        final w = await walletService.importEncrypted(blob, nodePin);
-        ownerAddress = w.address;
+        // Kopia jest zaszyfrowana PIN-em Z CHWILI JEJ ZAPISU, a PIN wpisany teraz moze byc
+        // inny — user wlasnie go ustawil. Pytamy wiec o tamten zamiast wywalac cale dodawanie.
+        var tryPin = nodePin;
+        String addr = '';
+        while (addr.isEmpty) {
+          try {
+            addr = (await walletService.importEncrypted(blob, tryPin)).address;
+          } catch (_) {
+            if (!mounted) rethrow;
+            final old = await showDialog<String>(
+              context: context,
+              builder: (_) => const _OldPinDialog(),
+            );
+            if (old == null || old.isEmpty) {
+              throw Exception(tr('Bez PIN-u sprzed zmiany nie odczytam kopii portfela z noda.'));
+            }
+            tryPin = old;
+            if (mounted) {
+              setState(() => _status = tr('Odzyskiwanie portfela z noda...'));
+            }
+          }
+        }
+        ownerAddress = addr;
       } else {
         setState(() => _status = tr('Tworzę nowy portfel...'));
         final w = await walletService.create();
@@ -702,4 +728,57 @@ class _SetupScreenState extends State<SetupScreen> {
     _ble.stopScan();
     super.dispose();
   }
+}
+
+class _OldPinDialog extends StatefulWidget {
+  const _OldPinDialog();
+  @override
+  State<_OldPinDialog> createState() => _OldPinDialogState();
+}
+
+class _OldPinDialogState extends State<_OldPinDialog> {
+  final _pin = TextEditingController();
+
+  @override
+  void dispose() {
+    _pin.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('PIN sprzed zmiany'),
+            style: const TextStyle(color: AppTheme.text)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              tr('Kopia portfela na nodzie jest zaszyfrowana PIN-em, który obowiązywał w chwili '
+                 'jej zapisu. Podaj tamten PIN — nowy jest już ustawiony i zostaje.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _pin,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: AppTheme.text, letterSpacing: 2),
+              onSubmitted: (v) => Navigator.pop(context, v.trim()),
+              decoration: InputDecoration(
+                  labelText: tr('Poprzedni PIN'),
+                  labelStyle: const TextStyle(color: AppTheme.muted)),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(tr('Pomiń'))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, _pin.text.trim()),
+              child: Text(tr('Odczytaj'))),
+        ],
+      );
 }

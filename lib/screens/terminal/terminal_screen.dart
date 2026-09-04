@@ -13,6 +13,10 @@ import '../../services/wallet_service.dart';
 import '../../services/terminal_relay.dart';
 import '../../services/pairing_service.dart';
 import '../../util/pair_gate.dart';
+import '../../util/owner_token_gate.dart';
+import '../../services/owner_token_service.dart';
+import '../../services/integrations/integration_store.dart';
+import '../../services/integrations/ssh_secrets.dart';
 
 /// RemoteTerminal — zdalny terminal do LAN-u noda przez tunel. Node = głupia rura, SSH E2E w apce.
 /// Bierze device_id + etykietę (NIE SavedNode) — działa też dla nodów widocznych tylko z BE
@@ -20,7 +24,9 @@ import '../../util/pair_gate.dart';
 class TerminalScreen extends StatefulWidget {
   final String deviceId;
   final String label;
-  const TerminalScreen({super.key, required this.deviceId, required this.label});
+  /// Cel wybrany z listy zapisanych połączeń (albo null = pusty formularz).
+  final SshHost? host;
+  const TerminalScreen({super.key, required this.deviceId, required this.label, this.host});
 
   @override
   State<TerminalScreen> createState() => _TerminalScreenState();
@@ -43,15 +49,15 @@ class _TerminalScreenState extends State<TerminalScreen> {
   final _user = TextEditingController(text: 'root');
   final _pass = TextEditingController();
   bool _paired = false;
-  bool _legacy = false;   // node na FW ≤0.81 — tunel starą ścieżką (tryb przejściowy)
   Uint8List? _pairKey;
   bool _savePass = false;
+  bool _autoStart = false;          // wybrany cel ma komplet danych → wchodzimy prosto w sesję
+  bool _showPass = false;
 
   // Zapamiętane pola formularza — PER NODE, bo każdy stoi w innej sieci i celujesz w co innego.
   // Hasło NIGDY nie idzie do SharedPreferences: to zwykły plik XML w katalogu apki. Ląduje
   // w tym samym szyfrowanym magazynie co klucze parowania i tylko za zgodą użytkownika.
   static const _formPrefix = 'term_form_';
-  static const _passPrefix = 'term_pass_';
   final _secure = const FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
@@ -59,13 +65,24 @@ class _TerminalScreenState extends State<TerminalScreen> {
   @override
   void initState() {
     super.initState();
-    _loadForm();
-    _connect();
+    // Kolejność ma znaczenie: dopiero po wczytaniu celu wiadomo, czy mamy hasło i można
+    // wejść w sesję bez pokazywania formularza.
+    _loadForm().then((_) { if (mounted) _connect(); });
   }
 
   Future<void> _loadForm() async {
     try {
       final p = await SharedPreferences.getInstance();
+      final pre = widget.host;
+      if (pre != null) {
+        _host.text = pre.host; _port.text = '${pre.port}'; _user.text = pre.user;
+        final pw = await _passFor(pre.slug);
+        _pass.text = pw ?? '';
+        _savePass = pw != null && pw.isNotEmpty;
+        _autoStart = _savePass;   // bez hasła i tak trzeba by o nie zapytać
+        if (mounted) setState(() {});
+        return;   // cel z listy ma pierwszeństwo nad ostatnio używanym
+      }
       final raw = p.getString('$_formPrefix${widget.deviceId}');
       if (raw != null) {
         final j = jsonDecode(raw) as Map<String, dynamic>;
@@ -75,7 +92,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
         _savePass = j['savePass'] == true;
       }
       if (_savePass) {
-        _pass.text = await _secure.read(key: '$_passPrefix${widget.deviceId}') ?? '';
+        _pass.text = await _passFor(_slugOf()) ?? '';
       }
       if (mounted) setState(() {});
     } catch (_) {/* brak zapamiętanych wartości to nie błąd — zostają domyślne */}
@@ -93,14 +110,27 @@ class _TerminalScreenState extends State<TerminalScreen> {
         'user': _user.text.trim(),
         'savePass': _savePass,
       }));
-      final k = '$_passPrefix${widget.deviceId}';
+      final k = _passKey(_slugOf());
       if (_savePass) {
         await _secure.write(key: k, value: _pass.text);
       } else {
         await _secure.delete(key: k);   // odznaczone = kasujemy też to, co zapisaliśmy wcześniej
       }
+      // Cel trafia na listę dopiero po działającym połączeniu — z tego samego powodu, co reszta
+      // tego zapisu: literówka nie ma prawa zostać zakładką.
+      await IntegrationStore.rememberSshHost(widget.deviceId, SshHost(
+        name: '', host: _host.text.trim(),
+        port: int.tryParse(_port.text.trim()) ?? 22, user: _user.text.trim(),
+      ));
+      if (mounted) setState(() {});
     } catch (_) {}
   }
+
+  String _slugOf() => '${_host.text.trim()}:${_port.text.trim()}:${_user.text.trim()}';
+  String _passKey(String slug) => SshSecrets.keyFor(widget.deviceId, slug);
+
+  /// Hasło dla celu — wspólny magazyn z edytorem zapisanych połączeń.
+  Future<String?> _passFor(String slug) => SshSecrets.read(widget.deviceId, slug);
 
   Future<void> _connect() async {
     _relay?.dispose(); _relay = null;   // retry: bez tego każda próba zostawia martwy WS + dubluje listener
@@ -114,15 +144,21 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // pokaże kartę „niesparowany" z przyciskiem parowania.
       final svc = PairingService();
       _pairKey = await svc.keyFor(widget.deviceId);
-      _legacy  = await svc.isLegacy(widget.deviceId);
-      _paired  = _pairKey != null || _legacy;
+      _paired  = _pairKey != null;
+
+      // Token ownera: pyta o hasło portfela najwyżej raz w życiu apki, potem tunel działa
+      // przy zamkniętym portfelu (także z widgetu na pulpicie).
+      if (!mounted) return;
+      final token = await ensureOwnerToken(context, wallet.address, label: 'terminal');
+      if (!mounted) return;
 
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
+        ownerToken: token,
+        onTokenRejected: () => OwnerTokenService().forget(wallet.address),
         pairKey: _pairKey,
-        legacy: _legacy,
       );
       _relay = relay;                   // track wcześnie → dispose posprząta też gdy connect rzuci
       relay.events.listen(_onEvent);
@@ -133,6 +169,9 @@ class _TerminalScreenState extends State<TerminalScreen> {
         setState(() { _phase = _Phase.error; _status = tr('Node jest offline — nie połączysz się z nim, dopóki nie wróci do sieci.'); });
         return;
       }
+      // Tylko PIERWSZE wejście idzie prosto w sesję. Gdy hasło okaże się złe, ekran wraca
+      // do formularza z błędem — kolejna próba ma być świadoma, nie pętlą tego samego.
+      if (_autoStart) { _autoStart = false; _startSession(); return; }
       setState(() { _phase = _Phase.form; _status = ''; });
     } catch (e) {
       if (!mounted) return;
@@ -165,10 +204,8 @@ class _TerminalScreenState extends State<TerminalScreen> {
     if (!mounted) return;
     // Żywy relay musi dostać dostęp, inaczej openTunnel dalej odmawia.
     _relay?.pairKey = acc.key;
-    _relay?.legacy  = acc.legacy;
     setState(() {
       _pairKey = acc.key;
-      _legacy  = acc.legacy;
       _paired  = acc.ok;
       if (acc.ok) _status = tr('Node sparowany — możesz się połączyć.');
     });
@@ -230,14 +267,16 @@ class _TerminalScreenState extends State<TerminalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final short = widget.deviceId.length > 8 ? widget.deviceId.substring(0, 8) : widget.deviceId;
+    // JEDNA zasada w całej apce: „<plugin> · <alias noda albo jego id>". Nazwa celu jest
+    // w treści ekranu, nie w belce — inaczej każdy ekran miał inny format tytułu.
+    final title = widget.label;
     // JEDEN sposób wyjścia: BACK. Zamyka sesję SSH, tunel na nodzie i relay (patrz dispose),
     // więc firmware oddaje ~27 kB heapu — potrzebne monitorom. Osobny przycisk „Rozłącz"
     // wyglądał identycznie, a zostawiał tunel zamknięty, ale ekran i WS żywe; przy dwóch
     // kontrolkach od tego samego lepiej zostawić tę, którą użytkownik i tak zna.
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(title: Text('${tr('Terminal')} · $short')),
+      appBar: AppBar(title: Text('${tr('Terminal')} · $title')),
       body: switch (_phase) {
         _Phase.connecting => _center(const CircularProgressIndicator(color: AppTheme.teal)),
         _Phase.error => _errorView(),
@@ -300,7 +339,11 @@ class _TerminalScreenState extends State<TerminalScreen> {
             const SizedBox(width: 10),
             Expanded(flex: 3, child: _field(_user, tr('Użytkownik SSH'), Icons.person_outline)),
           ]),
-          _field(_pass, tr('Hasło SSH'), Icons.lock_outline, obscure: true),
+          _field(_pass, tr('Hasło SSH'), Icons.lock_outline, obscure: !_showPass, suffix: IconButton(
+            icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility,
+                color: AppTheme.muted, size: 20),
+            onPressed: () => setState(() => _showPass = !_showPass),
+          )),
           InkWell(
             onTap: () => setState(() => _savePass = !_savePass),
             child: Row(children: [
@@ -353,7 +396,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       );
 
   Widget _field(TextEditingController c, String label, IconData icon,
-          {bool obscure = false, String? hint, TextInputType? keyboard}) =>
+          {bool obscure = false, String? hint, TextInputType? keyboard, Widget? suffix}) =>
       Padding(
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: TextField(
@@ -369,6 +412,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
             hintStyle: const TextStyle(color: AppTheme.muted),
             labelStyle: const TextStyle(color: AppTheme.muted),
             prefixIcon: Icon(icon, color: AppTheme.muted, size: 20),
+            suffixIcon: suffix,
             filled: true,
             fillColor: AppTheme.card,
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),

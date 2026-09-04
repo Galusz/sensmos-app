@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kafel 1×1: logo S w lewym górnym rogu, ikona skrótu dosunięta do prawego dolnego.
+     scaleType=fitEnd, bo przy fitCenter ikona szersza niż wyższa dostawała pionowy zapas
+     i odstęp od dołu wychodził trzy razy większy niż od prawej.
+     Zewnętrzny margines pionowy docina wyższą komórkę launchera do kwadratu. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+  <FrameLayout
+      android:id="@+id/widget_one_root"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:layout_gravity="center"
+      android:layout_marginTop="13dp"
+      android:layout_marginBottom="13dp"
+      android:background="@drawable/widget_tile">
+
+    <ImageView
+        android:layout_width="17dp"
+        android:layout_height="17dp"
+        android:layout_gravity="top|start"
+        android:layout_margin="5dp"
+        android:src="@drawable/ic_sensmos_logo"
+        android:contentDescription="Sensmos" />
+
+    <ImageView
+        android:id="@+id/widget_one_btn"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="bottom|end"
+        android:paddingStart="18dp"
+        android:paddingTop="18dp"
+        android:paddingEnd="8dp"
+        android:paddingBottom="8dp"
+        android:scaleType="fitEnd"
+        android:contentDescription="Sensmos" />
+  </FrameLayout>
+</FrameLayout>

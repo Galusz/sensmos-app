@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
@@ -48,6 +49,7 @@ class _ServiceScreenState extends State<ServiceScreen> {
   }
 
   Future<void> _enterBleMode() async {
+    final nodeService = context.read<NodeService>();   // przed awaitami
     setState(() {
       _phase = _Phase.entering; _error = null; _info = null;
       _status = tr('Przełączam node w tryb Bluetooth…');
@@ -107,12 +109,55 @@ class _ServiceScreenState extends State<ServiceScreen> {
 
     try {
       await _ble.connect(device);
-      final auth = await _ble.sendCommand({'cmd': 'auth', 'pin': widget.node.pin});
+      var auth = await _ble.sendCommand({'cmd': 'auth', 'pin': widget.node.pin});
+      // Bez tego kafelek „Ustaw nowy PIN" bylby nieosiagalny dokladnie wtedy, gdy jest
+      // potrzebny: ekran nie wpuszcza dalej niz auth, a auth wymaga PIN-u, ktorego wlasnie
+      // brakuje. Po BLE wolno go ustawic bez znajomosci starego.
+      if (auth['status'] == 'error' && auth['msg'] == 'wrong_pin') {
+        if (!mounted) return;
+        final pin = await showDialog<String>(
+          context: context,
+          builder: (_) => const _PinDialog(),
+        );
+        if (pin == null) throw Exception(tr('Błędny PIN'));
+        final sp = await _ble.setPin(pin);
+        if (sp['status'] != 'ok') throw Exception(tr('Błędny PIN'));
+        await nodeService.updateNodePin(widget.node.id, pin);
+        auth = await _ble.sendCommand({'cmd': 'auth', 'pin': pin});
+      }
       if (auth['status'] != 'ok') throw Exception(tr('Błędny PIN'));
       if (!mounted) return;
       setState(() { _phase = _Phase.connected; _status = ''; });
     } catch (e) {
       try { await _ble.disconnect(); } catch (_) {}
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.error;
+        _error = e.toString().replaceAll('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _setPin() async {
+    final nodeService = context.read<NodeService>();   // przed awaitami
+    final pin = await showDialog<String>(
+      context: context,
+      builder: (_) => const _PinDialog(),
+    );
+    if (pin == null) return;
+    setState(() { _phase = _Phase.working; _status = tr('Zapisuję PIN…'); });
+    try {
+      final r = await _ble.setPin(pin);
+      if (r['status'] != 'ok') throw Exception(r['msg'] ?? tr('błąd'));
+      // PIN trzyma tez apka — bez tego zapisu nastepne polaczenie po sieci poszloby na 403.
+      await nodeService.updateNodePin(widget.node.id, pin);
+      if (!mounted) return;
+      setState(() {
+        _phase = _Phase.connected;
+        _status = '';
+        _info = tr('PIN ustawiony. Inne telefony z tym nodem trzeba poprawić osobno.');
+      });
+    } catch (e) {
       if (!mounted) return;
       setState(() {
         _phase = _Phase.error;
@@ -277,6 +322,8 @@ class _ServiceScreenState extends State<ServiceScreen> {
                 tr('wpisz nowe SSID i hasło — node przełączy się'), _changeWifi),
             _actionTile(Icons.restore, tr('Odzyskaj portfel z noda'),
                 tr('pobierz kopię portfela na ten telefon'), _recoverWallet),
+            _actionTile(Icons.password, tr('Ustaw nowy PIN'),
+                tr('gdy PIN się rozjechał albo go nie pamiętasz'), _setPin),
           ],
           if (_info != null) ...[
             const SizedBox(height: 16),
@@ -338,6 +385,63 @@ class _ServiceScreenState extends State<ServiceScreen> {
           Expanded(
               child: Text(text, style: TextStyle(color: color, fontSize: 13))),
         ]),
+      );
+}
+
+class _PinDialog extends StatefulWidget {
+  const _PinDialog();
+  @override
+  State<_PinDialog> createState() => _PinDialogState();
+}
+
+class _PinDialogState extends State<_PinDialog> {
+  final _pin = TextEditingController();
+  String? _err;
+
+  @override
+  void dispose() {
+    _pin.dispose();
+    super.dispose();
+  }
+
+  void _ok() {
+    final v = _pin.text.trim();
+    if (v.length < 4) {
+      setState(() => _err = tr('Nowy PIN musi mieć co najmniej 4 znaki.'));
+      return;
+    }
+    Navigator.pop(context, v);
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+        backgroundColor: AppTheme.card,
+        title: Text(tr('Nowy PIN'), style: const TextStyle(color: AppTheme.text)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(tr('Połączenie serwisowe jest już autoryzowane — starego PIN-u nie trzeba znać.'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _pin,
+              autofocus: true,
+              keyboardType: TextInputType.number,
+              inputFormatters: [LengthLimitingTextInputFormatter(15)],
+              style: const TextStyle(color: AppTheme.text, letterSpacing: 2),
+              onSubmitted: (_) => _ok(),
+              decoration: InputDecoration(
+                  labelText: tr('Nowy PIN (min. 4 znaki)'),
+                  labelStyle: const TextStyle(color: AppTheme.muted),
+                  errorText: _err),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(tr('Anuluj'))),
+          TextButton(onPressed: _ok, child: Text(tr('Zapisz'))),
+        ],
       );
 }
 

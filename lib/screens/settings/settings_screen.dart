@@ -3,7 +3,6 @@ import '../../config.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
 import 'nodes_location_screen.dart';
-import 'push_screen.dart';
 import 'logs_screen.dart';
 import 'update_check.dart';
 
@@ -26,14 +25,6 @@ class SettingsScreen extends StatelessWidget {
               title: tr('Lokalizacja nodów'),
               sub: tr('współrzędne wszystkich urządzeń'),
               builder: (_) => const NodesLocationScreen(),
-            ),
-            const Divider(color: AppTheme.border, height: 1),
-            _tile(
-              context,
-              icon: Icons.notifications_outlined,
-              title: tr('Powiadomienia'),
-              sub: tr('token push, włącz/wyłącz na nodach'),
-              builder: (_) => const PushScreen(),
             ),
           ])),
 

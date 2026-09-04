@@ -12,6 +12,8 @@ import '../../services/pairing_service.dart';
 import '../../services/terminal_relay.dart';
 import '../../services/integrations/http_over_tunnel.dart';
 import '../../services/integrations/integration_store.dart';
+import '../../util/owner_token_gate.dart';
+import '../../services/owner_token_service.dart';
 
 /// Panel LAN: WebView ładujący panel z sieci noda PRZEZ TUNEL. WebView nie umie sam
 /// gadać tunelem, więc stawiamy lokalne proxy: HttpServer na 127.0.0.1, każdy request
@@ -48,17 +50,20 @@ class _LanWebScreenState extends State<LanWebScreen> {
       if (wallet == null) throw Exception(tr('Brak portfela w apce'));
       final svc = PairingService();
       final pairKey = await svc.keyFor(widget.deviceId);
-      final legacy = await svc.isLegacy(widget.deviceId);
-      if (pairKey == null && !legacy) {
+      if (pairKey == null) {
         throw Exception(tr('Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.'));
       }
       if (!mounted) return;
+      final token = await ensureOwnerToken(context, wallet.address, label: 'panel LAN');
+      if (!mounted) return;
+
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
+        ownerToken: token,
+        onTokenRejected: () => OwnerTokenService().forget(wallet.address),
         pairKey: pairKey,
-        legacy: legacy,
       );
       _relay = relay;
       await relay.connect();
@@ -152,7 +157,7 @@ class _LanWebScreenState extends State<LanWebScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.panel.name),
+        title: Text('${tr('HTTP w LAN')} · ${widget.panel.name}'),
         actions: [
           IconButton(
               icon: const Icon(Icons.refresh),

@@ -166,6 +166,10 @@ class BleService {
   Future<Map<String, dynamic>> walletRestore() =>
       sendCommand({'cmd': 'wallet_restore'}, timeout: const Duration(seconds: 8));
 
+  Future<Map<String, dynamic>> setPin(String pin) =>
+      sendCommand({'cmd': 'set_pin', 'pin': pin},
+          timeout: const Duration(seconds: 6));
+
   Future<Map<String, dynamic>> wifiSet(String ssid, String password) =>
       sendCommand({'cmd': 'wifi_set', 'ssid': ssid, 'password': password},
           timeout: const Duration(seconds: 8));

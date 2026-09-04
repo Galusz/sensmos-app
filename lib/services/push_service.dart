@@ -3,6 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../config.dart';
+import 'owner_token_service.dart';
 import 'wallet_service.dart';
 
 /// PushService — token FCM rejestrowany w BE (przebudowa 2026-08-24).
@@ -57,26 +58,54 @@ class PushService {
     return _token;
   }
 
-  /// Rejestracja tokenu w BE podpisem walleta. BE odzyskuje adres z podpisu
-  /// (ethers.verifyMessage), więc nie da się zapisać tokenu na cudzy wallet.
+  /// Czemu ostatnia rejestracja padła: 'no_fcm' | 'locked' | 'net' (null = poszło).
+  String? get reason => _reason;
+  String? _reason;
+
+  /// Rejestracja tokenu FCM w BE. Najpierw tokenem ownera (portfel może być zamknięty),
+  /// dopiero potem podpisem — bo podpis wymaga OTWARTEGO portfela, a apka woła to przy
+  /// starcie. Wcześniej user z hasłem nie rejestrował się nigdy: wyjątek z signMessage
+  /// lądował w pustym catch i pushy po prostu nie było.
   Future<bool> registerToBackend(WalletService wallet) async {
     _wallet = wallet;
     final tok = _token;
-    if (tok == null || tok.isEmpty) return false;
+    if (tok == null || tok.isEmpty) { _reason = 'no_fcm'; return false; }
+
+    final owner = (await wallet.load())?.address;
+    final ownerToken = owner == null ? null : await OwnerTokenService().cached(owner);
+    if (ownerToken != null) {
+      if (await _post({'token': tok, 'owner_token': ownerToken})) return true;
+      if (_reason != 'auth') return false;           // sieć padła — token trzymamy
+      await OwnerTokenService().forget(owner!);      // odwołany/wygasł — nie trzymamy trupa
+    }
+
+    if (!await wallet.isUnlocked()) { _reason = 'locked'; return false; }
     try {
       final ts = (DateTime.now().millisecondsSinceEpoch / 1000).round();
       final sig = await wallet.signMessage('sensmos:push:$tok:$ts');
+      return _post({'token': tok, 'ts': ts, 'sig': sig});
+    } catch (_) {
+      _reason = 'locked';
+      return false;
+    }
+  }
+
+  Future<bool> _post(Map<String, dynamic> body) async {
+    try {
       final res = await http
           .post(Uri.parse('${Config.beUrl}/v1/nodes/push-token'),
               headers: {'Content-Type': 'application/json'},
-              body: jsonEncode({'token': tok, 'ts': ts, 'sig': sig,
-                                'app_version': Config.appVersion}))
+              body: jsonEncode({...body, 'app_version': Config.appVersion}))
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         _registeredAt = DateTime.now();
+        _reason = null;
         return true;
       }
-    } catch (_) {}
+      _reason = res.statusCode == 401 ? 'auth' : 'net';
+    } catch (_) {
+      _reason = 'net';
+    }
     return false;
   }
 }

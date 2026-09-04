@@ -42,6 +42,13 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Skróty z widgetu na pulpicie: sensmos://open?kind=ha|term|app -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sensmos" android:host="open" />
+            </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -56,6 +63,54 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.Material.Dialog.NoActionBar">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Widget na pulpit: same skróty (PendingIntent → deep link). Nie trzyma danych
+             ani sekretów, więc nie poszerza powierzchni ataku. -->
+        <receiver
+            android:name=".SensmosWidgetProvider"
+            android:exported="false"
+            android:label="Sensmos">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sensmos_widget_info" />
+        </receiver>
+
+        <!-- Warianty jednoprzyciskowe — komuś wystarczy sam panel HA albo sam terminal. -->
+        <receiver
+            android:name=".SensmosHaWidgetProvider"
+            android:exported="false"
+            android:label="Sensmos · Panel HA">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sensmos_widget_ha_info" />
+        </receiver>
+
+        <receiver
+            android:name=".SensmosTermWidgetProvider"
+            android:exported="false"
+            android:label="Sensmos · Terminal">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sensmos_widget_term_info" />
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

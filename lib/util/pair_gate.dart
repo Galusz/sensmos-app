@@ -22,13 +22,10 @@ class PairAccess {
   final Uint8List? key;
 
   /// TRYB PRZEJŚCIOWY (do usunięcia ok. miesiąc po wydaniu): node na FW ≤0.81, tunel
-  /// otwieramy starą ścieżką, bez dowodu. Patrz PairingService.legacyMark.
-  final bool legacy;
-
-  const PairAccess({this.key, this.legacy = false});
+  const PairAccess({this.key});
 
   /// Czy da się otworzyć tunel — kluczem albo po staremu.
-  bool get ok => key != null || legacy;
+  bool get ok => key != null;
 }
 
 Future<PairAccess> ensurePaired(BuildContext context, String deviceId) async {
@@ -42,7 +39,6 @@ Future<PairAccess> ensurePaired(BuildContext context, String deviceId) async {
   final svc = PairingService();
   final existing = await svc.keyFor(deviceId);
   if (existing != null) return PairAccess(key: existing);
-  if (await svc.isLegacy(deviceId)) return const PairAccess(legacy: true);
 
   if (node == null) {
     if (context.mounted) _toast(context, tr('Nie znam tego noda na tym telefonie.'));
@@ -78,7 +74,6 @@ Future<PairAccess> ensurePaired(BuildContext context, String deviceId) async {
   // Tryb zgodności celowo NIE mówi userowi nic innego: z jego punktu widzenia node jest
   // gotowy do pracy, a tego, na jakim firmwarze stoi, i tak sam nie zmieni.
   _toast(context, tr('Node sparowany.'));
-  if (await svc.isLegacy(deviceId)) return const PairAccess(legacy: true);
   return PairAccess(key: await svc.keyFor(deviceId));
 }
 

@@ -16,6 +16,7 @@ import '../../util/pair_gate.dart';
 import 'trust_screen.dart';
 import 'service_screen.dart';
 import 'mqtt_screen.dart';
+import 'change_pin_screen.dart';
 import 'lora_screen.dart';
 
 class NodeConfigScreen extends StatefulWidget {
@@ -364,68 +365,19 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
   }
 
   Future<void> _changePin() async {
-    final messenger = ScaffoldMessenger.of(context);
     final nodeService = context.read<NodeService>();
-    final ctrl = TextEditingController();
-    final newPin = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.card,
-        title: Text(tr('Zmień PIN'), style: const TextStyle(color: AppTheme.text)),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          maxLength: 12,
-          style: const TextStyle(
-              color: AppTheme.text, fontSize: 18, letterSpacing: 2),
-          decoration: InputDecoration(
-            labelText: tr('Nowy PIN (min. 4 cyfry)'),
-            labelStyle: const TextStyle(color: AppTheme.muted),
-            counterStyle: const TextStyle(color: AppTheme.muted),
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: Text(tr('Anuluj'))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.teal),
-            onPressed: () {
-              if (ctrl.text.trim().length >= 4) {
-                Navigator.pop(ctx, ctrl.text.trim());
-              }
-            },
-            child: Text(tr('Zapisz'), style: const TextStyle(color: Colors.black)),
-          ),
-        ],
-      ),
+    final messenger = ScaffoldMessenger.of(context);
+    // Ekran, nie okienko: pól jest dwa (obecny PIN + nowy), a przy błędzie trzeba pokazać
+    // konkretny powód — w AlertDialogu nie ma na to miejsca.
+    final newPin = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+          builder: (_) => ChangePinScreen(nodeIp: node.ip, currentPin: pin)),
     );
-    if (newPin == null) return;
-
-    try {
-      final res = await http
-          .post(Uri.parse('http://${node.ip}/config'),
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer $pin',
-              },
-              body: jsonEncode({'pin': newPin}))
-          .timeout(const Duration(seconds: 5));
-      if (res.statusCode == 200) {
-        await nodeService.updateNodePin(node.id, newPin);
-        if (mounted) setState(() => _pinOverride = newPin);
-        messenger
-            .showSnackBar(SnackBar(content: Text(tr('PIN zmieniony'))));
-      } else {
-        messenger.showSnackBar(SnackBar(
-            content: Text(tr('Błąd %s', [res.statusCode])),
-            backgroundColor: AppTheme.red));
-      }
-    } catch (e) {
-      messenger.showSnackBar(SnackBar(
-          content: Text(tr('Błąd: %s', [e])), backgroundColor: AppTheme.red));
-    }
+    if (newPin == null || !mounted) return;
+    await nodeService.updateNodePin(node.id, newPin);
+    if (mounted) setState(() => _pinOverride = newPin);
+    messenger.showSnackBar(SnackBar(content: Text(tr('PIN zmieniony'))));
   }
+
 }

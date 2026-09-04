@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_cfg_hint">Wybierz, co ma być na widgecie.</string>
+    <string name="widget_cfg_ha">Panel Home Assistant</string>
+    <string name="widget_cfg_term">Terminal SSH</string>
+    <string name="widget_cfg_label">Pokaż napis „Sensmos”</string>
+    <string name="widget_cfg_save">Dodaj widget</string>
+</resources>

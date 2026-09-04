@@ -11,6 +11,8 @@ import '../../services/integrations/home_integration.dart';
 import '../../services/integrations/ha_integration.dart';
 import '../../services/integrations/integration_store.dart';
 import 'ha_settings_screen.dart';
+import '../../util/owner_token_gate.dart';
+import '../../services/owner_token_service.dart';
 
 enum _Phase { connecting, ready, error }
 
@@ -78,12 +80,17 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       if (!mounted) return;
       if (!acc.ok) { Navigator.pop(context); return; }
 
+      if (!mounted) return;
+      final token = await ensureOwnerToken(context, wallet.address, label: 'panel HA');
+      if (!mounted) return;
+
       final relay = TerminalRelay(
         deviceId: widget.deviceId,
         owner: wallet.address,
         signMessage: (m) => context.read<WalletService>().signMessage(m),
+        ownerToken: token,
+        onTokenRejected: () => OwnerTokenService().forget(wallet.address),
         pairKey: acc.key,
-        legacy: acc.legacy,
       );
       _relay = relay;
       _evSub = relay.events.listen(_onRelayEvent);
@@ -350,44 +357,41 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.bg,
-      appBar: AppBar(
-        // Tytuł agnostyczny wobec integracji (HomeIntegration to interfejs — HA jest pierwszym
-        // adapterem, nie jedynym). Podtytuł niesie to, co realnie identyfikuje: rodzaj integracji
-        // + skrót device_id. Miasto pomijamy — nie odróżnia dwóch nodów w tej samej miejscowości.
-        titleSpacing: 0,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Dashboard', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-            Text('HA · ${widget.deviceId.length >= 8 ? widget.deviceId.substring(0, 8) : widget.deviceId}',
-                style: const TextStyle(
-                    fontSize: 11, color: AppTheme.muted, fontFamily: 'monospace', letterSpacing: 0.3)),
-          ],
-        ),
-        actions: [
-          if (_phase == _Phase.ready)
-            IconButton(
-              icon: Icon(_editing ? Icons.check : Icons.edit_outlined),
-              tooltip: _editing ? tr('Gotowe') : tr('Edytuj'),
-              onPressed: () => setState(() => _editing = !_editing),
-            ),
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: tr('Ustawienia HA'),
-            onPressed: () async {
-              final saved = await Navigator.push<bool>(context, MaterialPageRoute(
-                  builder: (_) => HaSettingsScreen(deviceId: widget.deviceId, label: widget.label)));
-              if (saved == true) _connect();
-            },
+      // Belka jak w pozostałych pluginach: „<plugin> · <alias albo id noda>". Edycja i
+      // ustawienia zeszły pod nią — w pasku konkurowały o miejsce z nazwą.
+      appBar: AppBar(title: Text('${tr('Panel HA')} · ${widget.label}')),
+      body: Column(children: [
+        if (_phase == _Phase.ready)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: Row(children: [
+              OutlinedButton.icon(
+                onPressed: () => setState(() => _editing = !_editing),
+                icon: Icon(_editing ? Icons.check : Icons.edit_outlined, size: 16),
+                label: Text(_editing ? tr('Gotowe') : tr('Edytuj')),
+                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.teal),
+              ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final saved = await Navigator.push<bool>(context, MaterialPageRoute(
+                      builder: (_) => HaSettingsScreen(deviceId: widget.deviceId, label: widget.label)));
+                  if (saved == true) _connect();
+                },
+                icon: const Icon(Icons.settings_outlined, size: 16),
+                label: Text(tr('Ustawienia')),
+                style: OutlinedButton.styleFrom(foregroundColor: AppTheme.text),
+              ),
+            ]),
           ),
-        ],
-      ),
-      body: switch (_phase) {
-        _Phase.connecting => _center(const CircularProgressIndicator(color: AppTheme.teal)),
-        _Phase.error => _errorView(),
-        _Phase.ready => _dashboard(),
-      },
+        Expanded(
+          child: switch (_phase) {
+            _Phase.connecting => _center(const CircularProgressIndicator(color: AppTheme.teal)),
+            _Phase.error => _errorView(),
+            _Phase.ready => _dashboard(),
+          },
+        ),
+      ]),
     );
   }
 

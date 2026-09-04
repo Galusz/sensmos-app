@@ -22,6 +22,7 @@ import '../setup/setup_screen.dart';
 import '../node/node_manager_screen.dart';
 import '../node/emergency_screen.dart';
 import '../terminal/terminal_screen.dart';
+import '../terminal/terminal_hosts_screen.dart';
 import '../integrations/ha_panel_screen.dart';
 import '../integrations/link_report_screen.dart';
 import '../integrations/lan_panels_screen.dart';
@@ -32,6 +33,7 @@ import '../../services/pairing_service.dart';
 import '../../util/pair_gate.dart';
 import '../../widgets/news_section.dart';
 import '../../l10n.dart';
+import '../../services/deeplink_service.dart';
 
 /// Panel — JEDNA lista nodów, źródło prawdy = BE (owned by wallet), działa wszędzie.
 /// Lokalny wpis (IP/PIN) dopina się po device_id → odblokowuje akcje LOKALNE (tylko w sieci noda).
@@ -75,6 +77,105 @@ class _NodesScreenState extends State<NodesScreen> {
       // Co 3. tick (30 s) — saldo nie potrzebuje granulacji statusu online.
       if (++_tick % 3 == 0) _fetchBalance();
     });
+    // Skróty z widgetu na pulpicie — przy starcie i przy każdym kolejnym stuknięciu.
+    DeepLinkService.initial().then((l) { if (l != null) _handleLink(l); });
+    DeepLinkService.listen(_handleLink);
+  }
+
+
+  /// Jedna zasada w całej apce: ALIAS, a gdy go nie ma — ID. Bez wariantów pośrednich,
+  /// żeby ten sam node nie nazywał się raz miejscowością, raz identyfikatorem.
+  String _nodeName(SavedNode n) =>
+      (n.label.isNotEmpty && n.label != 'Node')
+          ? n.label
+          : (n.id.length >= 8 ? n.id.substring(0, 8) : n.id);
+
+  /// `sensmos://open?kind=ha|term` → otwórz plugin. Jeden node z tym pluginem = wchodzimy
+  /// od razu (dwa stuknięcia od pulpitu); kilka — pokazujemy wybór, bo zgadywanie tu boli.
+  Future<void> _handleLink(String link) async {
+    final kind = DeepLinkService.kindOf(link);
+    if (kind == null || kind == 'app') return;
+    final want = kind == 'ha' ? IntegrationKind.homeAssistant : IntegrationKind.terminal;
+
+    // Zimny start: widget budzi apkę i deep link przychodzi ZANIM NodeService wczyta nody.
+    // Bez tego czekania pierwsze stuknięcie zawsze kończyło się „żaden node nie ma pluginu".
+    var nodes = context.read<NodeService>().nodes;
+    for (var i = 0; i < 20 && nodes.isEmpty; i++) {
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+      nodes = context.read<NodeService>().nodes;
+    }
+    if (!mounted || nodes.isEmpty) return;
+
+    // Cel przypięty w konfiguracji („V") — wtedy widget nie pyta o nic.
+    if (want == IntegrationKind.terminal) {
+      final t = await IntegrationStore.widgetTermTarget();
+      if (t != null && mounted) {
+        final n = nodes.where((e) => e.id == t.$1).toList();
+        final hosts = n.isEmpty ? <SshHost>[] : await IntegrationStore.sshHosts(t.$1);
+        final h = hosts.where((e) => e.slug == t.$2).toList();
+        if (n.isNotEmpty && h.isNotEmpty && mounted) {
+          Navigator.push(context, MaterialPageRoute(
+              builder: (_) => TerminalScreen(
+                  deviceId: n.first.id, label: _nodeName(n.first), host: h.first)));
+          return;
+        }
+      }
+    } else {
+      final id = await IntegrationStore.widgetHaTarget();
+      if (id != null && mounted) {
+        final n = nodes.where((e) => e.id == id).toList();
+        if (n.isNotEmpty) { _openIntegration(want, n.first.id, _nodeName(n.first)); return; }
+      }
+    }
+    if (!mounted) return;
+
+    final matches = <SavedNode>[];
+    for (final n in nodes) {
+      final kinds = _kinds[n.id] ?? await IntegrationStore.enabledKinds(n.id);
+      if (kinds.contains(want.id)) matches.add(n);
+    }
+    if (!mounted) return;
+
+    if (matches.length == 1) { _openIntegration(want, matches.first.id, _nodeName(matches.first)); return; }
+
+    // Nikt nie ma tego pluginu podpiętego (albo ma go kilka nodów) → wybór. Przy pustym
+    // wyniku pokazujemy wszystkie nody i podpinamy plugin przy okazji — inaczej widget
+    // odsyłał usera do ręcznego dodawania, co przeczy „dwa stuknięcia".
+    final pinning = matches.isEmpty;
+    final options = pinning ? nodes : matches;
+    final picked = await showModalBottomSheet<SavedNode>(
+      context: context,
+      backgroundColor: AppTheme.card,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 4),
+            child: Text(tr(want.labelKey), style: const TextStyle(color: AppTheme.text, fontSize: 15)),
+          ),
+          if (pinning) Padding(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+            child: Text(tr('Wybierz node — plugin zostanie do niego podpięty.'),
+                style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          ),
+          for (final n in options)
+            ListTile(
+              leading: Icon(want.icon, color: AppTheme.teal),
+              title: Text(_nodeName(n), style: const TextStyle(color: AppTheme.text)),
+              subtitle: Text('id ${n.id.length >= 8 ? n.id.substring(0, 8) : n.id}',
+                  style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+              onTap: () => Navigator.pop(ctx, n),
+            ),
+        ]),
+      ),
+    );
+    if (picked == null || !mounted) return;
+    if (pinning) {
+      await IntegrationStore.setKind(picked.id, want.id, true);
+      await _loadKinds(picked.id);
+      if (!mounted) return;
+    }
+    _openIntegration(want, picked.id, _nodeName(picked));
   }
 
   @override
@@ -593,7 +694,7 @@ class _NodesScreenState extends State<NodesScreen> {
 
   void _openIntegration(IntegrationKind k, String id, String name) {
     final screen = switch (k) {
-      IntegrationKind.terminal => TerminalScreen(deviceId: id, label: name),
+      IntegrationKind.terminal => TerminalHostsScreen(deviceId: id, label: name),
       IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
       IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
       IntegrationKind.lanPanel => LanPanelsScreen(deviceId: id, label: name),
@@ -680,6 +781,8 @@ class _NodesScreenState extends State<NodesScreen> {
       final Widget cfg = switch (chosen) {
         IntegrationKind.lanPanel =>
             LanPanelsScreen(deviceId: id, label: name, configMode: true),
+        IntegrationKind.terminal =>
+            TerminalHostsScreen(deviceId: id, label: name, configMode: true),
         _ => HaSettingsScreen(deviceId: id, label: name),
       };
       final saved = await Navigator.push<bool>(
@@ -756,11 +859,12 @@ class _NodesScreenState extends State<NodesScreen> {
     final saved = u.saved;
     final id = u.id;
     final expanded = _expanded[id] ?? false;
+    // Nazwa noda dla pluginów i belek: ALIAS, a gdy go nie ma — ID. Miejscowość wypadła:
+    // ten sam node nazywał się raz miastem, raz identyfikatorem (na karcie miasto jest
+    // osobno, niżej).
     final name = (saved?.label.isNotEmpty == true && saved?.label != 'Node')
         ? saved!.label
-        : (be?['city']?.toString().isNotEmpty == true
-            ? be!['city'] as String
-            : 'sensmos-${id.length >= 6 ? id.substring(0, 6) : id}');
+        : (id.length >= 8 ? id.substring(0, 8) : id);
 
     // Stan z chmury: ws_online (żywy WS) najpewniejszy; inaczej last_ping.
     final wsOnline = be?['ws_online'] == true;
@@ -819,7 +923,7 @@ class _NodesScreenState extends State<NodesScreen> {
                   Expanded(child: Text.rich(
                     TextSpan(children: [
                       TextSpan(
-                          text: id.substring(0, id.length >= 8 ? 8 : id.length).toUpperCase(),
+                          text: id.substring(0, id.length >= 8 ? 8 : id.length),
                           style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600,
                               fontSize: 14, letterSpacing: 0.6)),
                       TextSpan(text: '   fw ${be?['firmware'] ?? '?'}',
@@ -838,7 +942,8 @@ class _NodesScreenState extends State<NodesScreen> {
                 // z głównego rzędu — tam zabierał szerokość wszystkim trzem liniom naraz
                 // i to on wypychał ikony na tekst pierwszej linii.
                 Row(children: [
-                  Expanded(child: Text(name,
+                  Expanded(child: Text(
+                      (be?['city']?.toString().isNotEmpty == true) ? be!['city'] as String : name,
                       style: const TextStyle(color: AppTheme.muted, fontSize: 12),
                       maxLines: 1, overflow: TextOverflow.ellipsis)),
                   const SizedBox(width: 8),

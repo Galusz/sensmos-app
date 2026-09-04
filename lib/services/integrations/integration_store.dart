@@ -44,6 +44,29 @@ class LanPanel {
       );
 }
 
+/// Zapisany cel SSH — jak zakładka „Panel LAN", tylko dla terminala.
+/// Hasło NIE jest częścią wpisu: leży (opcjonalnie) w bezpiecznym magazynie pod kluczem
+/// `term_pass_<node>_<host>:<port>:<user>`, żeby każdy host miał swoje.
+class SshHost {
+  String name;
+  String host;
+  int port;
+  String user;
+  SshHost({required this.name, required this.host, this.port = 22, this.user = 'root'});
+
+  /// Klucz sekretu i tożsamość wpisu — host+port+user, bo pod jednym adresem bywa kilka kont.
+  String get slug => '$host:$port:$user';
+  String get title => name.trim().isNotEmpty ? name.trim() : '$user@$host';
+
+  Map<String, dynamic> toJson() => {'name': name, 'host': host, 'port': port, 'user': user};
+  static SshHost fromJson(Map<String, dynamic> j) => SshHost(
+        name: (j['name'] as String?) ?? '',
+        host: (j['host'] as String?) ?? '',
+        port: (j['port'] as int?) ?? 22,
+        user: (j['user'] as String?) ?? 'root',
+      );
+}
+
 class IntegrationStore {
   static String _key(String nodeId) => 'ha_binding_$nodeId';
 
@@ -118,6 +141,69 @@ class IntegrationStore {
   static Future<void> saveLanPanels(String nodeId, List<LanPanel> panels) async {
     final p = await SharedPreferences.getInstance();
     await p.setString(_lanKey(nodeId), jsonEncode(panels.map((e) => e.toJson()).toList()));
+  }
+
+  // ── Terminal: zapisane cele SSH (per node) ──
+  // Terminal długo pamiętał tylko OSTATNI cel, więc druga maszyna w tej samej sieci
+  // znaczyła przepisywanie adresu z głowy. Lista działa jak zakładki paneli LAN.
+  static String _sshKey(String nodeId) => 'ssh_hosts_$nodeId';
+
+  static Future<List<SshHost>> sshHosts(String nodeId) async {
+    final p = await SharedPreferences.getInstance();
+    final s = p.getString(_sshKey(nodeId));
+    if (s == null) return [];
+    try {
+      return (jsonDecode(s) as List)
+          .map((e) => SshHost.fromJson((e as Map).cast<String, dynamic>()))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<void> saveSshHosts(String nodeId, List<SshHost> hosts) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setString(_sshKey(nodeId), jsonEncode(hosts.map((e) => e.toJson()).toList()));
+  }
+
+  /// Dopisz albo odśwież wpis po udanym połączeniu (po slugu — bez duplikatów).
+  static Future<void> rememberSshHost(String nodeId, SshHost h) async {
+    final list = await sshHosts(nodeId);
+    final i = list.indexWhere((e) => e.slug == h.slug);
+    if (i >= 0) {
+      if (h.name.trim().isNotEmpty) list[i].name = h.name;
+    } else {
+      list.add(h);
+    }
+    await saveSshHosts(nodeId, list);
+  }
+
+  // ── Cel widgetu na pulpicie (jeden na rodzaj) ──
+  // Widget ma być skrótem „w jedno miejsce", więc trzymamy który node (a dla terminala
+  // także który host) ma się otworzyć bez pytania. Brak celu = apka pyta jak dotąd.
+  static const _kWidgetHa = 'widget_target_ha';       // node_id
+  static const _kWidgetTerm = 'widget_target_term';   // "node_id|host:port:user"
+
+  static Future<String?> widgetHaTarget() async =>
+      (await SharedPreferences.getInstance()).getString(_kWidgetHa);
+
+  static Future<void> setWidgetHaTarget(String? nodeId) async {
+    final p = await SharedPreferences.getInstance();
+    if (nodeId == null) { await p.remove(_kWidgetHa); } else { await p.setString(_kWidgetHa, nodeId); }
+  }
+
+  /// Zwraca (nodeId, slug) albo null.
+  static Future<(String, String)?> widgetTermTarget() async {
+    final raw = (await SharedPreferences.getInstance()).getString(_kWidgetTerm);
+    if (raw == null || !raw.contains('|')) return null;
+    final i = raw.indexOf('|');
+    return (raw.substring(0, i), raw.substring(i + 1));
+  }
+
+  static Future<void> setWidgetTermTarget(String? nodeId, String? slug) async {
+    final p = await SharedPreferences.getInstance();
+    if (nodeId == null || slug == null) { await p.remove(_kWidgetTerm); }
+    else { await p.setString(_kWidgetTerm, '$nodeId|$slug'); }
   }
 
   // ── Podpięte integracje per node (opt-in: terminal, ha, …) ──

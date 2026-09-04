@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Teksty widoczne poza Flutterem (konfiguracja widgetu, nazwy widgetów w launcherze). -->
+<resources>
+    <string name="widget_cfg_hint">Choose what goes on the widget.</string>
+    <string name="widget_cfg_ha">Home Assistant panel</string>
+    <string name="widget_cfg_term">SSH terminal</string>
+    <string name="widget_cfg_label">Show the “Sensmos” label</string>
+    <string name="widget_cfg_save">Add widget</string>
+</resources>

@@ -24,8 +24,8 @@ extension IntegrationKindX on IntegrationKind {
   String get labelKey => switch (this) {
         IntegrationKind.terminal => 'Zdalny terminal',
         IntegrationKind.homeAssistant => 'Panel HA',
-        IntegrationKind.linkReport => 'Raport łącza',
-        IntegrationKind.lanPanel => 'Panel LAN',
+        IntegrationKind.linkReport => 'Łącze',
+        IntegrationKind.lanPanel => 'HTTP w LAN',
       };
 
   // Tunel na nodzie (FW > 0.70 + parowanie) potrzebują tylko pluginy sięgające do LAN.
@@ -37,9 +37,8 @@ extension IntegrationKindX on IntegrationKind {
         IntegrationKind.lanPanel => true,
       };
 
-  // Wymaga konfiguracji przed użyciem (HA: host+token; Panel LAN: adresy paneli).
-  bool get needsConfig =>
-      this == IntegrationKind.homeAssistant || this == IntegrationKind.lanPanel;
+  // Wymaga konfiguracji przed użyciem (HA: host+token; Panel LAN i Terminal: lista celów).
+  bool get needsConfig => this != IntegrationKind.linkReport;
 
   static IntegrationKind? fromId(String id) => switch (id) {
         'terminal' => IntegrationKind.terminal,

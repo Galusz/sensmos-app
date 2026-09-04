@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Wariant 2×1: u góry pasek marki (małe logo + „Sensmos"), pod nim dwa skróty.
+     Kafle nie mają już logo w rogach — sygnatura jest raz, na górze. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_bg"
+    android:padding="5dp">
+
+    <LinearLayout
+        android:id="@+id/widget_brand"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="2dp"
+        android:paddingBottom="3dp">
+        <ImageView
+            android:layout_width="15dp"
+            android:layout_height="15dp"
+            android:src="@drawable/ic_sensmos_logo"
+            android:contentDescription="Sensmos" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:text="Sensmos"
+            android:textColor="#5A6380"
+            android:textSize="10sp"
+            android:letterSpacing="0.06" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+
+        <FrameLayout
+            android:id="@+id/widget_ha_tile"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:layout_marginEnd="4dp"
+            android:background="@drawable/widget_tile">
+            <ImageView
+                android:id="@+id/widget_ha"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_ha_house"
+                android:contentDescription="Home Assistant" />
+        </FrameLayout>
+
+        <FrameLayout
+            android:id="@+id/widget_term_tile"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="@drawable/widget_tile">
+            <ImageView
+                android:id="@+id/widget_term"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="9dp"
+                android:scaleType="fitCenter"
+                android:src="@drawable/ic_term_prompt"
+                android:contentDescription="Terminal" />
+        </FrameLayout>
+    </LinearLayout>
+</LinearLayout>

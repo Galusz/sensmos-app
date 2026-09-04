@@ -1,0 +1,19 @@
+<!-- Logo Sensmos — 1:1 z ORYGINAŁU: BE/public/favicon.svg (bez zmian od pierwszego commita).
+     13 kropek układających „S", środkowa większa. Bez kropek tła — te są tylko
+     w wariancie z nagłówka strony i w małym rozmiarze zlewają się w plamę. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#1FCFB4" android:pathData="M7.25,2.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M12,2.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M16.75,2.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M2.5,7.25 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M7.25,7.25 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M7.25,12 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M16.75,12 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M16.75,16.75 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M21.5,16.75 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M7.25,21.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M12,21.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M16.75,21.5 m-1.8,0 a1.8,1.8 0 1,0 3.6,0 a1.8,1.8 0 1,0 -3.6,0 z" />
+    <path android:fillColor="#1FCFB4" android:pathData="M12,12 m-2.5,0 a2.5,2.5 0 1,0 5.0,0 a2.5,2.5 0 1,0 -5.0,0 z" />
+</vector>

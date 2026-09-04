@@ -11,6 +11,7 @@ import 'l10n.dart';
 import 'core/core_bloc.dart';
 import 'services/push_service.dart';
 import 'services/wallet_service.dart';
+import 'util/owner_token_gate.dart';
 import 'screens/nodes/nodes_screen.dart';
 import 'screens/wallet/wallet_screen.dart';
 import 'screens/settings/settings_screen.dart';
@@ -34,6 +35,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   int get _unread => _inbox.where((n) => ((n['ts'] ?? 0) as num) > _seenTs).length;
 
+  /// Pushe mogłyby działać (jest token FCM), ale rejestracja w BE nie przeszła. Brak
+  /// tokenu FCM to nie awaria, tylko telefon bez usług Google — nie ma czego naprawiać.
+  bool get _pushBroken {
+    final p = context.read<PushService>();
+    return (p.token ?? '').isNotEmpty && !p.registered;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,8 +52,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     // powiadomić także o MARTWYM nodzie (LoRa awaryjne), a rotacja tokenu nie wymaga LAN.
     final push = context.read<PushService>();
     final wallet = context.read<WalletService>();
-    push.init().then((t) {
-      if (t != null) push.registerToBackend(wallet);
+    push.init().then((t) async {
+      if (t == null) return;
+      await push.registerToBackend(wallet);
+      if (mounted) setState(() {});   // status w dzwonku zależy od wyniku
     });
     try {
       _fcmSub = FirebaseMessaging.onMessage.listen((_) => _fetchInbox());
@@ -185,6 +195,55 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 },
               ),
             ),
+          StatefulBuilder(builder: (_, setSheet) => _pushStatusRow(setSheet)),
+        ]),
+      ),
+    );
+  }
+
+  /// Stan rejestracji pushy — jedyne miejsce w apce, gdzie to widać (osobny ekran w
+  /// Ustawieniach wycięty 2026-09-04: rejestracja jest automatyczna, a kiedy padnie,
+  /// informacja ma być tam, gdzie user szuka powiadomień, a nie w ustawieniach).
+  Widget _pushStatusRow(StateSetter setSheet) {
+    final push = context.read<PushService>();
+    if ((push.token ?? '').isEmpty) return const SizedBox.shrink();
+    final ok = push.registered;
+    return InkWell(
+      onTap: ok
+          ? null
+          : () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final wallet = context.read<WalletService>();
+              final w = await wallet.load();
+              if (w == null || !mounted) return;
+              // Pyta o hasło portfela najwyżej raz — potem token ownera wystarcza.
+              await ensureOwnerToken(context, w.address, label: 'powiadomienia');
+              final done = await push.registerToBackend(wallet);
+              setSheet(() {});
+              if (!mounted) return;
+              setState(() {});
+              if (!done) {
+                messenger.showSnackBar(SnackBar(
+                    content: Text(tr('Nie udało się włączyć powiadomień.'))));
+              }
+            },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+        decoration: const BoxDecoration(
+            border: Border(top: BorderSide(color: AppTheme.border))),
+        child: Row(children: [
+          Icon(ok ? Icons.check_circle_outline : Icons.error_outline,
+              color: ok ? AppTheme.teal : AppTheme.amber, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+                ok
+                    ? tr('Powiadomienia aktywne')
+                    : tr('Nieaktywne — dotknij, aby włączyć'),
+                style: TextStyle(
+                    color: ok ? AppTheme.muted : AppTheme.amber, fontSize: 12)),
+          ),
         ]),
       ),
     );
@@ -208,8 +267,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       body: Stack(children: [
         IndexedStack(index: _index, children: _screens),
         // Dzwoneczek na wierzchu — teal z licznikiem gdy są nieprzeczytane, przygaszony
-        // gdy skrzynka ma tylko przeczytane; klik = skrzynka z treściami.
-        if (_unread > 0 || _inbox.isNotEmpty)
+        // gdy skrzynka ma tylko przeczytane; klik = skrzynka z treściami. Pokazujemy go
+        // także przy zerwanej rejestracji, bo inaczej user z pustą skrzynką nie miałby
+        // gdzie zobaczyć, że pushy nie ma (tak właśnie przepadły niezauważone).
+        if (_unread > 0 || _inbox.isNotEmpty || _pushBroken)
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             right: 12,

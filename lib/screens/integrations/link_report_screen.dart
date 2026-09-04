@@ -90,7 +90,7 @@ class _LinkReportScreenState extends State<LinkReportScreen> {
   Widget build(BuildContext context) {
     final s = _summary ?? {};
     return Scaffold(
-      appBar: AppBar(title: Text('${tr('Raport łącza')} · ${widget.label}')),
+      appBar: AppBar(title: Text('${tr('Łącze')} · ${widget.label}')),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.teal))
           : ListView(

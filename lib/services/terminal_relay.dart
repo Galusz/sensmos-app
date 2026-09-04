@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:dartssh2/dartssh2.dart';
+import 'tunnel_crypto.dart';
 import '../config.dart';
 import '../l10n.dart';
 import 'pairing_service.dart';
@@ -15,16 +16,25 @@ class TerminalRelay {
   final String deviceId;
   final String owner;
   final Future<String> Function(String message) signMessage;
+
+  /// Token ownera (`smt_…`) — jeśli jest, uwierzytelniamy się nim zamiast świeżego podpisu,
+  /// dzięki czemu portfel może zostać zamknięty. Gdy BE go odrzuci (odwołany/wygasł), relay
+  /// sam wraca do podpisu na tym samym sockecie i zgłasza to przez [onTokenRejected].
+  final String? ownerToken;
+
+  /// Wołane, gdy BE odrzucił token — ekran ma go zapomnieć, żeby przy następnym wejściu
+  /// apka wyrobiła nowy.
+  final void Function()? onTokenRejected;
   /// Klucz parowania tego noda (32 B). Bez niego node ODMÓWI otwarcia tunelu — backend nie
   /// potrafi go wytworzyć, i o to właśnie chodzi.
   /// NIE final: user może sparować node już po otwarciu ekranu, a wtedy nie chcemy przebudowywać
   /// całego relaya (żywy WS + uwierzytelnienie) tylko po to, żeby wstrzyknąć klucz.
   Uint8List? pairKey;
 
-  /// TRYB PRZEJŚCIOWY (do usunięcia ok. miesiąc po wydaniu): node na FW ≤0.81 nie zna
-  /// /node/pair ani dowodu, więc tunel otwieramy po staremu — `cfg` włączające remote_ok
-  /// plus `open` bez proof. Znika razem z PairingService.legacyMark.
-  bool legacy = false;
+  /// Wersja firmware noda — BE podaje ją w odpowiedzi `auth`, prosto z bazy. Tunel v2 umie
+  /// dopiero FW ≥1.01; starszemu nodowi NIE wolno wysłać zaszyfrowanej ramki, bo jego
+  /// `ws_enc_open` nie zna koperty 0x02 i node rozłączyłby WS przy każdej próbie.
+  String nodeFw = '';
 
   WebSocketChannel? _ch;
   _RelaySocket? _sock;
@@ -39,9 +49,22 @@ class TerminalRelay {
 
   Completer<void>? _auth;
   Completer<SSHSocket>? _open;
+  TunnelCrypto? _crypto;   // ustawiane przy `open`, żyje tyle co sesja
 
   TerminalRelay({required this.deviceId, required this.owner, required this.signMessage,
-                 this.pairKey, this.legacy = false});
+                 this.ownerToken, this.onTokenRejected, this.pairKey});
+
+  /// Czy node umie tunel v2 (FW ≥ 1.01). Porównujemy major.minor, sufiksy typu `-lora1`
+  /// nie mają tu znaczenia.
+  static bool fwSupportsV2(String fw) {
+    final m = RegExp(r'^(\d+)\.(\d+)').firstMatch(fw.trim());
+    if (m == null) return false;
+    final major = int.parse(m.group(1)!), minor = int.parse(m.group(2)!);
+    return major > 1 || (major == 1 && minor >= 1);
+  }
+
+  /// Czy bieżąca próba uwierzytelnienia poszła tokenem (do jednorazowego powrotu na podpis).
+  bool _triedToken = false;
 
   String get _wsUrl => '${Config.beUrl.replaceFirst('https://', 'wss://').replaceFirst('http://', 'ws://')}/v1/term';
 
@@ -51,33 +74,43 @@ class TerminalRelay {
     _ch = WebSocketChannel.connect(Uri.parse(_wsUrl));
     _sub = _ch!.stream.listen(_onMessage,
         onError: (e) => _fail('connection error: $e'), onDone: () => _fail('connection closed'));
+    // Token najpierw: nie dotyka portfela, więc wejście w tunel nie wymaga hasła.
+    if (ownerToken != null && ownerToken!.isNotEmpty) {
+      _triedToken = true;
+      _send({'type': 'auth', 'device_id': deviceId, 'token': ownerToken});
+    } else {
+      await _authWithSignature();
+    }
+    await _auth!.future.timeout(const Duration(seconds: 12),
+        onTimeout: () => throw Exception('auth timeout'));
+  }
+
+  /// Uwierzytelnienie świeżym podpisem portfela — droga pierwotna i zapas, gdy token padnie.
+  Future<void> _authWithSignature() async {
     final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     final sig = await signMessage('sensmos:term:$deviceId:$ts');
     _send({'type': 'auth', 'device_id': deviceId, 'owner': owner, 'ts': ts, 'sig': sig});
-    await _auth!.future.timeout(const Duration(seconds: 12),
-        onTimeout: () => throw Exception('auth timeout'));
   }
 
   /// Otwórz tunel TCP do ip:port na LAN-ie noda; zwraca SSHSocket dla SSHClient.
   Future<SSHSocket> openTunnel(String ip, int port) async {
     if (!_authed) throw Exception('not authenticated');
     final key = pairKey;
-    if (key == null && !legacy) {
+    if (key == null) {
       throw Exception(tr('Node nie jest sparowany z tym telefonem — sparuj go, będąc w tej samej sieci WiFi.'));
     }
-    _open = Completer<SSHSocket>();
-    if (key == null) {
-      // Stare FW: dowodu nie zweryfikuje, za to wymaga flagi remote_ok, którą ustawia się
-      // komunikatem `cfg`. Idą jednym WS-em, więc node przetworzy je w tej kolejności.
-      _send({'type': 'cfg', 'enable': true});
-      _send({'type': 'open', 'ip': ip, 'port': port});
-    } else {
-      // Dowód liczony TUTAJ i przepychany przez backend nietknięty. ip i port siedzą w środku
-      // podpisywanego ciągu, więc przejęty serwer nie podmieni celu na inny adres w LAN-ie.
-      final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final proof = PairingService.proof(key, deviceId, ip, port, ts);
-      _send({'type': 'open', 'ip': ip, 'port': port, 'ts': ts, 'proof': proof});
+    if (!fwSupportsV2(nodeFw)) {
+      throw Exception(tr('Node ma za stare oprogramowanie (%s) — zaktualizuj je do 1.01 lub nowszego.',
+                         [nodeFw.isEmpty ? '?' : nodeFw]));
     }
+    _open = Completer<SSHSocket>();
+    // Dowód liczony TUTAJ i przepychany przez backend nietknięty. ip i port siedzą w środku
+    // podpisywanego ciągu, więc przejęty serwer nie podmieni celu na inny adres w LAN-ie.
+    // Ten sam `ts` wchodzi do AAD ramek, więc wiąże je z TĄ sesją.
+    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final proof = PairingService.proof(key, deviceId, ip, port, ts);
+    _crypto = TunnelCrypto(key, ts);
+    _send({'type': 'open', 'ip': ip, 'port': port, 'ts': ts, 'proof': proof, 'v': 2});
     return _open!.future.timeout(const Duration(seconds: 20),
         onTimeout: () => throw Exception('tunnel open timeout'));
   }
@@ -85,18 +118,43 @@ class TerminalRelay {
   // sink bywa zamknięty (dispose/rozłączenie), a dartssh2 przy zamykaniu dopina jeszcze
   // pakiet „disconnect" → add po close rzucał „Cannot add event after closing" i wywalał apkę
   void _send(Map<String, dynamic> m) { try { _ch?.sink.add(jsonEncode(m)); } catch (_) {} }
+  void _sendBin(Uint8List b) { try { _ch?.sink.add(b); } catch (_) {} }
 
   void _onMessage(dynamic raw) {
+    // Bajty tunelu przychodzą ramką BINARNĄ (v2). Sterowanie zostaje JSON-em.
+    if (raw is! String) {
+      final cr = _crypto;
+      if (cr == null || _sock == null) return;
+      try {
+        _sock!.feed(cr.open(Uint8List.fromList(raw as List<int>)));
+      } catch (e) {
+        // Zły tag albo powtórzona porcja = ktoś majstrował przy strumieniu ALBO doszło do
+        // rozjazdu. Cichy drop byłby gorszy: SSH i tak padnie na MAC, a panel HTTP dostanie
+        // uciętą odpowiedź bez wyjaśnienia. Zrywamy z komunikatem.
+        _fail('tunnel: ${tr('Ramka odrzucona — zerwane szyfrowanie tunelu.')}');
+      }
+      return;
+    }
     Map<String, dynamic> m;
-    try { m = jsonDecode(raw as String) as Map<String, dynamic>; } catch (_) { return; }
+    try { m = jsonDecode(raw) as Map<String, dynamic>; } catch (_) { return; }
     switch (m['type']) {
       case 'auth':
         if (m['ok'] == true) {
           _authed = true;
           nodeOnline = m['online'] == true;
           remoteEnabled = m['remote'] == true;
+          nodeFw = (m['fw'] ?? '').toString();
           if (_auth != null && !_auth!.isCompleted) _auth!.complete();
         } else {
+          // Token odwołany/wygasły: kasujemy go i ponawiamy podpisem na TYM SAMYM sockecie —
+          // BE przyjmuje ramkę auth w dowolnym momencie, więc user niczego nie zauważy poza
+          // (ewentualnym) jednym pytaniem o hasło.
+          if (_triedToken) {
+            _triedToken = false;
+            onTokenRejected?.call();
+            _authWithSignature().catchError((e) => _fail('auth: $e'));
+            return;
+          }
           _fail('auth: ${m['error'] ?? 'denied'}');
         }
         break;
@@ -107,33 +165,25 @@ class TerminalRelay {
           _sock = _RelaySocket(
             // chunk już ≤1024B (chunkowanie + paceowanie robi _RelaySocket._pumpOut) — node dekoduje
             // do bufora TUN_CHUNK=1024B; pace chroni przed przepełnieniem s_toLan przy długiej linii
-            onSend: (chunk) => _send({'type': 'data', 'd': base64Encode(chunk)}),
+            onSend: (chunk) => _sendBin(_crypto!.seal(Uint8List.fromList(chunk))),
             onClose: () => _send({'type': 'close'}),
           );
           if (_open != null && !_open!.isCompleted) _open!.complete(_sock!);
         } else if (st == 'closed' || st == 'error') {
+          _crypto = null;
           // „node not paired" jest autorytatywne: node mówi, że nie ma ŻADNYCH kluczy —
           // reflash albo wymiana płytki z przywróconym ID. Lokalny klucz jest wtedy martwy
           // i trzymanie go blokowało parowanie na zawsze (apka uważała node za sparowany
           // i nigdy nie pokazywała dialogu). Kasujemy klucz/znacznik legacy, żeby następna
           // próba przeszła przez ensurePaired i zaproponowała parowanie od nowa.
           final notPaired = st == 'error' && '${m['msg'] ?? ''}'.contains('not paired');
-          if (notPaired) {
-            legacy = false;
-            PairingService().forget(deviceId);
-          }
+          if (notPaired) PairingService().forget(deviceId);
           _sock?.remoteClosed();
           if (_open != null && !_open!.isCompleted) {
             _open!.completeError(Exception(notPaired
                 ? tr('Node nie ma zapisanych kluczy (przeflashowany?) — sparuj go ponownie, będąc w jego sieci WiFi.')
                 : 'tunnel $st: ${m['msg'] ?? ''}'));
           }
-        }
-        break;
-      case 'tun_data':
-        final d = m['d'];
-        if (d is String && _sock != null) {
-          try { _sock!.feed(base64Decode(d)); } catch (_) {}
         }
         break;
     }
