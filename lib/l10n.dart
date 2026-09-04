@@ -997,6 +997,8 @@ const Map<String, String> _enMap = {
   "Poprzedni PIN": "Previous PIN",
   "Pomiń": "Skip",
   "Odczytaj": "Read it",
+  "Wiadomość": "Message",
+  "Zwiń do paska": "Collapse to the bar",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
@@ -1930,4 +1932,6 @@ const Map<String, String> _deMap = {
   "Poprzedni PIN": "Vorherige PIN",
   "Pomiń": "Überspringen",
   "Odczytaj": "Auslesen",
+  "Wiadomość": "Nachricht",
+  "Zwiń do paska": "In die Leiste einklappen",
 };

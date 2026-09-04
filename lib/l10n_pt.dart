@@ -868,4 +868,6 @@ const Map<String, String> ptMap = {
   "Poprzedni PIN": "PIN anterior",
   "Pomiń": "Ignorar",
   "Odczytaj": "Ler",
+  "Wiadomość": "Mensagem",
+  "Zwiń do paska": "Recolher para a barra",
 };

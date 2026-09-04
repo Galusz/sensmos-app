@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../config.dart';
 import '../theme.dart';
@@ -33,11 +34,29 @@ class _NewsSectionState extends State<NewsSection> {
   String get _key => widget.owner?.toLowerCase() ?? '';
   List<_NewsItem> _items = const [];
 
+  // Zwinięte wpisy — klucz to id + data publikacji, więc zwinięcie przeżywa restart apki,
+  // a zmiana daty w panelu jest świadomym „pokaż to jeszcze raz" dla wszystkich.
+  static const _kMinimized = 'news_minimized';
+  Set<String> _min = {};
+
+  Future<void> _loadMin() async {
+    final p = await SharedPreferences.getInstance();
+    final v = p.getStringList(_kMinimized) ?? const [];
+    if (mounted) setState(() => _min = v.toSet());
+  }
+
+  Future<void> _setMin(Set<String> next) async {
+    setState(() => _min = next);
+    final p = await SharedPreferences.getInstance();
+    await p.setStringList(_kMinimized, next.toList());
+  }
+
   @override
   void initState() {
     super.initState();
     _items = _cache[_key] ?? const [];
     if (!_cache.containsKey(_key)) _load();
+    _loadMin();
   }
 
   @override
@@ -72,12 +91,57 @@ class _NewsSectionState extends State<NewsSection> {
   @override
   Widget build(BuildContext context) {
     if (_items.isEmpty) return const SizedBox.shrink();
+    final open = _items.where((it) => !_min.contains(it.key)).toList();
+    final hidden = _items.where((it) => _min.contains(it.key)).toList();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final it in _items) _tile(it),
+        if (hidden.isNotEmpty) _bar(hidden),
+        for (final it in open) _tile(it),
         const SizedBox(height: 6),
       ],
+    );
+  }
+
+  /// Pasek zwiniętych wiadomości: same tytuły, przewijany w poziomie. Nie ma zwiniętych —
+  /// nie ma paska, więc nad listą nodów nie zostaje pusty pasek po niczym.
+  Widget _bar(List<_NewsItem> hidden) => Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: SizedBox(
+          height: 32,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: hidden.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => _bubble(hidden[i]),
+          ),
+        ),
+      );
+
+  Widget _bubble(_NewsItem it) {
+    final label = it.pick(it.title) ?? it.pick(it.body) ?? tr('Wiadomość');
+    return InkWell(
+      onTap: () => _setMin({..._min}..remove(it.key)),
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.teal.withValues(alpha: 0.35)),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.article_outlined, size: 13, color: AppTheme.teal),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 180),
+            child: Text(label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppTheme.text, fontSize: 12.5)),
+          ),
+        ]),
+      ),
     );
   }
 
@@ -88,11 +152,24 @@ class _NewsSectionState extends State<NewsSection> {
     // Kolejność: data → tytuł → opis → zdjęcie. Odstęp dokładamy TYLKO między obecnymi
     // elementami — inaczej kafel z samym tytułem miałby pod spodem pustą przestrzeń
     // po nieistniejącym opisie.
-    final children = <Widget>[];
-    if (it.publishedAt != null) {
-      children.add(Text(_fmtDate(it.publishedAt!),
-          style: const TextStyle(color: AppTheme.muted, fontSize: 11)));
-    }
+    // Nagłówek jest ZAWSZE: X musi być na każdej karcie, także takiej bez daty.
+    final children = <Widget>[
+      Row(children: [
+        if (it.publishedAt != null)
+          Text(_fmtDate(it.publishedAt!),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
+        const Spacer(),
+        InkWell(
+          onTap: () => _setMin({..._min, it.key}),
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 8, bottom: 4),
+            child: Icon(Icons.close, size: 16, color: AppTheme.muted,
+                semanticLabel: tr('Zwiń do paska')),
+          ),
+        ),
+      ]),
+    ];
     if (title != null) {
       if (children.isNotEmpty) children.add(const SizedBox(height: 6));
       children.add(Text(title,
@@ -165,6 +242,7 @@ class _NewsSectionState extends State<NewsSection> {
 }
 
 class _NewsItem {
+  final int id;
   final Map<String, String> title;
   final Map<String, String> body;
   final Map<String, String> linkLabel;
@@ -172,10 +250,15 @@ class _NewsItem {
   final String? linkUrl;
   final DateTime? publishedAt;
 
-  _NewsItem({required this.title, required this.body, required this.linkLabel,
-             this.imageUrl, this.linkUrl, this.publishedAt});
+  _NewsItem({required this.id, required this.title, required this.body,
+             required this.linkLabel, this.imageUrl, this.linkUrl, this.publishedAt});
+
+  /// Tożsamość wpisu na potrzeby zwijania. Data publikacji jest częścią klucza świadomie:
+  /// poprawka literówki nie wskrzesi zwiniętej karty, a zmiana daty w panelu — tak.
+  String get key => '$id:${publishedAt?.toIso8601String() ?? ''}';
 
   factory _NewsItem.fromJson(Map<String, dynamic> j) => _NewsItem(
+        id: (j['id'] as num?)?.toInt() ?? 0,
         title: _map(j['title']),
         body: _map(j['body']),
         linkLabel: _map(j['link_label']),
