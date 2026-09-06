@@ -105,15 +105,22 @@ class _NewsSectionState extends State<NewsSection> {
 
   /// Pasek zwiniętych wiadomości: same tytuły, przewijany w poziomie. Nie ma zwiniętych —
   /// nie ma paska, więc nad listą nodów nie zostaje pusty pasek po niczym.
+  // Zwykly SingleChildScrollView, NIE ListView: leniwa lista slivierowa zagniezdzona w pionowym
+  // ListView(children:) rozjezdzala pozycje glownej listy przy kazdej przebudowie ekranu (skok
+  // na dol, przewijanie „wracalo" w to samo miejsce) — bez zadnego wyjatku. Bisekcja na
+  // urzadzeniu: z paskiem skok, bez paska brak. Kilka babelkow nie potrzebuje leniwosci.
   Widget _bar(List<_NewsItem> hidden) => Padding(
         padding: const EdgeInsets.only(bottom: 10),
         child: SizedBox(
           height: 32,
-          child: ListView.separated(
+          child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            itemCount: hidden.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
-            itemBuilder: (_, i) => _bubble(hidden[i]),
+            child: Row(children: [
+              for (var i = 0; i < hidden.length; i++) ...[
+                if (i > 0) const SizedBox(width: 8),
+                _bubble(hidden[i]),
+              ],
+            ]),
           ),
         ),
       );
