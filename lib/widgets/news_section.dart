@@ -26,7 +26,15 @@ class NewsSection extends StatefulWidget {
   State<NewsSection> createState() => _NewsSectionState();
 }
 
-class _NewsSectionState extends State<NewsSection> {
+// Keep-alive jest tu WARUNKIEM POPRAWNOSCI, nie optymalizacja: ListView(children:) niszczy
+// dzieci daleko poza ekranem i tworzy je od nowa przy powrocie. Odtworzony widget mial
+// przez ulamek sekundy pusty zbior zwinietych (wczytywany asynchronicznie), wiec renderowal
+// zwinieta wiadomosc jako pelna karte i dopiero potem przelaczal na pasek — skok wysokosci
+// o ~140 px dokladnie pod przewijajacym palcem. Lista skakala „sama", bez zadnego wyjatku.
+class _NewsSectionState extends State<NewsSection> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   // Cache per portfel: widget siedzi w IndexedStack i bywa przebudowywany, a aktualności
   // zmieniają się raz na tygodnie. Kluczem MUSI być adres — po zmianie portfela ten sam
   // cache pokazywałby wpisy celowane w poprzedniego właściciela.
@@ -37,16 +45,20 @@ class _NewsSectionState extends State<NewsSection> {
   // Zwinięte wpisy — klucz to id + data publikacji, więc zwinięcie przeżywa restart apki,
   // a zmiana daty w panelu jest świadomym „pokaż to jeszcze raz" dla wszystkich.
   static const _kMinimized = 'news_minimized';
-  Set<String> _min = {};
+  // Statyczny, zeby odtworzony widget mial poprawny stan JUZ W PIERWSZEJ KLATCE. null = jeszcze
+  // nie wczytane z pamieci — wtedy sekcja nie renderuje nic, zamiast zgadywac.
+  static Set<String>? _minCache;
+  Set<String> get _min => _minCache ?? const {};
 
   Future<void> _loadMin() async {
     final p = await SharedPreferences.getInstance();
     final v = p.getStringList(_kMinimized) ?? const [];
-    if (mounted) setState(() => _min = v.toSet());
+    _minCache = v.toSet();
+    if (mounted) setState(() {});
   }
 
   Future<void> _setMin(Set<String> next) async {
-    setState(() => _min = next);
+    setState(() => _minCache = next);
     final p = await SharedPreferences.getInstance();
     await p.setStringList(_kMinimized, next.toList());
   }
@@ -56,7 +68,7 @@ class _NewsSectionState extends State<NewsSection> {
     super.initState();
     _items = _cache[_key] ?? const [];
     if (!_cache.containsKey(_key)) _load();
-    _loadMin();
+    if (_minCache == null) _loadMin();
   }
 
   @override
@@ -90,7 +102,8 @@ class _NewsSectionState extends State<NewsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (_items.isEmpty) return const SizedBox.shrink();
+    super.build(context);   // AutomaticKeepAliveClientMixin
+    if (_items.isEmpty || _minCache == null) return const SizedBox.shrink();
     final open = _items.where((it) => !_min.contains(it.key)).toList();
     final hidden = _items.where((it) => _min.contains(it.key)).toList();
     return Column(
