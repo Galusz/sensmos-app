@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../services/store_card_pref.dart';
 import '../../config.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
@@ -42,6 +43,8 @@ class SettingsScreen extends StatelessWidget {
                   style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
               onTap: () => _pickLang(context),
             ),
+            const Divider(color: AppTheme.border, height: 1),
+            const _StoreCardSwitch(),
             const Divider(color: AppTheme.border, height: 1),
             _tile(
               context,
@@ -141,5 +144,25 @@ class SettingsScreen extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 1)),
+      );
+}
+
+/// Karta Storage pod listą nodów: X na karcie ją chowa, tu się ją przywraca. Jeden pref,
+/// jeden przełącznik — bez osobnych stanów „skonfigurowane / nie".
+class _StoreCardSwitch extends StatelessWidget {
+  const _StoreCardSwitch();
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+        valueListenable: StoreCardPref.hidden,
+        builder: (_, hidden, __) => SwitchListTile(
+          secondary: const Icon(Icons.sd_storage_outlined, color: AppTheme.teal),
+          title: Text(tr('Storage na ekranie nodów'), style: const TextStyle(color: AppTheme.text)),
+          subtitle: Text(tr('karta pakietu pod listą nodów'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          activeThumbColor: AppTheme.teal,
+          value: !hidden,
+          onChanged: (v) => StoreCardPref.set(!v),
+        ),
       );
 }

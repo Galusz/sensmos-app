@@ -12,13 +12,11 @@ import '../../core/core_bloc.dart';
 import '../../services/wallet_service.dart';
 import '../../services/store_crypto.dart';
 import '../../services/store_relay.dart';
-import 'store_recovery_screen.dart';
 
 /// Store — pakiet miejsca u innych właścicieli nodów i panel plików.
 /// Klucz główny powstaje z podpisu portfela przy wejściu na ekran i żyje tylko w tym ekranie.
 class StoreScreen extends StatefulWidget {
-  final String deviceId, label;
-  const StoreScreen({super.key, required this.deviceId, required this.label});
+  const StoreScreen({super.key});
   @override
   State<StoreScreen> createState() => _StoreScreenState();
 }
@@ -27,8 +25,8 @@ class _StoreScreenState extends State<StoreScreen> {
   static const int maxDownloadMb = 256;   // pobranie na telefon idzie przez pamięć (SAF bez strumienia)
 
   StoreRelay? _relay;
-  Uint8List? _kek, _recovery;
-  Map<String, dynamic>? _pkg;          // {sellers, limit_b, used_b, daily, recovery}
+  Uint8List? _kek;
+  Map<String, dynamic>? _pkg;          // {sellers, limit_b, used_b, daily}
   Map<String, dynamic>? _capacity;     // gdy nie ma pakietu: wolne miejsce w sieci
   List<Map<String, dynamic>> _items = const [];
   String? _error, _busy; double? _progress;
@@ -69,24 +67,7 @@ class _StoreScreenState extends State<StoreScreen> {
       return;
     }
     _pkg = r;
-    await _ensureRecovery();
     await _refresh();
-  }
-
-  /// Klucz odzyskiwania: 24 słowa pokazane raz; sam klucz leży przy pakiecie ZAPAKOWANY kluczem
-  /// głównym, więc nowy telefon z tym samym portfelem pakuje kolejne pliki bez pytania o słowa.
-  Future<void> _ensureRecovery() async {
-    final wrapped = _pkg?['recovery'] as String?;
-    if (wrapped != null && wrapped.isNotEmpty) {
-      try { _recovery = StoreCrypto.open(_kek!, wrapped, aad: 'recovery'); } catch (_) { _recovery = null; }
-      return;
-    }
-    final (key, words) = StoreCrypto.newRecovery();
-    if (!mounted) return;
-    final ok = await Navigator.push<bool>(context, MaterialPageRoute(builder: (_) => StoreRecoveryScreen(words: words)));
-    if (ok != true) return;                       // bez potwierdzenia nie pakujemy — następne wejście pokaże nowe
-    final r = await _relay!.package(recovery: StoreCrypto.seal(_kek!, key, aad: 'recovery'));
-    if (r['ok'] == true) { _pkg = r; _recovery = key; }
   }
 
   Future<void> _refresh() async {
@@ -102,7 +83,7 @@ class _StoreScreenState extends State<StoreScreen> {
   Future<void> _buy() => _run(tr('Wykupuję pakiet…'), () async {
     final r = await _relay!.package();
     if (r['ok'] != true) throw Exception(r['error']);
-    _pkg = r; await _ensureRecovery(); await _refresh();
+    _pkg = r; await _refresh();
   });
 
   Future<void> _grow() => _run(tr('Dokupuję…'), () async {
@@ -126,7 +107,7 @@ class _StoreScreenState extends State<StoreScreen> {
         _setBusy(tr('Wysyłanie…'));
         final size = await enc.length();
         await _relay!.put(cipher: enc, size: size, blocks: blocks,
-            wrappedKey: StoreCrypto.wrapDek(dek, _kek!, _recovery),
+            wrappedKey: StoreCrypto.wrapDek(dek, _kek!),
             nameEnc: StoreCrypto.encryptName(_kek!, f.name),
             onProgress: (s) => _setProgress(s / size));
       } finally { try { await enc.parent.delete(recursive: true); } catch (_) {} }
@@ -166,6 +147,29 @@ class _StoreScreenState extends State<StoreScreen> {
     await _run(null, () async { await _relay!.del(it['id'] as String); await _refresh(); });
   }
 
+  /// Zamknięcie pakietu: pliki znikają u sprzedawców, opłaty kończą się z tą dobą, karta pod
+  /// listą nodów wraca do „Kup miejsce". Jedno pytanie z liczbą plików — nic więcej do wpisania.
+  Future<void> _close() async {
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.card,
+      title: Text(tr('Zamknąć pakiet?'), style: const TextStyle(color: AppTheme.text)),
+      content: Text(tr('Usunie %s plików u sprzedawców. Opłaty kończą się z tą dobą, ponowny zakup zaczyna od zera.', [_items.length]),
+          style: const TextStyle(color: AppTheme.muted)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6666)), child: Text(tr('Zamknij pakiet'))),
+      ]));
+    if (ok != true) return;
+    await _run(tr('Zamykam pakiet…'), () async {
+      final r = await _relay!.close();
+      if (r['ok'] != true) throw Exception(r['error'] ?? 'close failed');
+      if (!mounted) return;
+      _snack(tr('Pakiet zamknięty'));
+      Navigator.pop(context);
+    });
+  }
+
   // ── stan/UI ──
   Future<void> _run(String? label, Future<void> Function() body) async {
     setState(() { _busy = label; _progress = null; _error = null; });
@@ -184,9 +188,15 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget build(BuildContext context) {
     final ready = _relay != null && _kek != null;
     return Scaffold(
-      appBar: AppBar(title: Text('${tr('Dysk')} · ${widget.label}')),
+      appBar: AppBar(title: Text(tr('Dysk')), actions: [
+        if (_pkg != null && _busy == null)
+          PopupMenuButton<String>(
+            onSelected: (_) => _close(),
+            itemBuilder: (_) => [PopupMenuItem(value: 'close', child: Text(tr('Zamknij pakiet')))],
+          ),
+      ]),
       floatingActionButton: (_pkg != null && _busy == null)
-          ? FloatingActionButton.extended(onPressed: _upload, backgroundColor: AppTheme.teal,
+          ? FloatingActionButton.extended(onPressed: _upload, backgroundColor: AppTheme.teal, heroTag: null,
               icon: const Icon(Icons.upload_file, color: Colors.black),
               label: Text(tr('Dodaj plik'), style: const TextStyle(color: Colors.black)))
           : null,
@@ -229,6 +239,9 @@ class _StoreScreenState extends State<StoreScreen> {
       const SizedBox(height: 8),
       Text(tr('%s GALU na dobę · kopii: %s', [daily.toStringAsFixed(1), sellers]),
           style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+      if (_n(_pkg!['unpaid_days']) > 0) Padding(padding: const EdgeInsets.only(top: 4),
+          child: Text(tr('Zaległość: %s dni — wysyłki wstrzymane, doładuj GALU', [_n(_pkg!['unpaid_days']).toInt()]),
+              style: const TextStyle(color: AppTheme.amber, fontSize: 12))),
       const SizedBox(height: 10),
       OutlinedButton.icon(onPressed: _busy == null ? _grow : null,
           icon: const Icon(Icons.add, size: 16),

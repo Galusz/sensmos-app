@@ -3,8 +3,11 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
-import 'package:bip39/bip39.dart' as bip39;
+import 'dart:ui' show RootIsolateToken;
 import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart' as cg;
+import 'package:cryptography_flutter/cryptography_flutter.dart';
+import 'package:flutter/services.dart' show BackgroundIsolateBinaryMessenger;
 import 'package:pointycastle/export.dart';
 
 /// Szyfrowanie Store — wszystko dzieje się na telefonie, serwer i sprzedawcy widzą szyfrogram.
@@ -14,12 +17,17 @@ import 'package:pointycastle/export.dart';
 /// (RFC 6979, sprawdzone tool/sig_det.dart), więc ten sam portfel = ten sam klucz, na każdym
 /// urządzeniu. Ledger podpisuje tak samo — to ten sam interfejs, inny podpisujący.
 ///
-/// Każdy plik ma własny losowy klucz (DEK), zapakowany DWA razy: kluczem głównym i kluczem
-/// odzyskiwania (24 słowa BIP39 pokazane raz). Utrata portfela ≠ utrata plików, jeśli są słowa.
+/// Każdy plik ma własny losowy klucz (DEK), zapakowany kluczem głównym. Portfel JEST kluczem:
+/// jego zaszyfrowana kopia leży na nodzie (odzysk po PIN), osobnej ścieżki odzyskiwania nie ma.
 ///
 /// Układ szyfrogramu:  [sól 8 B][ramka…]  ramka = AES-256-GCM(DEK, nonce = sól‖nr, aad = nr)
 /// nad ≤1 MiB jawnego tekstu, czyli ≤1 MiB + 16 B tagu. Nonce z licznika: żadnej powtórki
 /// w obrębie pliku, sól losowa per plik. AAD z numerem ramki blokuje przestawianie ramek.
+///
+/// Ramki pliku liczy NATYWNE AES systemu (cryptography_flutter: na Androidzie javax.crypto,
+/// sprzętowe) — czysty Dart robił kilka MB/s i film szyfrował się minutami. Drobiazgi (klucz
+/// pliku, nazwa) zostają w pointycastle: są małe i potrzebują synchronicznego API w build().
+/// Ten sam algorytm i układ bajtów, więc pliki wgrane wcześniej otwierają się bez zmian.
 class StoreCrypto {
   static const int chunk = 1024 * 1024;       // jawny tekst na ramkę
   static const int tag = 16, nonceLen = 12, saltLen = 8;
@@ -61,11 +69,8 @@ class StoreCrypto {
         .process(Uint8List.fromList(b.sublist(nonceLen)));
   }
 
-  /// Klucz pliku zapakowany dwa razy → JSON {"k": kluczem głównym, "r": kluczem odzyskiwania}.
-  static String wrapDek(Uint8List dek, Uint8List kek, Uint8List? recovery) => jsonEncode({
-        'k': seal(kek, dek, aad: 'dek'),
-        if (recovery != null) 'r': seal(recovery, dek, aad: 'dek'),
-      });
+  /// Klucz pliku zapakowany kluczem głównym → JSON {"k": …}.
+  static String wrapDek(Uint8List dek, Uint8List kek) => jsonEncode({'k': seal(kek, dek, aad: 'dek')});
 
   static Uint8List unwrapDek(String wrapped, Uint8List kek) =>
       open(kek, (jsonDecode(wrapped) as Map)['k'] as String, aad: 'dek');
@@ -75,18 +80,6 @@ class StoreCrypto {
   static String decryptName(Uint8List kek, String? enc) {
     if (enc == null || enc.isEmpty) return '';
     try { return utf8.decode(open(kek, enc, aad: 'name')); } catch (_) { return '?'; }
-  }
-
-  // ── kod odzyskiwania: 32 B losowe ↔ 24 słowa BIP39 ──
-  static (Uint8List key, String words) newRecovery() {
-    final key = randomBytes(32);
-    final hex = key.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-    return (key, bip39.entropyToMnemonic(hex));
-  }
-
-  static Uint8List recoveryFromWords(String words) {
-    final hex = bip39.mnemonicToEntropy(words.trim().toLowerCase().split(RegExp(r'\s+')).join(' '));
-    return Uint8List.fromList(List.generate(hex.length ~/ 2, (i) => int.parse(hex.substring(2 * i, 2 * i + 2), radix: 16)));
   }
 
   // ── strumień pliku ──
@@ -99,25 +92,29 @@ class StoreCrypto {
   }
   static Uint8List _aad(int idx) => Uint8List(4)..buffer.asByteData().setUint32(0, idx);
 
+  static final _aes = cg.AesGcm.with256bits(nonceLength: nonceLen);
+
   /// Szyfruje plik spod `srcPath` do pliku tymczasowego. Zwraca (ścieżka szyfrogramu, skróty
   /// bloków 10 MiB hex). Dwa przebiegi: najpierw szyfr na dysk, potem skróty — bo `put` musi
   /// znać skróty ZANIM wyśle pierwszy bajt, a plik może być większy niż pamięć telefonu.
   ///
-  /// Pracuje na ŚCIEŻKACH, nie na strumieniach, żeby dało się ją odpalić w `Isolate.run`:
-  /// AES-GCM w czystym Darcie na wątku głównym zamraża UI (ANR na MIUI już przy zdjęciu).
+  /// Pracuje na ŚCIEŻKACH, nie na strumieniach, żeby dało się ją odpalić w `Isolate.run`.
   static Future<(String, List<String>)> encryptPathToTemp(String srcPath, Uint8List dek) async {
     final dir = await Directory.systemTemp.createTemp('sensmos-store-');
     final out = File('${dir.path}/enc.bin');
     final sink = out.openWrite();
     final salt = randomBytes(saltLen);
     sink.add(salt);
+    final key = cg.SecretKey(dek);
     final src = await File(srcPath).open();
     var idx = 0;
     try {
       final total = await src.length();
       for (var off = 0; off < total; off += chunk) {
         final plain = await src.read(min(chunk, total - off));
-        sink.add(_gcm(true, dek, _nonce(salt, idx), _aad(idx)).process(plain));
+        final box = await _aes.encrypt(plain, secretKey: key, nonce: _nonce(salt, idx), aad: _aad(idx));
+        sink.add(box.cipherText);
+        sink.add(box.mac.bytes);
         idx++;
       }
     } finally { await src.close(); }
@@ -125,22 +122,32 @@ class StoreCrypto {
     return (out.path, await blockHashes(out));
   }
 
-  /// Uruchomienie w izolacie Z TEGO miejsca, nie z ekranu: domknięcie utworzone w metodzie
-  /// State łapie kontekst razem z `this` (State jest nieprzesyłalny → „object is unsendable").
-  /// Tu jest tylko ścieżka i klucz.
-  static Future<(String, List<String>)> encryptInIsolate(String srcPath, Uint8List dek) =>
-      Isolate.run(() => encryptPathToTemp(srcPath, dek));
-  static Future<Uint8List> decryptInIsolate(String encPath, Uint8List dek) =>
-      Isolate.run(() => decryptPath(encPath, dek));
+  /// Izolat Z TEGO miejsca, nie z ekranu: domknięcie utworzone w metodzie State łapie `this`
+  /// (State jest nieprzesyłalny → „object is unsendable"). Natywne AES idzie kanałem do
+  /// platformy, a kanał w izolacie tła trzeba najpierw zarejestrować tokenem izolatu głównego.
+  static Future<(String, List<String>)> encryptInIsolate(String srcPath, Uint8List dek) {
+    final token = RootIsolateToken.instance!;
+    return Isolate.run(() { _initIsolate(token); return encryptPathToTemp(srcPath, dek); });
+  }
+  static Future<Uint8List> decryptInIsolate(String encPath, Uint8List dek) {
+    final token = RootIsolateToken.instance!;
+    return Isolate.run(() { _initIsolate(token); return decryptPath(encPath, dek); });
+  }
+  static void _initIsolate(RootIsolateToken token) {
+    BackgroundIsolateBinaryMessenger.ensureInitialized(token);
+    FlutterCryptography.enable();
+  }
 
   static Future<List<String>> blockHashes(File f) async {
     final raf = await f.open();
     final out = <String>[];
+    final h = cg.Sha256();
     try {
       final total = await raf.length();
       for (var off = 0; off < total; off += block) {
         await raf.setPosition(off);
-        out.add(sha256.convert(await raf.read(min(block, total - off))).toString());
+        final d = await h.hash(await raf.read(min(block, total - off)));
+        out.add(d.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join());
       }
     } finally { await raf.close(); }
     return out;
@@ -152,11 +159,15 @@ class StoreCrypto {
     final data = await File(encPath).readAsBytes();
     if (data.length < saltLen) throw const FormatException('too short');
     final salt = Uint8List.sublistView(data, 0, saltLen);
+    final key = cg.SecretKey(dek);
     final out = BytesBuilder(copy: false);
     var off = saltLen, idx = 0;
     while (off < data.length) {
       final n = min(frame, data.length - off);
-      out.add(_gcm(false, dek, _nonce(salt, idx), _aad(idx)).process(Uint8List.sublistView(data, off, off + n)));
+      if (n <= tag) throw const FormatException('truncated frame');
+      final box = cg.SecretBox(Uint8List.sublistView(data, off, off + n - tag),
+          nonce: _nonce(salt, idx), mac: cg.Mac(Uint8List.sublistView(data, off + n - tag, off + n)));
+      out.add(await _aes.decrypt(box, secretKey: key, aad: _aad(idx)));
       off += n; idx++;
     }
     return out.takeBytes();

@@ -1,7 +1,7 @@
-﻿name: sensmos_app
+name: sensmos_app
 description: SENSMOS — sieć inteligentnych czujników
 publish_to: 'none'
-version: 1.5.56+93
+version: 1.5.57+94
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -33,7 +33,6 @@ dependencies:
 
   # Crypto wallet
   web3dart: ^2.7.3
-  bip39: ^1.0.6
   ed25519_hd_key: ^2.2.0
   pointycastle: ^3.7.4
 
@@ -70,6 +69,8 @@ dependencies:
   url_launcher: ^6.3.0
   # Wersja aplikacji czytana z pakietu — patrz Config.initVersion (koniec z ręczną stałą)
   package_info_plus: ^8.0.0
+  cryptography: ^2.9.0
+  cryptography_flutter: ^2.3.4
 
 dev_dependencies:
   flutter_test:

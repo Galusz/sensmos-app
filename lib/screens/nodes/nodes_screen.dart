@@ -10,6 +10,8 @@ import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
 import '../../core/core_event.dart';
 import '../../services/wallet_service.dart';
+import '../../services/owner_token_service.dart';
+import '../../services/store_card_pref.dart';
 import '../../services/node_service.dart';
 import '../../services/ble_service.dart';
 import '../../log.dart';
@@ -58,6 +60,8 @@ class _NodesScreenState extends State<NodesScreen> {
   final _coverage = <String, String>{};
   final _beData = <String, Map<String, dynamic>>{}; // /v1/nodes/:id (sąsiedzi/promień/saldo)
   final _kinds = <String, Set<String>>{}; // podpięte integracje per node (opt-in)
+  final _attachments = <String, List<Map<String, dynamic>>>{}; // Additions: przystawki, za które node ręczy
+  Map<String, dynamic>? _storePkg;   // karta Storage: /v1/store/package/:owner (na portfel, bez podpisu)
   List<Map<String, dynamic>> _myBeNodes = []; // WSZYSTKIE nody walleta wg BE — PRYMARNE źródło
   final _nodeErr = <String, String>{};
   String? _balance;
@@ -67,6 +71,8 @@ class _NodesScreenState extends State<NodesScreen> {
   @override
   void initState() {
     super.initState();
+    StoreCardPref.load();
+    StoreCardPref.hidden.addListener(_onStorePref);
     _refresh();
     // częste odświeżanie statusu online (ws_online z BE = żywy WS, nie próg 10 min)
     _poll = Timer.periodic(const Duration(seconds: 10), (_) {
@@ -76,7 +82,7 @@ class _NodesScreenState extends State<NodesScreen> {
       // Saldo to DRUGIE, niezależne źródło tej samej liczby co w Portfelu. Bez tego po claimie
       // kafel trzymał kwotę sprzed operacji aż do pull-to-refresh albo restartu apki.
       // Co 3. tick (30 s) — saldo nie potrzebuje granulacji statusu online.
-      if (++_tick % 3 == 0) _fetchBalance();
+      if (++_tick % 3 == 0) { _fetchBalance(); _fetchStorePkg(); }
     });
     // Skróty z widgetu na pulpicie — przy starcie i przy każdym kolejnym stuknięciu.
     DeepLinkService.initial().then((l) { if (l != null) _handleLink(l); });
@@ -188,8 +194,11 @@ class _NodesScreenState extends State<NodesScreen> {
   @override
   void dispose() {
     _poll?.cancel();
+    StoreCardPref.hidden.removeListener(_onStorePref);
     super.dispose();
   }
+
+  void _onStorePref() { if (mounted) setState(() {}); }
 
   Future<void> _refresh() async {
     final ns = context.read<NodeService>();
@@ -197,7 +206,20 @@ class _NodesScreenState extends State<NodesScreen> {
     _probeAllLocal();
     _pruneStale();
     _fetchBalance();
+    _fetchStorePkg();
     for (final n in ns.nodes) { _fetchBeData(n.id); }
+  }
+
+  // Karta Storage czyta publiczne liczby pakietu — bez podpisu, żeby lista nodów nie wymagała
+  // odblokowanego portfela.
+  Future<void> _fetchStorePkg() async {
+    final owner = context.read<CoreBloc>().state.wallet?.address;
+    if (owner == null) return;
+    try {
+      final r = await http.get(Uri.parse('${Config.beUrl}/v1/store/package/${owner.toLowerCase()}'))
+          .timeout(const Duration(seconds: 5));
+      if (mounted) setState(() => _storePkg = jsonDecode(r.body) as Map<String, dynamic>);
+    } catch (e) { Log.w('nodes', 'store: $e'); }
   }
 
   // ── merge BE (prymarne) + lokalne wpisy (IP/PIN) → jedna lista ──
@@ -457,6 +479,7 @@ class _NodesScreenState extends State<NodesScreen> {
       final coverage = best?.toStringAsFixed(3) ?? '—';
       if (mounted) setState(() {
         _coverage[deviceId] = coverage;
+        _attachments[deviceId] = ((j['attachments'] as List?) ?? const []).cast<Map<String, dynamic>>();
         _beData[deviceId] = {
           'neighbors': device['neighbor_count']?.toString() ?? '0',
           'radius': device['radius_km'] != null
@@ -637,6 +660,10 @@ class _NodesScreenState extends State<NodesScreen> {
                     // o wpisach celowanych (kraj / wersja FW / konkretne portfele).
                     NewsSection(owner: state.wallet?.address),
                     ...list.map(_buildCard),
+                    // Karta Storage: na portfel, nie na noda — dlatego pod listą, nie w karcie.
+                    // Warunek co-najmniej-jeden-node pilnuje też BE (handel wewnętrzny).
+                    if (!StoreCardPref.hidden.value && state.wallet != null && _myBeNodes.isNotEmpty)
+                      _storageCard(),
                   ],
                 ),
               ),
@@ -699,7 +726,6 @@ class _NodesScreenState extends State<NodesScreen> {
       IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
       IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
       IntegrationKind.lanPanel => LanPanelsScreen(deviceId: id, label: name),
-      IntegrationKind.store => StoreScreen(deviceId: id, label: name),
     };
     // Po powrocie odśwież parowanie — ekran mógł je zmienić (parowanie w terminalu,
     // samonaprawa kasująca martwy klucz przy „node not paired").
@@ -1055,6 +1081,15 @@ class _NodesScreenState extends State<NodesScreen> {
               ]),
               const SizedBox(height: 14),
 
+              // ── Additions: przystawki, za które ten node ręczy (brama LoRa, agent Store).
+              // Nie integracje: integrację dodaje user w apce, przystawkę paruje się na LAN-ie.
+              if ((_attachments[id] ?? const []).isNotEmpty) ...[
+                _groupLabel(Icons.usb_outlined, tr('Dodatki')),
+                const SizedBox(height: 8),
+                for (final a in _attachments[id]!) _attachmentTile(id, a),
+                const SizedBox(height: 14),
+              ],
+
               // ── Integracje (opt-in: user dodaje tylko to, czego potrzebuje) ──
               _groupLabel(Icons.extension_outlined, tr('Integracje')),
               const SizedBox(height: 8),
@@ -1190,6 +1225,186 @@ class _NodesScreenState extends State<NodesScreen> {
         ],
       ]),
     );
+  }
+
+  // ── Additions ──
+  Widget _attachmentTile(String deviceId, Map<String, dynamic> a) {
+    final isStore = a['kind'] == 'store';
+    final store = a['store'] as Map<String, dynamic>?;
+    final online = a['online'] == true;
+    final rawName = (a['name'] as String?)?.trim() ?? '';
+    final name = rawName.isNotEmpty ? rawName : (isStore ? 'Store' : tr('Brama LoRa'));
+    final since = DateTime.tryParse('${a['created_at']}')?.toLocal();
+    final sinceS = since == null ? '' : ' · ${tr('od %s', ['${since.day}.${since.month.toString().padLeft(2, '0')}'])}';
+    final String info;
+    if (isStore && store != null) {
+      info = '${tr('oferowane %s GB · zajęte %s GB', [_gbS(store['capacity_b']), _gbS(store['used_b'])])}\n'
+          '${tr('kopii u Ciebie: %s · dowody 7 dni: %s ✓ %s ✗', [store['objects'] ?? 0, store['proof_ok_7d'] ?? 0, store['proof_fail_7d'] ?? 0])}\n'
+          '${tr('zarobek 7 dni: %s · łącznie: %s GALU', [_galuS(store['earned_7d']), _galuS(store['earned_total'])])}';
+    } else {
+      info = tr('meldunków: %s', [a['req_count'] ?? 0]) + sinceS;
+    }
+    return Card(
+      color: AppTheme.surface, margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        dense: true,
+        leading: Icon(isStore ? Icons.sd_storage_outlined : Icons.cell_tower,
+            color: online ? AppTheme.teal : AppTheme.muted),
+        title: Row(children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(shape: BoxShape.circle,
+              color: online ? AppTheme.teal : AppTheme.muted)),
+          const SizedBox(width: 8),
+          Expanded(child: Text('${isStore ? 'Store' : tr('Brama LoRa')} · $name',
+              style: const TextStyle(color: AppTheme.text, fontSize: 13), overflow: TextOverflow.ellipsis)),
+          Text(online ? tr('online') : tr('offline'),
+              style: TextStyle(color: online ? AppTheme.teal : AppTheme.muted, fontSize: 11)),
+        ]),
+        subtitle: Text(info, style: const TextStyle(color: AppTheme.muted, fontSize: 11, height: 1.35)),
+        onLongPress: () => _revokeAttachment(deviceId, a, name),
+      ),
+    );
+  }
+
+  String _gbS(dynamic b) => ((num.tryParse('$b') ?? 0) / 1073741824).toStringAsFixed(1);
+  String _galuS(dynamic v) => (num.tryParse('$v') ?? 0).toStringAsFixed(2);
+
+  /// Odłączenie przystawki = odebranie jej tokenu. Token właściciela, gdy jest w magazynie
+  /// (portfel zostaje zamknięty); inaczej podpis portfela.
+  Future<void> _revokeAttachment(String deviceId, Map<String, dynamic> a, String name) async {
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.card,
+      title: Text(tr('Odłączyć %s?', [name]), style: const TextStyle(color: AppTheme.text)),
+      content: Text(tr('Token przystawki zostanie odebrany, agent natychmiast traci dostęp.'),
+          style: const TextStyle(color: AppTheme.muted)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFFF6666)), child: Text(tr('Odłącz'))),
+      ]));
+    if (ok != true || !mounted) return;
+    try {
+      final owner = context.read<CoreBloc>().state.wallet?.address;
+      if (owner == null) throw Exception(tr('Brak walleta'));
+      final wallet = context.read<WalletService>();
+      final body = <String, dynamic>{};
+      final tok = await OwnerTokenService().cached(owner);
+      if (tok != null) {
+        body['owner_token'] = tok;
+      } else {
+        final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+        body['ts'] = ts;
+        body['sig'] = await wallet.signMessage('sensmos:attachment:revoke:${a['id']}:$ts');
+      }
+      final res = await http.delete(Uri.parse('${Config.beUrl}/v1/nodes/$deviceId/attachments/${a['id']}'),
+          headers: {'Content-Type': 'application/json'}, body: jsonEncode(body)).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) throw Exception(jsonDecode(res.body)['error'] ?? res.statusCode);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Odłączono'))));
+      _fetchBeData(deviceId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e'), backgroundColor: const Color(0xFFFF4444)));
+    }
+  }
+
+  // ── Storage (na portfel) ──
+  Widget _storageCard() {
+    final p = _storePkg;
+    final has = p?['has_package'] == true;
+    final limit = num.tryParse('${p?['limit_b']}') ?? 0, used = num.tryParse('${p?['used_b']}') ?? 0;
+    final unpaid = (num.tryParse('${p?['unpaid_days']}') ?? 0).toInt();
+    // Cały kafel jest przyciskiem: z pakietem prowadzi do plików, bez pakietu do zakupu
+    // (pytanie z ceną, dopiero potem ekran, który zakłada pakiet).
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+      color: AppTheme.card,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: has ? _openStore : _buyStore,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+      padding: const EdgeInsets.all(14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.sd_storage_outlined, color: AppTheme.teal, size: 20),
+          const SizedBox(width: 8),
+          const Expanded(child: Text('Storage', style: TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600))),
+          const Icon(Icons.chevron_right, color: AppTheme.muted, size: 20),
+          IconButton(icon: const Icon(Icons.close, size: 18, color: AppTheme.muted), tooltip: tr('Ukryj kartę'),
+              visualDensity: VisualDensity.compact, onPressed: _hideStoreCard),
+        ]),
+        if (!has) ...[
+          Text(tr('Kup miejsce'), style: const TextStyle(color: AppTheme.teal, fontSize: 13, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 4),
+          Text(tr('Miejsce na pliki u innych właścicieli nodów, szyfrowane w telefonie.'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+        ] else ...[
+          Text(tr('Pakiet %s GB · zajęte %s GB', [_gbS(limit), _gbS(used)]), style: const TextStyle(color: AppTheme.text, fontSize: 13)),
+          const SizedBox(height: 6),
+          LinearProgressIndicator(value: limit > 0 ? (used / limit).clamp(0, 1).toDouble() : 0,
+              color: AppTheme.teal, backgroundColor: AppTheme.surface),
+          const SizedBox(height: 6),
+          Text(tr('plików: %s · %s GALU na dobę', [p?['files'] ?? 0, _galuS(p?['daily'])]),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+          if (unpaid > 0) Padding(padding: const EdgeInsets.only(top: 4),
+              child: Text(tr('Zaległość: %s dni — wysyłki wstrzymane, doładuj GALU', [unpaid]),
+                  style: const TextStyle(color: AppTheme.amber, fontSize: 12))),
+        ],
+      ]),
+        ),
+      ),
+      ),
+    );
+  }
+
+  // Dwa szybkie tapnięcia w kartę otwierały DWA ekrany plików naraz (dwa przyciski „Dodaj plik"
+  // z tym samym znacznikiem hero → wyjątek przy animacji, drugi ekran zakładał pakiet od nowa).
+  bool _storeOpen = false;
+  Future<void> _openStore() async {
+    if (_storeOpen) return;
+    _storeOpen = true;
+    try { await Navigator.push(context, MaterialPageRoute(builder: (_) => const StoreScreen())); }
+    finally { _storeOpen = false; }
+    _fetchStorePkg();
+  }
+
+  /// Zakup dopiero po pytaniu z ceną — samo wejście na ekran plików zakłada pakiet, więc bez
+  /// tego pytania tap w kafel kupowałby bez słowa. Cena i wolne miejsce z /v1/store/capacity.
+  Future<void> _buyStore() async {
+    Map<String, dynamic> c;
+    try {
+      final r = await http.get(Uri.parse('${Config.beUrl}/v1/store/capacity')).timeout(const Duration(seconds: 8));
+      c = jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      return;
+    }
+    if (!mounted) return;
+    final free = (num.tryParse('${c['free_packages']}') ?? 0).toInt();
+    if (free <= 0 && c['test_mode'] != true) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Brak wolnego miejsca — wróć później'))));
+      return;
+    }
+    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
+      backgroundColor: AppTheme.card,
+      title: Text(tr('Wykupić pakiet %s GB za %s GALU na dobę?', [c['package_gb'] ?? 10, c['daily_galu'] ?? 2]),
+          style: const TextStyle(color: AppTheme.text)),
+      content: Text(tr('Opłata nalicza się za każdą dobę, także przy pustym pakiecie. Pakiet zamkniesz w każdej chwili.'),
+          style: const TextStyle(color: AppTheme.muted)),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
+            child: Text(tr('Kup miejsce'))),
+      ]));
+    if (ok == true) _openStore();
+  }
+
+  Future<void> _hideStoreCard() async {
+    await StoreCardPref.set(true);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Karta ukryta — włączysz ją w Ustawieniach'))));
   }
 
   Widget _reachBadge(bool localReachable, bool hasLocal) {
