@@ -872,6 +872,7 @@ const Map<String, String> ptMap = {
   "Zwiń do paska": "Recolher para a barra",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Obiekt bez klucza (wysyłka testowa) — nie da się odszyfrować": "Objeto sem chave (envio de teste) — não pode ser decifrado",
   "Dysk": "Armazenamento",
   "Miejsce w sieci": "Espaço na rede",
   "Sprzedawców online: %s": "Vendedores online: %s",

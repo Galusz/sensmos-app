@@ -1001,6 +1001,7 @@ const Map<String, String> _enMap = {
   "Zwiń do paska": "Collapse to the bar",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Obiekt bez klucza (wysyłka testowa) — nie da się odszyfrować": "Object without a key (test upload) — cannot be decrypted",
   "Dysk": "Storage",
   "Miejsce w sieci": "Space in the network",
   "Sprzedawców online: %s": "Sellers online: %s",
@@ -1964,6 +1965,7 @@ const Map<String, String> _deMap = {
   "Zwiń do paska": "In die Leiste einklappen",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Obiekt bez klucza (wysyłka testowa) — nie da się odszyfrować": "Objekt ohne Schlüssel (Test-Upload) — nicht entschlüsselbar",
   "Dysk": "Speicher",
   "Miejsce w sieci": "Platz im Netzwerk",
   "Sprzedawców online: %s": "Anbieter online: %s",

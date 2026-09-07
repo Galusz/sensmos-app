@@ -136,7 +136,8 @@ class _StoreScreenState extends State<StoreScreen> {
   }
 
   Future<void> _download(Map<String, dynamic> it) async {
-    final size = (it['size_b'] as num).toInt();
+    final size = _n(it['size_b']).toInt();
+    if (it['wrapped_key'] == null) { _snack(tr('Obiekt bez klucza (wysyłka testowa) — nie da się odszyfrować')); return; }
     if (size > maxDownloadMb * 1024 * 1024) { _snack(tr('Za duży plik do pobrania na telefon (limit %s MB)', [maxDownloadMb])); return; }
     final name = StoreCrypto.decryptName(_kek!, it['name_enc'] as String?);
     await _run(tr('Pobieranie…'), () async {
@@ -176,6 +177,8 @@ class _StoreScreenState extends State<StoreScreen> {
   void _setBusy(String s) { if (mounted) setState(() { _busy = s; _progress = null; }); }
   void _setProgress(double p) { if (mounted) setState(() => _progress = p.clamp(0, 1)); }
   void _snack(String s) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s))); }
+  // BIGINT z Postgresa przychodzi przez JSON jako tekst — rzut `as num` wywalał ekran.
+  num _n(dynamic v) => v is num ? v : (num.tryParse('$v') ?? 0);
   String _gb(num b) => (b / 1073741824).toStringAsFixed(b >= 1073741824 ? 1 : 2);
   String _mb(num b) => b >= 1048576 ? '${(b / 1048576).toStringAsFixed(1)} MB' : '${(b / 1024).toStringAsFixed(0)} KB';
 
@@ -217,8 +220,8 @@ class _StoreScreenState extends State<StoreScreen> {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children));
 
   Widget _packageCard() {
-    final limit = (_pkg!['limit_b'] as num?) ?? 0, used = (_pkg!['used_b'] as num?) ?? 0;
-    final daily = (_pkg!['daily'] as num?) ?? 0, sellers = (_pkg!['sellers'] as List?)?.length ?? 0;
+    final limit = _n(_pkg!['limit_b']), used = _n(_pkg!['used_b']);
+    final daily = _n(_pkg!['daily']), sellers = (_pkg!['sellers'] as List?)?.length ?? 0;
     return _card([
       Text(tr('Pakiet %s GB · zajęte %s GB', [_gb(limit), _gb(used)]),
           style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600)),
@@ -238,7 +241,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Widget _capacityCard() {
     final c = _capacity;
-    final free = (c?['free_packages'] as num?)?.toInt() ?? 0;
+    final free = _n(c?['free_packages']).toInt();
     return _card([
       Text(tr('Miejsce w sieci'), style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600)),
       const SizedBox(height: 6),
@@ -260,7 +263,7 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Widget _fileTile(Map<String, dynamic> it) {
     final name = StoreCrypto.decryptName(_kek!, it['name_enc'] as String?);
-    final copies = (it['copies'] as num?)?.toInt() ?? 0;
+    final copies = _n(it['copies']).toInt();
     final created = DateTime.tryParse('${it['created_at']}')?.toLocal();
     return Card(
       color: AppTheme.card, margin: const EdgeInsets.only(bottom: 8),
@@ -268,7 +271,7 @@ class _StoreScreenState extends State<StoreScreen> {
         leading: const Icon(Icons.insert_drive_file_outlined, color: AppTheme.teal),
         title: Text(name.isEmpty ? (it['id'] as String).substring(0, 8) : name,
             style: const TextStyle(color: AppTheme.text), overflow: TextOverflow.ellipsis),
-        subtitle: Text('${_mb(it['size_b'] as num)} · ${tr('kopii: %s', [copies])}'
+        subtitle: Text('${_mb(_n(it['size_b']))} · ${tr('kopii: %s', [copies])}'
             '${created != null ? ' · ${created.day}.${created.month.toString().padLeft(2, '0')}' : ''}',
             style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
         trailing: const Icon(Icons.download, color: AppTheme.muted, size: 20),
