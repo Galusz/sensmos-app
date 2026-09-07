@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -112,14 +113,16 @@ class _StoreScreenState extends State<StoreScreen> {
   });
 
   Future<void> _upload() async {
-    final picked = await FilePicker.platform.pickFiles(withReadStream: true);
+    final picked = await FilePicker.platform.pickFiles();
     final f = picked?.files.single;
-    if (f == null || f.readStream == null) return;
+    if (f == null || f.path == null) return;
     if (f.size <= 0) { _snack(tr('Plik jest pusty')); return; }
+    final path = f.path!;
     await _run(tr('Szyfrowanie…'), () async {
       final dek = StoreCrypto.randomBytes(32);
-      final (enc, blocks) = await StoreCrypto.encryptToTemp(f.readStream!, dek,
-          onProgress: (d) => _setProgress(d / f.size));
+      // AES w czystym Darcie → osobny izolat, inaczej UI stoi (ANR na MIUI już przy zdjęciu).
+      final (encPath, blocks) = await Isolate.run(() => StoreCrypto.encryptPathToTemp(path, dek));
+      final enc = File(encPath);
       try {
         _setBusy(tr('Wysyłanie…'));
         final size = await enc.length();
@@ -143,7 +146,8 @@ class _StoreScreenState extends State<StoreScreen> {
         await _relay!.get(it['id'] as String, enc, onProgress: (g) => _setProgress(g / size));
         _setBusy(tr('Odszyfrowywanie…'));
         final dek = StoreCrypto.unwrapDek(it['wrapped_key'] as String, _kek!);
-        final plain = await StoreCrypto.decryptFile(enc, dek);
+        final encPath = enc.path;
+        final plain = await Isolate.run(() => StoreCrypto.decryptPath(encPath, dek));
         final path = await FilePicker.platform.saveFile(fileName: name.isEmpty ? 'file' : name, bytes: plain);
         if (path != null) _snack(tr('Pobrano: %s', [name]));
       } finally { try { await dir.delete(recursive: true); } catch (_) {} }

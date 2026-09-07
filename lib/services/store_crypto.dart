@@ -98,35 +98,30 @@ class StoreCrypto {
   }
   static Uint8List _aad(int idx) => Uint8List(4)..buffer.asByteData().setUint32(0, idx);
 
-  /// Szyfruje `src` do pliku tymczasowego. Zwraca (plik szyfrogramu, skróty bloków 10 MiB hex).
-  /// Dwa przebiegi: najpierw szyfr na dysk, potem skróty bloków — bo `put` musi znać skróty
-  /// ZANIM wyśle pierwszy bajt, a plik może być większy niż pamięć telefonu.
-  static Future<(File, List<String>)> encryptToTemp(Stream<List<int>> src, Uint8List dek,
-      {void Function(int done)? onProgress}) async {
+  /// Szyfruje plik spod `srcPath` do pliku tymczasowego. Zwraca (ścieżka szyfrogramu, skróty
+  /// bloków 10 MiB hex). Dwa przebiegi: najpierw szyfr na dysk, potem skróty — bo `put` musi
+  /// znać skróty ZANIM wyśle pierwszy bajt, a plik może być większy niż pamięć telefonu.
+  ///
+  /// Pracuje na ŚCIEŻKACH, nie na strumieniach, żeby dało się ją odpalić w `Isolate.run`:
+  /// AES-GCM w czystym Darcie na wątku głównym zamraża UI (ANR na MIUI już przy zdjęciu).
+  static Future<(String, List<String>)> encryptPathToTemp(String srcPath, Uint8List dek) async {
     final dir = await Directory.systemTemp.createTemp('sensmos-store-');
     final out = File('${dir.path}/enc.bin');
     final sink = out.openWrite();
     final salt = randomBytes(saltLen);
     sink.add(salt);
-    final buf = BytesBuilder(copy: false);
-    var idx = 0, done = 0;
-    void flush(Uint8List plain) {
-      sink.add(_gcm(true, dek, _nonce(salt, idx), _aad(idx)).process(plain));
-      idx++;
-    }
-    await for (final part in src) {
-      buf.add(part);
-      while (buf.length >= chunk) {
-        final all = buf.takeBytes();
-        flush(Uint8List.sublistView(all, 0, chunk));
-        if (all.length > chunk) buf.add(Uint8List.sublistView(all, chunk));
+    final src = await File(srcPath).open();
+    var idx = 0;
+    try {
+      final total = await src.length();
+      for (var off = 0; off < total; off += chunk) {
+        final plain = await src.read(min(chunk, total - off));
+        sink.add(_gcm(true, dek, _nonce(salt, idx), _aad(idx)).process(plain));
+        idx++;
       }
-      done += part.length;
-      onProgress?.call(done);
-    }
-    if (buf.length > 0) flush(buf.takeBytes());
+    } finally { await src.close(); }
     await sink.close();
-    return (out, await blockHashes(out));
+    return (out.path, await blockHashes(out));
   }
 
   static Future<List<String>> blockHashes(File f) async {
@@ -143,9 +138,9 @@ class StoreCrypto {
   }
 
   /// Odszyfrowuje plik szyfrogramu do pamięci (pobieranie na telefon — limit rozmiaru pilnuje
-  /// ekran). Zły tag = wyjątek, nigdy cicho zepsute dane.
-  static Future<Uint8List> decryptFile(File enc, Uint8List dek) async {
-    final data = await enc.readAsBytes();
+  /// ekran). Zły tag = wyjątek, nigdy cicho zepsute dane. Też do `Isolate.run`.
+  static Future<Uint8List> decryptPath(String encPath, Uint8List dek) async {
+    final data = await File(encPath).readAsBytes();
     if (data.length < saltLen) throw const FormatException('too short');
     final salt = Uint8List.sublistView(data, 0, saltLen);
     final out = BytesBuilder(copy: false);
