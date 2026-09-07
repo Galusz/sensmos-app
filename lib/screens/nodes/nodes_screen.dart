@@ -26,6 +26,7 @@ import '../terminal/terminal_hosts_screen.dart';
 import '../integrations/ha_panel_screen.dart';
 import '../integrations/link_report_screen.dart';
 import '../integrations/lan_panels_screen.dart';
+import '../integrations/store_screen.dart';
 import '../integrations/ha_settings_screen.dart';
 import '../../services/integrations/integration_kind.dart';
 import '../../services/integrations/integration_store.dart';
@@ -698,6 +699,7 @@ class _NodesScreenState extends State<NodesScreen> {
       IntegrationKind.homeAssistant => HaPanelScreen(deviceId: id, label: name),
       IntegrationKind.linkReport => LinkReportScreen(deviceId: id, label: name),
       IntegrationKind.lanPanel => LanPanelsScreen(deviceId: id, label: name),
+      IntegrationKind.store => StoreScreen(deviceId: id, label: name),
     };
     // Po powrocie odśwież parowanie — ekran mógł je zmienić (parowanie w terminalu,
     // samonaprawa kasująca martwy klucz przy „node not paired").
