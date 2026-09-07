@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:bip39/bip39.dart' as bip39;
@@ -123,6 +124,14 @@ class StoreCrypto {
     await sink.close();
     return (out.path, await blockHashes(out));
   }
+
+  /// Uruchomienie w izolacie Z TEGO miejsca, nie z ekranu: domknięcie utworzone w metodzie
+  /// State łapie kontekst razem z `this` (State jest nieprzesyłalny → „object is unsendable").
+  /// Tu jest tylko ścieżka i klucz.
+  static Future<(String, List<String>)> encryptInIsolate(String srcPath, Uint8List dek) =>
+      Isolate.run(() => encryptPathToTemp(srcPath, dek));
+  static Future<Uint8List> decryptInIsolate(String encPath, Uint8List dek) =>
+      Isolate.run(() => decryptPath(encPath, dek));
 
   static Future<List<String>> blockHashes(File f) async {
     final raf = await f.open();
