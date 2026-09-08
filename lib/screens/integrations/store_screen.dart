@@ -75,7 +75,7 @@ class _StoreScreenState extends State<StoreScreen> {
     if (!mounted) return;
     setState(() {
       _items = ((l['items'] as List?) ?? const []).cast<Map<String, dynamic>>();
-      _pkg = {...?_pkg, 'used_b': l['used_b'], 'limit_b': l['limit_b'], 'daily': l['daily'], 'sellers': l['sellers']};
+      _pkg = {...?_pkg, 'used_b': l['used_b'], 'limit_b': l['limit_b'], 'daily': l['daily'], 'sellers': l['sellers'], 'price_gb': l['price_gb']};
       _error = null;
     });
   }
@@ -88,6 +88,12 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _grow() => _run(tr('Dokupuję…'), () async {
     final r = await _relay!.package(addGb: 1);
+    if (r['ok'] != true) throw Exception(r['error']);
+    _pkg = r; await _refresh();
+  });
+
+  Future<void> _shrink() => _run(tr('Zmniejszam…'), () async {
+    final r = await _relay!.package(addGb: -1);
     if (r['ok'] != true) throw Exception(r['error']);
     _pkg = r; await _refresh();
   });
@@ -230,6 +236,9 @@ class _StoreScreenState extends State<StoreScreen> {
   Widget _packageCard() {
     final limit = _n(_pkg!['limit_b']), used = _n(_pkg!['used_b']);
     final daily = _n(_pkg!['daily']), sellers = (_pkg!['sellers'] as List?)?.length ?? 0;
+    // Cena za GB przychodzi z serwera (service_fees) — nic na sztywno.
+    final stepGalu = (_n(_pkg!['price_gb'] ?? 0.1) * sellers).toStringAsFixed(1);
+    final canShrink = limit > 1073741824 && limit - 1073741824 >= used;
     return _card([
       Text(tr('Pakiet %s GB · zajęte %s GB', [_gb(limit), _gb(used)]),
           style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600)),
@@ -243,10 +252,17 @@ class _StoreScreenState extends State<StoreScreen> {
           child: Text(tr('Zaległość: %s dni — wysyłki wstrzymane, doładuj GALU', [_n(_pkg!['unpaid_days']).toInt()]),
               style: const TextStyle(color: AppTheme.amber, fontSize: 12))),
       const SizedBox(height: 10),
-      OutlinedButton.icon(onPressed: _busy == null ? _grow : null,
-          icon: const Icon(Icons.add, size: 16),
-          label: Text(tr('Dokup 1 GB (+%s GALU/dobę)', [(0.1 * sellers).toStringAsFixed(1)])),
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.teal)),
+      Row(children: [
+        Expanded(child: OutlinedButton.icon(onPressed: _busy == null ? _grow : null,
+            icon: const Icon(Icons.add, size: 16),
+            label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Dokup 1 GB (+%s GALU/dobę)', [stepGalu]), maxLines: 1)),
+            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.teal, padding: const EdgeInsets.symmetric(horizontal: 8)))),
+        const SizedBox(width: 8),
+        Expanded(child: OutlinedButton.icon(onPressed: _busy == null && canShrink ? _shrink : null,
+            icon: const Icon(Icons.remove, size: 16),
+            label: FittedBox(fit: BoxFit.scaleDown, child: Text(tr('Zmniejsz o 1 GB (−%s GALU/dobę)', [stepGalu]), maxLines: 1)),
+            style: OutlinedButton.styleFrom(foregroundColor: AppTheme.muted, padding: const EdgeInsets.symmetric(horizontal: 8)))),
+      ]),
     ]);
   }
 

@@ -1001,6 +1001,8 @@ const Map<String, String> _enMap = {
   "Zwiń do paska": "Collapse to the bar",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Zmniejsz o 1 GB (−%s GALU/dobę)": "Shrink by 1 GB (−%s GALU/day)",
+  "Zmniejszam…": "Shrinking…",
   "Wykupić pakiet %s GB za %s GALU na dobę?": "Buy a %s GB package for %s GALU a day?",
   "Opłata nalicza się za każdą dobę, także przy pustym pakiecie. Pakiet zamkniesz w każdej chwili.": "You are charged for every day, an empty package included. You can close it at any time.",
   "Zamykam pakiet…": "Closing the package…",
@@ -1989,6 +1991,8 @@ const Map<String, String> _deMap = {
   "Zwiń do paska": "In die Leiste einklappen",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Zmniejsz o 1 GB (−%s GALU/dobę)": "Um 1 GB verkleinern (−%s GALU/Tag)",
+  "Zmniejszam…": "Verkleinere…",
   "Wykupić pakiet %s GB za %s GALU na dobę?": "%s-GB-Paket für %s GALU pro Tag kaufen?",
   "Opłata nalicza się za każdą dobę, także przy pustym pakiecie. Pakiet zamkniesz w każdej chwili.": "Berechnet wird jeder Tag, auch bei leerem Paket. Du kannst es jederzeit schließen.",
   "Zamykam pakiet…": "Paket wird geschlossen…",

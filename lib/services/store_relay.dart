@@ -36,8 +36,9 @@ class StoreRelay {
     if (r['ok'] != true) throw Exception(r['error'] ?? 'auth denied');
   }
 
+  /// addGb > 0 dokup, < 0 zmniejszenie, 0 = wykup/odczyt pakietu.
   Future<Map<String, dynamic>> package({int addGb = 0}) =>
-      _ask('package', {'type': 'package', if (addGb > 0) 'add_gb': addGb});
+      _ask('package', {'type': 'package', if (addGb != 0) 'add_gb': addGb});
   Future<Map<String, dynamic>> list() => _ask('list', {'type': 'list'});
   Future<Map<String, dynamic>> del(String id) => _ask('del', {'type': 'del', 'object_id': id});
   Future<Map<String, dynamic>> close() => _ask('close', {'type': 'close'});

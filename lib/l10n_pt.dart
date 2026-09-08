@@ -872,6 +872,8 @@ const Map<String, String> ptMap = {
   "Zwiń do paska": "Recolher para a barra",
 
   // ── 1.5.57: Store (Dysk) ──────────────────────────────
+  "Zmniejsz o 1 GB (−%s GALU/dobę)": "Reduzir 1 GB (−%s GALU/dia)",
+  "Zmniejszam…": "A reduzir…",
   "Wykupić pakiet %s GB za %s GALU na dobę?": "Comprar um pacote de %s GB por %s GALU por dia?",
   "Opłata nalicza się za każdą dobę, także przy pustym pakiecie. Pakiet zamkniesz w każdej chwili.": "É cobrado por cada dia, mesmo com o pacote vazio. Pode fechá-lo a qualquer momento.",
   "Zamykam pakiet…": "A fechar o pacote…",
