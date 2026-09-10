@@ -34,6 +34,7 @@ class _StoreScreenState extends State<StoreScreen> {
   Map<String, dynamic>? _capacity;     // gdy nie ma pakietu: wolne miejsce w sieci
   List<Map<String, dynamic>> _items = const [];
   int _wantGb = 1;                     // pozycja suwaka na ekranie zakupu
+  int? _wantCopies;                    // wybór liczby kopii; null = jeszcze nie tknięty, bierz zalecaną
   /// Ile plikow jest w tej chwili na ekranie. Reszta czeka na „Pokaz wiecej" — i to nie jest
   /// kosmetyka: kazda nazwa kosztuje wymiane kluczy, wiec pokazanie wszystkiego naraz znaczy
   /// tyle samo wymian, ile plikow, zanim ekran w ogole cokolwiek narysuje.
@@ -260,8 +261,8 @@ class _StoreScreenState extends State<StoreScreen> {
     if (mounted) setState(() => _drzewo = t);
   }
 
-  Future<void> _buy(int gb) => _run(tr('Wykupuję pakiet…'), () async {
-    final r = await _relay!.package(gb: gb);
+  Future<void> _buy(int gb, int copies) => _run(tr('Wykupuję pakiet…'), () async {
+    final r = await _relay!.package(gb: gb, copies: copies);
     // Odmowa z braku środków to jedyna, przy której człowiek nie wie, co zrobić dalej — sama
     // kwota mu nie pomoże, jeśli nie wie, skąd GALU brać. Reszta odmów jest samotłumacząca.
     if (r['funds'] == true) {
@@ -280,6 +281,18 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Future<void> _shrink() => _run(tr('Zmniejszam…'), () async {
     final r = await _relay!.package(addGb: -1);
+    if (r['ok'] != true) throw Exception(r['error']);
+    _pkg = r; await _refresh();
+  });
+
+  /// Zmiana liczby kopii istniejącego pakietu. W górę serwer dobiera sprzedawcę od razu i sam
+  /// odmawia, gdy nie ma z kogo — wtedy pokazujemy jego powód, bo tylko on wie, czego zabrakło.
+  Future<void> _setCopies(int n) => _run(tr('Zmieniam liczbę kopii…'), () async {
+    final r = await _relay!.package(copies: n);
+    if (r['funds'] == true) {
+      throw Exception('${r['error']}. ' + tr('GALU dostaniesz od kogoś, kto ma nody, albo '
+          'wpłacisz je w portfelu.'));
+    }
     if (r['ok'] != true) throw Exception(r['error']);
     _pkg = r; await _refresh();
   });
@@ -555,9 +568,17 @@ class _StoreScreenState extends State<StoreScreen> {
       decoration: BoxDecoration(color: AppTheme.card, borderRadius: BorderRadius.circular(12)),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: children));
 
+  /// Widełki wyboru bierzemy z serwera; zapasowe wartości są na wypadek, gdyby `capacity`
+  /// jeszcze nie doszło — lepiej pokazać sensowny wybór niż pojedynczy martwy przycisk.
+  int _capInt(String klucz, int zapas) {
+    final v = _n(_capacity?[klucz]).toInt();
+    return v > 0 ? v.clamp(1, 4).toInt() : zapas;
+  }
+
   Widget _packageCard() {
     final limit = _n(_pkg!['limit_b']), used = _n(_pkg!['used_b']);
     final daily = _n(_pkg!['daily']), sellers = (_pkg!['sellers'] as List?)?.length ?? 0;
+    final chcianeKopii = _n(_pkg!['copies']).toInt().clamp(1, 4).toInt();
     // Cena za GB przychodzi z serwera (service_fees) — nic na sztywno.
     final stepGalu = (_n(_pkg!['price_gb'] ?? 0.1) * sellers).toStringAsFixed(1);
     final canShrink = limit > 1073741824 && limit - 1073741824 >= used;
@@ -570,6 +591,14 @@ class _StoreScreenState extends State<StoreScreen> {
       const SizedBox(height: 8),
       Text(tr('%s GALU na dobę · kopii: %s', [daily.toStringAsFixed(1), sellers]),
           style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
+      // Ile kopii pakiet MA MIEĆ, a ile ich naprawdę stoi. Gdy host zamilknie, te liczby się
+      // rozjeżdżają — i lepiej to pokazać, niż udawać komplet do czasu odbudowy.
+      if (chcianeKopii > sellers) Padding(padding: const EdgeInsets.only(top: 4),
+          child: Text(tr('Odbudowa: %s z %s kopii na miejscu', [sellers, chcianeKopii]),
+              style: const TextStyle(color: AppTheme.amber, fontSize: 12))),
+      const SizedBox(height: 10),
+      _copiesPicker(_capInt('min_copies', 2), _capInt('max_copies', 4),
+                    _capInt('default_copies', 3), chcianeKopii, _setCopies),
       if (_n(_pkg!['unpaid_days']) > 0) Padding(padding: const EdgeInsets.only(top: 4),
           child: Text(tr('Zaległość: %s dni — wysyłki wstrzymane, doładuj GALU', [_n(_pkg!['unpaid_days']).toInt()]),
               style: const TextStyle(color: AppTheme.amber, fontSize: 12))),
@@ -634,16 +663,23 @@ class _StoreScreenState extends State<StoreScreen> {
 
   Widget _capacityCard() {
     final c = _capacity;
-    final maxGb = _n(c?['max_gb']).toInt();
-    final copies = _n(c?['copies']).toInt().clamp(1, 4);
-    final priceGb = _n(c?['daily_galu']) / (_n(c?['package_gb']).clamp(1, 1e9));   // GALU/GB/dobę razem z kopiami
+    final minC = _capInt('min_copies', 2), maxC = _capInt('max_copies', 4);
+    final recC = _capInt('default_copies', 3);
+    final copies = (_wantCopies ?? recC).clamp(minC, maxC).toInt();
+    // Sufit zależy od liczby kopii — każda musi trafić do innego właściciela, więc im ich więcej,
+    // tym mniejszy najsłabszy z potrzebnych. Serwer podaje gotową tabelkę.
+    final maxGb = _n((c?['max_gb_by_copies'] as Map?)?['$copies'] ?? c?['max_gb']).toInt();
+    final priceGb = _n(c?['price_gb_copy'] ?? 0.1) * copies;      // GALU/GB/dobę przy tym wyborze
     final gb = _wantGb.clamp(1, maxGb < 1 ? 1 : maxGb).toInt();
     return _card([
       Text(tr('Miejsce w sieci'), style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600)),
       const SizedBox(height: 6),
       Text(tr('Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram '
-              'w %s kopiach u różnych właścicieli i nie mogą go odczytać.', [copies]),
+              'u różnych właścicieli i nie mogą go odczytać.'),
           style: const TextStyle(color: AppTheme.muted, fontSize: 12, height: 1.35)),
+      const SizedBox(height: 10),
+      if (c != null) _copiesPicker(minC, maxC, recC, copies,
+          (n) => setState(() => _wantCopies = n)),
       const SizedBox(height: 10),
       if (c != null) ...[
         Text(tr('Sprzedawców gotowych: %s · wolne w sieci: %s GB', [c['sellers_ready'] ?? 0, c['free_gb'] ?? 0]),
@@ -666,13 +702,38 @@ class _StoreScreenState extends State<StoreScreen> {
         Text(tr('Do wyboru teraz: %s GB', [maxGb]), style: const TextStyle(color: AppTheme.muted, fontSize: 11)),
         const SizedBox(height: 10),
         SizedBox(width: double.infinity, child: FilledButton(
-            onPressed: _busy == null ? () => _buy(gb) : null,
+            onPressed: _busy == null ? () => _buy(gb, copies) : null,
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal),
             child: Text(tr('Wykup %s GB', [gb])))),
       ] else
         Text(tr('Brak wolnego miejsca — wróć później'), style: const TextStyle(color: AppTheme.amber)),
     ]);
   }
+
+  /// Wybór liczby kopii. Zalecana jest opisana, a nie tylko podświetlona — człowiek ma wiedzieć
+  /// DLACZEGO, zanim zapłaci o połowę więcej.
+  Widget _copiesPicker(int min, int max, int rec, int value, void Function(int) onPick) =>
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(tr('Ile kopii'), style: const TextStyle(color: AppTheme.text, fontSize: 13)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, children: [
+          for (var n = min; n <= max; n++)
+            ChoiceChip(
+              selected: value == n,
+              onSelected: _busy == null ? (_) => onPick(n) : null,
+              selectedColor: AppTheme.teal.withValues(alpha: 0.22),
+              backgroundColor: AppTheme.surface,
+              side: BorderSide(color: value == n ? AppTheme.teal : AppTheme.border),
+              label: Text(n == rec ? tr('%s · zalecane', [n]) : '$n',
+                  style: TextStyle(color: value == n ? AppTheme.teal : AppTheme.muted, fontSize: 12)),
+            ),
+        ]),
+        const SizedBox(height: 6),
+        Text(tr('Host, który zamilknie, wypada z pakietu dopiero po trzech dobach i dopiero wtedy '
+                'kopia odbudowuje się gdzie indziej. Przy dwóch kopiach plik wisi przez ten czas '
+                'na jednym dysku, przy trzech — na dwóch.'),
+            style: const TextStyle(color: AppTheme.muted, fontSize: 11, height: 1.35)),
+      ]);
 
   Widget _fileTile(Map<String, dynamic> it) {
     final name = _nazwaPliku(it);
