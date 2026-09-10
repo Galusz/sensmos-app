@@ -13,12 +13,27 @@ import 'services/push_service.dart';
 import 'services/wallet_service.dart';
 import 'util/owner_token_gate.dart';
 import 'screens/nodes/nodes_screen.dart';
+import 'services/node_service.dart';
 import 'screens/wallet/wallet_screen.dart';
 import 'screens/settings/settings_screen.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
   @override State<AppShell> createState() => _AppShellState();
+}
+
+/// Czy dzwonek ze skrzynki jest teraz na ekranie. AppShell rysuje go jako overlay w prawym
+/// górnym rogu — NAD paskiem każdej zakładki — więc paski muszą wiedzieć, kiedy zostawić mu
+/// miejsce. Bez tego siadał na przyciskach paska i przykrył „+" dodawania noda.
+final ValueNotifier<bool> inboxBellVisible = ValueNotifier(false);
+
+/// Pusty slot na końcu `actions:` paska — szeroki tylko wtedy, gdy dzwonek jest widoczny.
+class InboxBellSlot extends StatelessWidget {
+  const InboxBellSlot({super.key});
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
+      valueListenable: inboxBellVisible,
+      builder: (_, on, __) => SizedBox(width: on ? 44 : 0));
 }
 
 class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
@@ -103,7 +118,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/push-inbox?owner=$owner'),
-        headers: {'X-App-Key': 'sensmos2025'},
+        headers: {'X-App-Key': Config.appKey},
       ).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) return;
       final items = List<Map<String, dynamic>>.from(
@@ -217,7 +232,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               final w = await wallet.load();
               if (w == null || !mounted) return;
               // Pyta o hasło portfela najwyżej raz — potem token ownera wystarcza.
-              await ensureOwnerToken(context, w.address, label: 'powiadomienia');
+              await ensureOwnerToken(context, w.address, label: 'Ten telefon');
               final done = await push.registerToBackend(wallet);
               setSheet(() {});
               if (!mounted) return;
@@ -255,14 +270,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     SettingsScreen(),
   ];
 
-  final _items = const [
-    (Icons.sensors_outlined, Icons.sensors, 'Nody'),
+  /// Pierwsza zakładka nazywa się „Nody" tylko wtedy, gdy jakieś są. Konto założone drogą
+  /// „tylko portfel" ma tam wyłącznie Storage, a podpis obiecujący nody był po prostu nieprawdą.
+  List<(IconData, IconData, String)> _items(bool hasNodes) => [
+    hasNodes
+        ? (Icons.sensors_outlined, Icons.sensors, 'Nody')
+        : (Icons.home_outlined, Icons.home, 'Start'),
     (Icons.account_balance_wallet_outlined, Icons.account_balance_wallet, 'Portfel'),
     (Icons.settings_outlined, Icons.settings, 'Ustawienia'),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final bell = _unread > 0 || _inbox.isNotEmpty || _pushBroken;
+    // Po klatce, bo paski zakładek słuchają tej wartości i przebudowa w trakcie budowania
+    // wywala framework.
+    if (inboxBellVisible.value != bell) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => inboxBellVisible.value = bell);
+    }
     return Scaffold(
       body: Stack(children: [
         IndexedStack(index: _index, children: _screens),
@@ -270,7 +295,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         // gdy skrzynka ma tylko przeczytane; klik = skrzynka z treściami. Pokazujemy go
         // także przy zerwanej rejestracji, bo inaczej user z pustą skrzynką nie miałby
         // gdzie zobaczyć, że pushy nie ma (tak właśnie przepadły niezauważone).
-        if (_unread > 0 || _inbox.isNotEmpty || _pushBroken)
+        if (bell)
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             right: 12,
@@ -310,7 +335,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         indicatorColor: AppTheme.teal.withValues(alpha: 0.15),
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: _items.map((e) => NavigationDestination(
+        destinations: _items(context.watch<NodeService>().nodes.isNotEmpty)
+            .map((e) => NavigationDestination(
           icon:         Icon(e.$1, color: AppTheme.muted),
           selectedIcon: Icon(e.$2, color: AppTheme.teal),
           label: tr(e.$3),

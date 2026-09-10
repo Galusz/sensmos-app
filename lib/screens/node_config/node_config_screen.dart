@@ -251,8 +251,8 @@ class _NodeConfigScreenState extends State<NodeConfigScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.card,
         title: Text(tr('Usunąć z tej apki?')),
-        content: Text(tr('Node zniknie tylko z tego telefonu - pozostaje w sieci '
-            'i nalicza nagrody. Aby usunac go z sieci, uzyj Usun z sieci.')),
+        content: Text(tr('Node zniknie tylko z tego telefonu — zostaje w sieci '
+            'i dalej nalicza nagrody. Żeby usunąć go z sieci, użyj „Usuń z sieci”.')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
           TextButton(onPressed: () => Navigator.pop(ctx, true),

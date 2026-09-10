@@ -81,7 +81,7 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       if (!acc.ok) { Navigator.pop(context); return; }
 
       if (!mounted) return;
-      final token = await ensureOwnerToken(context, wallet.address, label: 'panel HA');
+      final token = await ensureOwnerToken(context, wallet.address, label: 'Ten telefon');
       if (!mounted) return;
 
       final relay = TerminalRelay(
@@ -97,7 +97,7 @@ class _HaPanelScreenState extends State<HaPanelScreen> {
       await relay.connect();
       if (!mounted) return;
       if (!relay.nodeOnline) {
-        setState(() { _phase = _Phase.error; _status = tr('Node jest offline — wróci gdy odzyska sieć.'); });
+        setState(() { _phase = _Phase.error; _status = tr('Node jest offline — wróci, gdy odzyska sieć.'); });
         return;
       }
 

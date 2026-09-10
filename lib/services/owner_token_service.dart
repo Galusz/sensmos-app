@@ -40,7 +40,7 @@ class OwnerTokenService {
     final sig = await wallet.signMessage('sensmos:ownertoken:issue:$ts');
     final res = await http.post(
       Uri.parse('${Config.beUrl}/v1/nodes/owner-token'),
-      headers: const {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+      headers: const {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
       body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig, if (label != null) 'label': label}),
     ).timeout(const Duration(seconds: 12));
     final j = jsonDecode(res.body) as Map<String, dynamic>;
@@ -61,12 +61,25 @@ class OwnerTokenService {
     final sig = await wallet.signMessage('sensmos:ownertoken:list:$ts');
     final res = await http.post(
       Uri.parse('${Config.beUrl}/v1/nodes/owner-token/list'),
-      headers: const {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+      headers: const {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
       body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
     ).timeout(const Duration(seconds: 12));
     if (res.statusCode != 200) return [];
     final j = jsonDecode(res.body) as Map<String, dynamic>;
     return ((j['tokens'] as List?) ?? []).cast<Map<String, dynamic>>();
+  }
+
+  /// Odwołuje JEDEN token — do listy sparowanych urządzeń. Ten sam podpis co przy hurcie,
+  /// różni je wyłącznie `id`.
+  Future<bool> revokeOne(String owner, WalletService wallet, dynamic id) async {
+    final ts = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final sig = await wallet.signMessage('sensmos:ownertoken:revoke:$ts');
+    final res = await http.post(
+      Uri.parse('${Config.beUrl}/v1/nodes/owner-token/revoke'),
+      headers: const {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
+      body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig, 'id': id}),
+    ).timeout(const Duration(seconds: 12));
+    return res.statusCode == 200;
   }
 
   /// Odwołuje WSZYSTKIE tokeny właściciela (np. „zgubiłem telefon") i czyści lokalny.
@@ -75,7 +88,7 @@ class OwnerTokenService {
     final sig = await wallet.signMessage('sensmos:ownertoken:revoke:$ts');
     final res = await http.post(
       Uri.parse('${Config.beUrl}/v1/nodes/owner-token/revoke'),
-      headers: const {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+      headers: const {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
       body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
     ).timeout(const Duration(seconds: 12));
     await forget(owner);

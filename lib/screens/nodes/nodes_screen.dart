@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:http/http.dart' as http;
 import '../../theme.dart';
+import '../../app_shell.dart';
 import '../../core/core_bloc.dart';
 import '../../core/core_state.dart';
 import '../../core/core_event.dart';
@@ -378,7 +379,7 @@ class _NodesScreenState extends State<NodesScreen> {
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
-        headers: {'X-App-Key': 'sensmos2025', 'X-App-Version': Config.appVersion},
+        headers: {'X-App-Key': Config.appKey, 'X-App-Version': Config.appVersion},
       ).timeout(const Duration(seconds: 6));
       final j = jsonDecode(res.body) as Map<String, dynamic>;
       if (mounted) setState(() => _myBeNodes = List<Map<String, dynamic>>.from(j['nodes'] ?? []));
@@ -422,7 +423,7 @@ class _NodesScreenState extends State<NodesScreen> {
         content: Text(tr(
             'Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. '
             'Możesz go później dodać ponownie (onboarding przez Bluetooth). '
-            'Zarobione GALU pozostają na Twoim wallecie.', [short])),
+            'Zarobione GALU pozostają w Twoim portfelu.', [short])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
           TextButton(onPressed: () => Navigator.pop(ctx, true),
@@ -434,12 +435,12 @@ class _NodesScreenState extends State<NodesScreen> {
     try {
       final owner = context.read<CoreBloc>().state.wallet?.address;
       final wallet = context.read<WalletService>();
-      if (owner == null) throw Exception(tr('Brak walleta'));
+      if (owner == null) throw Exception(tr('Brak portfela'));
       final ts = (DateTime.now().millisecondsSinceEpoch / 1000).floor();
       final sig = await wallet.signMessage('sensmos:delete:$id:$ts');
       final res = await http.delete(
         Uri.parse('${Config.beUrl}/v1/nodes/$id'),
-        headers: {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+        headers: {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
         body: jsonEncode({'owner': owner, 'ts': ts, 'sig': sig}),
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode != 200) throw Exception(jsonDecode(res.body)['error'] ?? res.statusCode);
@@ -642,6 +643,7 @@ class _NodesScreenState extends State<NodesScreen> {
             IconButton(icon: const Icon(Icons.refresh), onPressed: _refresh, tooltip: tr('Odśwież')),
             IconButton(icon: const Icon(Icons.add), tooltip: tr('Dodaj node'),
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NodeManagerScreen()))),
+            const InboxBellSlot(),
           ],
         ),
         body: list.isEmpty
@@ -661,8 +663,10 @@ class _NodesScreenState extends State<NodesScreen> {
                     NewsSection(owner: state.wallet?.address),
                     ...list.map(_buildCard),
                     // Karta Storage: na portfel, nie na noda — dlatego pod listą, nie w karcie.
-                    // Warunek co-najmniej-jeden-node pilnuje też BE (handel wewnętrzny).
-                    if (!StoreCardPref.hidden.value && state.wallet != null && _myBeNodes.isNotEmpty)
+                    // Warunku „co najmniej jeden node" JUŻ NIE MA (2026-09-09): miejsce kupuje się
+                    // na adres, a pokrycie sprawdza BE przy zakładaniu pakietu. Ukrywanie karty
+                    // przed kimś bez sprzętu zamykało mu jedyną drogę, którą właśnie otworzyliśmy.
+                    if (!StoreCardPref.hidden.value && state.wallet != null)
                       _storageCard(),
                   ],
                 ),
@@ -1236,6 +1240,11 @@ class _NodesScreenState extends State<NodesScreen> {
     final name = rawName.isNotEmpty ? rawName : (isStore ? 'Store' : tr('Brama LoRa'));
     final since = DateTime.tryParse('${a['created_at']}')?.toLocal();
     final sinceS = since == null ? '' : ' · ${tr('od %s', ['${since.day}.${since.month.toString().padLeft(2, '0')}'])}';
+    // Sprzedawca patrzy w apkę, nie w log agenta — więc to jedyne miejsce, gdzie się dowie,
+    // że warto podmienić plik. Jedna rada, nie dwie: o portach nie piszemy, bo stary agent
+    // i tak nie dostanie transferu bezpośredniego, choćby port był otwarty.
+    final storeHint = store == null || store['agent_old'] != true ? null
+        : tr('Dostępna nowsza wersja: sensmos-store.py');
     final String info;
     if (isStore && store != null) {
       info = '${tr('oferowane %s GB · zajęte %s GB', [_gbS(store['capacity_b']), _gbS(store['used_b'])])}\n'
@@ -1259,7 +1268,27 @@ class _NodesScreenState extends State<NodesScreen> {
           Text(online ? tr('online') : tr('offline'),
               style: TextStyle(color: online ? AppTheme.teal : AppTheme.muted, fontSize: 11)),
         ]),
-        subtitle: Text(info, style: const TextStyle(color: AppTheme.muted, fontSize: 11, height: 1.35)),
+        subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // Nasłuchuje, ale nie da się do niego dodzwonić — pliki chodzą przez serwer zamiast
+          // wprost. Sam stan, bez rady. Przy starszym agencie ten znacznik byłby kłamstwem,
+          // bo tamten nie otwiera żadnego portu — tam pokazujemy komunikat o wersji.
+          if (isStore && store != null && store['agent_old'] != true && store['direct'] != true)
+            Align(
+              alignment: Alignment.centerRight,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                    border: Border.all(color: AppTheme.amber), borderRadius: BorderRadius.circular(4)),
+                child: const Text('NAT',
+                    style: TextStyle(color: AppTheme.amber, fontSize: 10, fontWeight: FontWeight.w600)),
+              ),
+            ),
+          Text(info, style: const TextStyle(color: AppTheme.muted, fontSize: 11, height: 1.35)),
+          if (isStore && storeHint != null) Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(storeHint, style: const TextStyle(color: AppTheme.muted, fontSize: 11, height: 1.35)),
+          ),
+        ]),
         onLongPress: () => _revokeAttachment(deviceId, a, name),
       ),
     );
@@ -1284,7 +1313,7 @@ class _NodesScreenState extends State<NodesScreen> {
     if (ok != true || !mounted) return;
     try {
       final owner = context.read<CoreBloc>().state.wallet?.address;
-      if (owner == null) throw Exception(tr('Brak walleta'));
+      if (owner == null) throw Exception(tr('Brak portfela'));
       final wallet = context.read<WalletService>();
       final body = <String, dynamic>{};
       final tok = await OwnerTokenService().cached(owner);
@@ -1313,15 +1342,16 @@ class _NodesScreenState extends State<NodesScreen> {
     final has = p?['has_package'] == true;
     final limit = num.tryParse('${p?['limit_b']}') ?? 0, used = num.tryParse('${p?['used_b']}') ?? 0;
     final unpaid = (num.tryParse('${p?['unpaid_days']}') ?? 0).toInt();
-    // Cały kafel jest przyciskiem: z pakietem prowadzi do plików, bez pakietu do zakupu
-    // (pytanie z ceną, dopiero potem ekran, który zakłada pakiet).
+    // Cały kafel jest przyciskiem i ZAWSZE prowadzi na ekran — z pakietem do plików, bez pakietu
+    // do strony usługi. Wcześniej pytał tu o zakup zanim ktokolwiek zobaczył, czym to jest;
+    // decyzja o wydaniu pieniędzy zapada teraz tam, gdzie widać, za co się płaci.
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Material(
       color: AppTheme.card,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
-        onTap: has ? _openStore : _buyStore,
+        onTap: _openStore,
         borderRadius: BorderRadius.circular(12),
         child: Container(
       padding: const EdgeInsets.all(14),
@@ -1335,7 +1365,7 @@ class _NodesScreenState extends State<NodesScreen> {
               visualDensity: VisualDensity.compact, onPressed: _hideStoreCard),
         ]),
         if (!has) ...[
-          Text(tr('Kup miejsce'), style: const TextStyle(color: AppTheme.teal, fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(tr('Zobacz, ile miejsca ma sieć'), style: const TextStyle(color: AppTheme.teal, fontSize: 13, fontWeight: FontWeight.w500)),
           const SizedBox(height: 4),
           Text(tr('Miejsce na pliki u innych właścicieli nodów, szyfrowane w telefonie.'),
               style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
@@ -1371,36 +1401,6 @@ class _NodesScreenState extends State<NodesScreen> {
 
   /// Zakup dopiero po pytaniu z ceną — samo wejście na ekran plików zakłada pakiet, więc bez
   /// tego pytania tap w kafel kupowałby bez słowa. Cena i wolne miejsce z /v1/store/capacity.
-  Future<void> _buyStore() async {
-    Map<String, dynamic> c;
-    try {
-      final r = await http.get(Uri.parse('${Config.beUrl}/v1/store/capacity')).timeout(const Duration(seconds: 8));
-      c = jsonDecode(r.body) as Map<String, dynamic>;
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
-      return;
-    }
-    if (!mounted) return;
-    final free = (num.tryParse('${c['free_packages']}') ?? 0).toInt();
-    if (free <= 0 && c['test_mode'] != true) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(tr('Brak wolnego miejsca — wróć później'))));
-      return;
-    }
-    final ok = await showDialog<bool>(context: context, builder: (ctx) => AlertDialog(
-      backgroundColor: AppTheme.card,
-      title: Text(tr('Wykupić pakiet %s GB za %s GALU na dobę?', [c['package_gb'] ?? 10, c['daily_galu'] ?? 2]),
-          style: const TextStyle(color: AppTheme.text)),
-      content: Text(tr('Opłata nalicza się za każdą dobę, także przy pustym pakiecie. Pakiet zamkniesz w każdej chwili.'),
-          style: const TextStyle(color: AppTheme.muted)),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Anuluj'))),
-        FilledButton(onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: Colors.black),
-            child: Text(tr('Kup miejsce'))),
-      ]));
-    if (ok == true) _openStore();
-  }
-
   Future<void> _hideStoreCard() async {
     await StoreCardPref.set(true);
     if (!mounted) return;
@@ -1510,8 +1510,8 @@ class _NodesScreenState extends State<NodesScreen> {
             Text(tr('Aplikacja nie ma przypisanego portfela'),
                 style: const TextStyle(color: Color(0xFFFF4444), fontSize: 14, fontWeight: FontWeight.w600)),
             const SizedBox(height: 4),
-            Text(tr('Zaimportuj go z klucza (zakladka Portfel) lub z noda '
-                    '(rozwin swoj node ponizej -> Importuj portfel z noda).'),
+            Text(tr('Zaimportuj go z klucza (zakładka Portfel) albo z noda '
+                    '(rozwiń swój node poniżej → Importuj portfel z noda).'),
                 style: const TextStyle(color: AppTheme.muted, fontSize: 12.5, height: 1.35)),
           ])),
         ]),
@@ -1537,21 +1537,53 @@ class _NodesScreenState extends State<NodesScreen> {
               style: const TextStyle(color: AppTheme.text, fontSize: 14, fontWeight: FontWeight.w500))),
       ]);
 
-  Widget _buildEmpty() => Center(
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+  /// Pusty ekran ma DWIE drogi, nie jedną. Sam przycisk „Dodaj node" był ślepym zaułkiem dla
+  /// kogoś, kto świadomie wybrał konto bez sprzętu — a od 2026-09-09 taki ktoś może kupić miejsce
+  /// na sam adres portfela. Lista jest przewijalna, bo karta Storage z pakietem bywa wysoka.
+  ///
+  /// A gdy pakiet JUŻ JEST, znika i to: człowiek używa apki do plików, więc „Brak nodów" byłoby
+  /// wyrzutem sumienia za decyzję, którą świadomie podjął. Droga do sprzętu nie ginie — „+"
+  /// w górnym pasku otwiera dodawanie noda niezależnie od treści ekranu.
+  Widget _buildEmpty() {
+    if (_storePkg?['has_package'] == true) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [const SizedBox(height: 8), _storageCard()],
+      );
+    }
+    return _buildEmptyChoice();
+  }
+
+  Widget _buildEmptyChoice() => ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          const SizedBox(height: 48),
           const Icon(Icons.sensors_off, color: AppTheme.muted, size: 48),
           const SizedBox(height: 16),
-          Text(tr('Brak nodów'), style: const TextStyle(color: AppTheme.text, fontSize: 16)),
+          Center(child: Text(tr('Brak nodów'), style: const TextStyle(color: AppTheme.text, fontSize: 16))),
           const SizedBox(height: 8),
-          Text(tr('Dodaj node przez BLE'), style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
+          Center(child: Text(tr('Dodaj node przez BLE'),
+              style: const TextStyle(color: AppTheme.muted, fontSize: 13))),
           const SizedBox(height: 24),
-          FilledButton.icon(
+          Center(child: FilledButton.icon(
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SetupScreen())),
             icon: const Icon(Icons.add),
             label: Text(tr('Dodaj node')),
             style: FilledButton.styleFrom(backgroundColor: AppTheme.teal, foregroundColor: AppTheme.bg),
-          ),
-        ]),
+          )),
+          if (!StoreCardPref.hidden.value &&
+              context.read<CoreBloc>().state.wallet != null) ...[
+            const SizedBox(height: 28),
+            Row(children: [
+              const Expanded(child: Divider(color: AppTheme.border)),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Text(tr('albo bez własnego sprzętu'),
+                      style: const TextStyle(color: AppTheme.muted, fontSize: 12))),
+              const Expanded(child: Divider(color: AppTheme.border)),
+            ]),
+            _storageCard(),
+          ],
+        ],
       );
 }
 

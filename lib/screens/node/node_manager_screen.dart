@@ -130,7 +130,7 @@ class _NodeManagerScreenState extends State<NodeManagerScreen> {
           _instruction(Icons.wifi_outlined,
               tr('Telefon musi być połączony z siecią WiFi z dostępem do internetu')),
           _instruction(Icons.router_outlined,
-              tr('WiFi do której podłączysz node musi być w zasięgu')),
+              tr('WiFi, do której podłączysz node, musi być w zasięgu')),
           _instruction(Icons.lock_outlined,
               tr('Przygotuj nazwę sieci (SSID) i hasło WiFi')),
         ]),

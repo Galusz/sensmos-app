@@ -68,6 +68,15 @@ String tr(String pl, [List<Object?> args = const []]) {
 
 /// Nadpisania angielskie. Brak wpisu → pokazujemy klucz (PL).
 const Map<String, String> _enMap = {
+  "Ten folder jest pusty": "This folder is empty",
+  "Wróć wyżej": "Back up one level",
+  "plików: %s": "%s files",
+  "Wczytuję nazwy: %s z %s": "Reading names: %s of %s",
+  "Nowy folder": "New folder",
+  "zdjęcia": "photos",
+  "Folder mieszka w zaszyfrowanej nazwie pliku — serwer go nie widzi. Powstanie razem z pierwszym plikiem, który tu wyślesz.": "A folder lives inside the encrypted file name \u2014 the server never sees it. It comes into being with the first file you send here.",
+  "Przejdź": "Go",
+  "Pokaż więcej (%s)": "Show %s more",
   // ── Node alias/tag (1.5.49) ──
   "Nazwa / tag noda": "Node name / tag",
   "Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.": "Your own label to recognise the node — e.g. Garage or Router.",
@@ -85,7 +94,7 @@ const Map<String, String> _enMap = {
   "Za mało POL na gas — dopłać POL, aby wysłać": "Not enough POL for gas — top up POL to send",
   "Wysyłanie…": "Sending…",
   "Wysłano %s %s": "Sent %s %s",
-  "Transakcja zrewertowana": "Transaction reverted",
+  "Transakcja odrzucona przez kontrakt": "Transaction reverted",
   "Adres odbiorcy (0x…)": "Recipient address (0x…)",
   "Skanuj QR": "Scan QR",
   "W kodzie QR nie ma poprawnego adresu": "The QR code has no valid address",
@@ -171,7 +180,7 @@ const Map<String, String> _enMap = {
   "Pokaż": "Show",
   "Ukryj": "Hide",
   "Łączę z HA…": "Connecting to HA…",
-  "Node jest offline — wróci gdy odzyska sieć.": "Node is offline — it'll return once it regains network.",
+  "Node jest offline — wróci, gdy odzyska sieć.": "Node is offline — it'll return once it regains network.",
   "HA nie odpowiada — sprawdź adres i token": "HA not responding — check address and token",
   "Pusty dashboard": "Empty dashboard",
   "Dodaj kafelek": "Add tile",
@@ -248,12 +257,12 @@ const Map<String, String> _enMap = {
   "Approve nie powiodło się": "Approve failed",
   "Wpłacanie…": "Depositing…",
   "Wpłacono %s GALU": "Deposited %s GALU",
-  "Deposit zrewertowany": "Deposit reverted",
+  "Wpłata odrzucona przez kontrakt": "Deposit reverted",
   "Brak nagród": "No rewards",
   "Nagrody z epoki %s już odebrane": "Rewards for epoch %s already claimed",
   "Odbieranie nagród…": "Claiming rewards…",
   "Odebrano nagrody (epoka %s)": "Rewards claimed (epoch %s)",
-  "Claim zrewertowany": "Claim reverted",
+  "Odbiór odrzucony przez kontrakt": "Claim reverted",
   "Brak nodów — eksport wymaga PIN-u noda": "No nodes — export requires a node PIN",
   "Brak połączenia z żadnym nodem": "No connection to any node",
   "ADRES PORTFELA": "WALLET ADDRESS",
@@ -329,7 +338,7 @@ const Map<String, String> _enMap = {
   // ── Akcje wiadomości / wiadomości ────────────────────────────
   "Usuń akcję": "Delete action",
   "Brak akcji. Dodaj przyciskiem +": "No actions. Add one with +",
-  "Automatyczne akcje wykonywane gdy node odbierze wiadomość o podanym ID (lub \"*\" dla wszystkich).":
+  "Automatyczne akcje wykonywane, gdy node odbierze wiadomość o podanym ID (albo \"*\" dla wszystkich).":
       "Automatic actions run when the node receives a message with the given ID (or \"*\" for all).",
   "ID wiadomości triggera — \"alarm\", \"update\", \"*\" = wszystkie":
       "Trigger message ID — \"alarm\", \"update\", \"*\" = all",
@@ -375,7 +384,7 @@ const Map<String, String> _enMap = {
   "Podłącz urządzenie": "Connect device",
   "Szukam...": "Searching...",
   "Znalezione urządzenia": "Found devices",
-  "Brak urządzeń.\nUpewnij się że node jest w trybie konfiguracji.":
+  "Brak urządzeń.\nUpewnij się, że node jest w trybie konfiguracji.":
       "No devices.\nMake sure the node is in setup mode.",
   "Podaj dane WiFi": "Enter WiFi credentials",
   "Nazwa sieci WiFi (SSID)": "WiFi network name (SSID)",
@@ -426,19 +435,19 @@ const Map<String, String> _enMap = {
   "Usuń node z listy": "Remove node from list",
   "Usuwa node tylko z tej apki": "Removes the node only from this app",
   "Usuń node z sieci (permanentnie)": "Delete node from network (permanent)",
-  "Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają na Twoim wallecie.":
+  "Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają w Twoim portfelu.":
       "Removes the node and all its data from SENSMOS. You can add it back later (Bluetooth onboarding). Earned GALU stays in your wallet.",
   "Usunąć node z sieci?": "Delete node from network?",
-  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU pozostają na Twoim wallecie.":
+  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU pozostają w Twoim portfelu.":
       "Node %s and ALL its data will be permanently removed from SENSMOS. You can add it back later (Bluetooth onboarding). Earned GALU stays in your wallet.",
   "Usuń permanentnie": "Delete permanently",
   "Node usunięty z sieci": "Node deleted from network",
   "Błąd usuwania: %s": "Delete error: %s",
-  "Brak walleta": "No wallet",
+  "Brak portfela": "No wallet",
   "Importujesz INNY portfel (%s) niż obecny (%s).\n\nTwoje nody pozostaną przypisane do obecnego portfela, dopóki nie dodasz ich ponownie przez Bluetooth (to zmieni właściciela i wymaga ponownej weryfikacji — bez resetu urządzenia). Zarobione GALU zostają przy portfelu, który je zarobił.": "You are importing a DIFFERENT wallet (%s) than the current one (%s).\n\nYour nodes stay assigned to the current wallet until you re-add them over Bluetooth (that changes the owner and requires re-verification — no device reset). Earned GALU stays with the wallet that earned it.",
 
   "Moje nody w sieci": "My nodes in the network",
-  "Wszystkie nody zarejestrowane na Twój wallet (wg SENSMOS)": "All nodes registered to your wallet (per SENSMOS)",
+  "Wszystkie nody zarejestrowane na Twój portfel (wg SENSMOS)": "All nodes registered to your wallet (per SENSMOS)",
   "brak w tej apce": "not in this app",
   "nieaktywny": "inactive",
   "ID skopiowane: %s": "ID copied: %s",
@@ -457,11 +466,11 @@ const Map<String, String> _enMap = {
   "Wpisz IP noda — PIN podasz, gdy urządzenie się odnajdzie.": "Enter the node IP — you'll enter the PIN once the device is found.",
   "brak portfela": "no wallet",
   "Aplikacja nie ma przypisanego portfela": "The app has no wallet assigned",
-  "Zaimportuj go z klucza (zakladka Portfel) lub z noda (rozwin swoj node ponizej -> Importuj portfel z noda).": "Import it from a key (Wallet tab) or from a node (expand your node below -> Import wallet from node).",
+  "Zaimportuj go z klucza (zakładka Portfel) albo z noda (rozwiń swój node poniżej → Importuj portfel z noda).": "Import it from a key (Wallet tab) or from a node (expand your node below -> Import wallet from node).",
   "import z klucza": "import from key",
   "Klucz portfela (zaawansowane)": "Wallet key (advanced)",
   "Usunąć z tej apki?": "Remove from this app?",
-  "Node zniknie tylko z tego telefonu - pozostaje w sieci i nalicza nagrody. Aby usunac go z sieci, uzyj Usun z sieci.": "The node disappears only from this phone - it stays in the network and keeps earning. To remove it from the network, use Delete from network.",
+  "Node zniknie tylko z tego telefonu — zostaje w sieci i dalej nalicza nagrody. Żeby usunąć go z sieci, użyj „Usuń z sieci”.": "The node disappears only from this phone - it stays in the network and keeps earning. To remove it from the network, use Delete from network.",
   "Usuń z apki": "Remove from app",
   "import / eksport klucza prywatnego": "import / export private key",
   "Brak portfela w apce. Odzyskaj kopię zapisaną na tym nodzie.": "No wallet in the app. Recover the copy saved on this node.",
@@ -520,7 +529,7 @@ const Map<String, String> _enMap = {
   "Bluetooth musi być włączony na telefonie": "Bluetooth must be enabled on your phone",
   "Telefon musi być połączony z siecią WiFi z dostępem do internetu":
       "Phone must be connected to WiFi with internet access",
-  "WiFi do której podłączysz node musi być w zasięgu": "The WiFi you connect the node to must be in range",
+  "WiFi, do której podłączysz node, musi być w zasięgu": "The WiFi you connect the node to must be in range",
   "Przygotuj nazwę sieci (SSID) i hasło WiFi": "Have your network name (SSID) and WiFi password ready",
   "Dodaj nowy node przez BLE": "Add new node via BLE",
   "Szuka nodów SENSMOS w sieci WiFi.": "Searches for SENSMOS nodes on the WiFi network.",
@@ -547,7 +556,6 @@ const Map<String, String> _enMap = {
 
   // ── Zaufanie (trust) / tryb serwisowy ────────────────────────
   "Zaufanie noda": "Node trust",
-  "Brak portfela": "No wallet",
   "Przełączam node w tryb Bluetooth…": "Switching node to Bluetooth mode…",
   "Node nie odpowiada: %s": "Node not responding: %s",
   "Node restartuje się — szukam przez Bluetooth…": "Node is restarting — searching over Bluetooth…",
@@ -568,7 +576,7 @@ const Map<String, String> _enMap = {
   "Ceremonia: %s": "Ceremony: %s",
   "Przeprowadź ceremonię, aby potwierdzić,\nże to fizyczne urządzenie.":
       "Run the ceremony to confirm\nthis is a physical device.",
-  "Node restartuje się w tryb Bluetooth (zostaw go włączonego).":
+  "Node restartuje się w tryb Bluetooth (zostaw go włączony).":
       "The node restarts into Bluetooth mode (leave it powered on).",
   "Telefon łączy się i wykonuje szybkie rundy challenge — dowód, że urządzenie jest fizycznie obok.":
       "The phone connects and runs quick challenge rounds — proof the device is physically nearby.",
@@ -1054,10 +1062,76 @@ const Map<String, String> _enMap = {
   "Za duży plik do pobrania na telefon (limit %s MB)": "Too large to download to the phone (limit %s MB)",
   "Usunąć %s?": "Delete %s?",
   "Portfel wymagany": "Wallet required",
+
+  // ── dopisane 2026-09-09: brakowało tłumaczeń, obcojęzyczny user widział polski tekst ──
+  "%s GB · %s GALU na dobę": "%s GB · %s GALU per day",
+  "Do wyboru teraz: %s GB": "Available right now: %s GB",
+  "LoRa": "LoRa",
+  "Sprzedawców gotowych: %s · wolne w sieci: %s GB": "Sellers ready: %s · free in the network: %s GB",
+  "Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram w %s kopiach u różnych właścicieli i nie mogą go odczytać.": "Your phone encrypts the files with a key from your wallet. Sellers hold the ciphertext in %s copies at different owners and cannot read it.",
+  "Wykup %s GB": "Buy %s GB",
+  "Zobacz, ile miejsca ma sieć": "See how much space the network has",
+  // ── archiwum pomiarów 2026-09-09 ──
+  "Archiwum pomiarów": "Measurement archive",
+  "Pomiary z Twoich nodów kasujemy po 48 godzinach. Włącz, a raz na dobę wylądują w tym pakiecie — zaszyfrowane Twoim kluczem, więc my ich nie odczytamy. Rok historii jednego noda to kilka MB.": "We delete measurements from your nodes after 48 hours. Switch this on and once a day they land in this package — encrypted with your key, so we cannot read them. A year of one node's history is a few MB.",
+  "Wstrzymane: %s — przestaw przełącznik, żeby wznowić.": "Paused: %s — flip the switch to resume.",
+  "Ostatnia zapisana doba: %s": "Last archived day: %s",
+  "Pierwsza paczka pojawi się po najbliższej pełnej dobie.": "The first bundle appears after the next full day.",
+  "Włączam archiwum…": "Turning the archive on…",
+  "Wyłączam archiwum…": "Turning the archive off…",
+  // ── konto bez noda 2026-09-09 ──
+  "Chcę tylko miejsce na pliki": "I just want space for files",
+  "Zakładamy portfel, node nie jest potrzebny.": "We create a wallet for you; no node needed.",
+  "Portfel gotowy: %s. Zapisz klucz (Portfel → Klucz prywatny) — bez noda to jedyna kopia.": "Wallet ready: %s. Save the key (Wallet → Private key) — without a node it is the only copy.",
+  "albo bez własnego sprzętu": "or without hardware of your own",
+  "GALU dostaniesz od kogoś, kto ma nody, albo wpłacisz je w portfelu.": "You can get GALU from someone who runs nodes, or deposit it in your wallet.",
+  // ── obietnice na ekranie powitalnym 2026-09-09 ──
+  "Twoja domowa sieć z dowolnego miejsca — bez VPN-u": "Your home network from anywhere — no VPN",
+  "Home Assistant bez abonamentu": "Home Assistant without a subscription",
+  "LoRa działa, gdy internet nie działa": "LoRa works when the internet doesn't",
+  "Zaszyfrowane miejsce na pliki u innych": "Encrypted space for files at other people's",
+  "Zatrzymaj": "Stop",
+  "Księgowanie odbioru…": "Booking the claim…",
+  "Wysłano: %s": "Sent: %s",
+  "bezpośrednio": "direct",
+  "przez serwer": "via the server",
+  "Dostępna nowsza wersja: sensmos-store.py": "A newer version is available: sensmos-store.py",
+  "Nie udało się sprawdzić stanu pakietu": "Could not check the package",
+  "To nie znaczy, że coś zginęło — Twoje pliki leżą u sprzedawców niezależnie od tego połączenia. Spróbuj za chwilę.": "It does not mean anything is lost — your files sit on the sellers' disks regardless of this connection. Try again in a moment.",
+  "Sprawdzam…": "Checking…",
+  "Sparowane urządzenia": "Paired devices",
+  "komputery wpuszczone na to konto": "computers allowed into this account",
+  "Sparuj urządzenie": "Pair a device",
+  "to urządzenie": "this device",
+  "Dostęp znika natychmiast. Jeśli to token tego telefonu, powiadomienia i tunele odłączą się do czasu ponownego zalogowania.": "Access ends at once. If this is this phone's token, notifications and tunnels drop until it signs in again.",
+  "Urządzenie sparowane z kontem wchodzi tokenem, nie portfelem. Portfel zostaje w telefonie i nigdy go nie opuszcza.": "A paired device gets in with a token, not the wallet. The wallet stays on this phone and never leaves it.",
+  "Nic jeszcze nie sparowano.": "Nothing paired yet.",
+  "bez nazwy": "unnamed",
+  "ostatnio: %s": "last used: %s",
+  "Na komputerze pojawi się kod. Przepisz go tutaj albo zeskanuj — to ten sam kod.": "A code appears on the computer. Type it here or scan it — it is the same code.",
+  "Kod z komputera": "Code from the computer",
+  "Zeskanuj": "Scan",
+  "Zeskanuj kod": "Scan the code",
+  "Sprawdź kod": "Check the code",
+  "„%s\" prosi o dostęp do konta": "“%s” is asking for access to the account",
+  "Zaznacz, co temu urządzeniu wolno. Możesz to odebrać w każdej chwili.": "Tick what this device may do. You can take it back at any time.",
+  "Może czytać pliki": "May read files",
+  "Bez tego urządzenie wyśle pliki i zobaczy listę, ale nie otworzy żadnego. Odłączenie odbiera dostęp do konta, ale NIE odbiera klucza, który już dostało.": "Without this the device can upload and see the list, but cannot open anything. Unpairing takes back account access, but NOT the key it already received.",
+  "Szukam…": "Looking…",
+  "Paruję…": "Pairing…",
 };
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
 const Map<String, String> _deMap = {
+  "Ten folder jest pusty": "Dieser Ordner ist leer",
+  "Wróć wyżej": "Eine Ebene h\u00f6her",
+  "plików: %s": "%s Dateien",
+  "Wczytuję nazwy: %s z %s": "Namen werden gelesen: %s von %s",
+  "Nowy folder": "Neuer Ordner",
+  "zdjęcia": "fotos",
+  "Folder mieszka w zaszyfrowanej nazwie pliku — serwer go nie widzi. Powstanie razem z pierwszym plikiem, który tu wyślesz.": "Ein Ordner lebt im verschl\u00fcsselten Dateinamen \u2014 der Server sieht ihn nie. Er entsteht mit der ersten Datei, die Sie hierher senden.",
+  "Przejdź": "Los",
+  "Pokaż więcej (%s)": "%s weitere anzeigen",
   // ── Node-Alias/Tag (1.5.49) ──
   "Nazwa / tag noda": "Node-Name / Tag",
   "Twoja etykieta, żeby łatwiej rozpoznać node — np. Garaż albo Router.": "Dein eigenes Label, um den Node leichter zu erkennen — z. B. Garage oder Router.",
@@ -1075,7 +1149,7 @@ const Map<String, String> _deMap = {
   "Za mało POL na gas — dopłać POL, aby wysłać": "Nicht genug POL für Gas — POL aufladen, um zu senden",
   "Wysyłanie…": "Senden…",
   "Wysłano %s %s": "%s %s gesendet",
-  "Transakcja zrewertowana": "Transaktion zurückgewiesen",
+  "Transakcja odrzucona przez kontrakt": "Transaktion zurückgewiesen",
   "Adres odbiorcy (0x…)": "Empfängeradresse (0x…)",
   "Skanuj QR": "QR scannen",
   "W kodzie QR nie ma poprawnego adresu": "Der QR-Code enthält keine gültige Adresse",
@@ -1239,7 +1313,7 @@ const Map<String, String> _deMap = {
   "Pokaż": "Anzeigen",
   "Ukryj": "Verbergen",
   "Łączę z HA…": "Verbinde mit HA…",
-  "Node jest offline — wróci gdy odzyska sieć.": "Node ist offline — kommt zurück, sobald es wieder Netz hat.",
+  "Node jest offline — wróci, gdy odzyska sieć.": "Node ist offline — kommt zurück, sobald es wieder Netz hat.",
   "HA nie odpowiada — sprawdź adres i token": "HA antwortet nicht — Adresse und Token prüfen",
   "Pusty dashboard": "Leeres Dashboard",
   "Dodaj kafelek": "Kachel hinzufügen",
@@ -1316,12 +1390,12 @@ const Map<String, String> _deMap = {
   "Approve nie powiodło się": "Approve fehlgeschlagen",
   "Wpłacanie…": "Einzahlung läuft…",
   "Wpłacono %s GALU": "%s GALU eingezahlt",
-  "Deposit zrewertowany": "Einzahlung zurückgesetzt (revert)",
+  "Wpłata odrzucona przez kontrakt": "Einzahlung zurückgesetzt (revert)",
   "Brak nagród": "Keine Belohnungen",
   "Nagrody z epoki %s już odebrane": "Belohnungen für Epoche %s bereits abgeholt",
   "Odbieranie nagród…": "Belohnungen werden abgeholt…",
   "Odebrano nagrody (epoka %s)": "Belohnungen abgeholt (Epoche %s)",
-  "Claim zrewertowany": "Claim zurückgesetzt (revert)",
+  "Odbiór odrzucony przez kontrakt": "Claim zurückgesetzt (revert)",
   "Brak nodów — eksport wymaga PIN-u noda": "Keine Nodes — Export erfordert eine Node-PIN",
   "Brak połączenia z żadnym nodem": "Keine Verbindung zu einem Node",
   "ADRES PORTFELA": "WALLET-ADRESSE",
@@ -1397,7 +1471,7 @@ const Map<String, String> _deMap = {
   // ── Akcje wiadomości / wiadomości ────────────────────────────
   "Usuń akcję": "Aktion löschen",
   "Brak akcji. Dodaj przyciskiem +": "Keine Aktionen. Mit + hinzufügen",
-  "Automatyczne akcje wykonywane gdy node odbierze wiadomość o podanym ID (lub \"*\" dla wszystkich).":
+  "Automatyczne akcje wykonywane, gdy node odbierze wiadomość o podanym ID (albo \"*\" dla wszystkich).":
       "Automatische Aktionen, wenn der Node eine Nachricht mit der angegebenen ID empfängt (oder \"*\" für alle).",
   "ID wiadomości triggera — \"alarm\", \"update\", \"*\" = wszystkie":
       "Trigger-Nachrichten-ID — \"alarm\", \"update\", \"*\" = alle",
@@ -1443,7 +1517,7 @@ const Map<String, String> _deMap = {
   "Podłącz urządzenie": "Gerät verbinden",
   "Szukam...": "Suche...",
   "Znalezione urządzenia": "Gefundene Geräte",
-  "Brak urządzeń.\nUpewnij się że node jest w trybie konfiguracji.":
+  "Brak urządzeń.\nUpewnij się, że node jest w trybie konfiguracji.":
       "Keine Geräte.\nStelle sicher, dass der Node im Konfigurationsmodus ist.",
   "Podaj dane WiFi": "WLAN-Zugangsdaten eingeben",
   "Nazwa sieci WiFi (SSID)": "WLAN-Name (SSID)",
@@ -1494,20 +1568,20 @@ const Map<String, String> _deMap = {
   "Usuń node z listy": "Node von der Liste entfernen",
   "Usuwa node tylko z tej apki": "Entfernt den Node nur aus dieser App",
   "Usuń node z sieci (permanentnie)": "Node aus dem Netzwerk löschen (dauerhaft)",
-  "Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają na Twoim wallecie.":
+  "Kasuje node i wszystkie jego dane z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU zostają w Twoim portfelu.":
       "Löscht den Node und alle seine Daten aus SENSMOS. Du kannst ihn später wieder hinzufügen (Bluetooth-Onboarding). Verdiente GALU bleiben in deinem Wallet.",
   "Usunąć node z sieci?": "Node aus dem Netzwerk löschen?",
-  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU pozostają na Twoim wallecie.":
+  "Node %s i WSZYSTKIE jego dane zostaną trwale usunięte z SENSMOS. Możesz go później dodać ponownie (onboarding przez Bluetooth). Zarobione GALU pozostają w Twoim portfelu.":
       "Node %s und ALLE seine Daten werden dauerhaft aus SENSMOS gelöscht. Du kannst ihn später wieder hinzufügen (Bluetooth-Onboarding). Verdiente GALU bleiben in deinem Wallet.",
   "Usuń permanentnie": "Dauerhaft löschen",
   "Node usunięty z sieci": "Node aus dem Netzwerk gelöscht",
   "Błąd usuwania: %s": "Löschfehler: %s",
-  "Brak walleta": "Kein Wallet",
+  "Brak portfela": "Kein Wallet",
   "Importujesz INNY portfel (%s) niż obecny (%s).\n\nTwoje nody pozostaną przypisane do obecnego portfela, dopóki nie dodasz ich ponownie przez Bluetooth (to zmieni właściciela i wymaga ponownej weryfikacji — bez resetu urządzenia). Zarobione GALU zostają przy portfelu, który je zarobił.":
       "Du importierst ein ANDERES Wallet (%s) als das aktuelle (%s).\n\nDeine Nodes bleiben dem aktuellen Wallet zugeordnet, bis du sie erneut über Bluetooth hinzufügst (das ändert den Besitzer und erfordert eine erneute Verifizierung — ohne Geräte-Reset). Verdiente GALU bleiben bei dem Wallet, das sie verdient hat.",
 
   "Moje nody w sieci": "Meine Nodes im Netzwerk",
-  "Wszystkie nody zarejestrowane na Twój wallet (wg SENSMOS)": "Alle auf dein Wallet registrierten Nodes (laut SENSMOS)",
+  "Wszystkie nody zarejestrowane na Twój portfel (wg SENSMOS)": "Alle auf dein Wallet registrierten Nodes (laut SENSMOS)",
   "brak w tej apce": "nicht in dieser App",
   "nieaktywny": "inaktiv",
   "ID skopiowane: %s": "ID kopiert: %s",
@@ -1526,12 +1600,12 @@ const Map<String, String> _deMap = {
   "Wpisz IP noda — PIN podasz, gdy urządzenie się odnajdzie.": "Gib die Node-IP ein — die PIN folgt, sobald das Gerät gefunden ist.",
   "brak portfela": "kein Wallet",
   "Aplikacja nie ma przypisanego portfela": "Der App ist kein Wallet zugeordnet",
-  "Zaimportuj go z klucza (zakladka Portfel) lub z noda (rozwin swoj node ponizej -> Importuj portfel z noda).":
+  "Zaimportuj go z klucza (zakładka Portfel) albo z noda (rozwiń swój node poniżej → Importuj portfel z noda).":
       "Importiere es aus einem Schlüssel (Tab Wallet) oder von einem Node (Node unten aufklappen -> Wallet vom Node importieren).",
   "import z klucza": "Import aus Schlüssel",
   "Klucz portfela (zaawansowane)": "Wallet-Schlüssel (fortgeschritten)",
   "Usunąć z tej apki?": "Aus dieser App entfernen?",
-  "Node zniknie tylko z tego telefonu - pozostaje w sieci i nalicza nagrody. Aby usunac go z sieci, uzyj Usun z sieci.":
+  "Node zniknie tylko z tego telefonu — zostaje w sieci i dalej nalicza nagrody. Żeby usunąć go z sieci, użyj „Usuń z sieci”.":
       "Der Node verschwindet nur von diesem Handy — er bleibt im Netzwerk und sammelt Belohnungen. Zum Entfernen aus dem Netzwerk nutze Aus dem Netzwerk löschen.",
   "Usuń z apki": "Aus der App entfernen",
   "import / eksport klucza prywatnego": "Import / Export des privaten Schlüssels",
@@ -1591,7 +1665,7 @@ const Map<String, String> _deMap = {
   "Bluetooth musi być włączony na telefonie": "Bluetooth muss am Handy aktiviert sein",
   "Telefon musi być połączony z siecią WiFi z dostępem do internetu":
       "Das Handy muss mit einem WLAN mit Internetzugang verbunden sein",
-  "WiFi do której podłączysz node musi być w zasięgu": "Das WLAN für den Node muss in Reichweite sein",
+  "WiFi, do której podłączysz node, musi być w zasięgu": "Das WLAN für den Node muss in Reichweite sein",
   "Przygotuj nazwę sieci (SSID) i hasło WiFi": "Halte WLAN-Namen (SSID) und Passwort bereit",
   "Dodaj nowy node przez BLE": "Neuen Node über BLE hinzufügen",
   "Szuka nodów SENSMOS w sieci WiFi.": "Sucht SENSMOS-Nodes im WLAN.",
@@ -1616,7 +1690,6 @@ const Map<String, String> _deMap = {
 
   // ── Zaufanie (trust) / tryb serwisowy ────────────────────────
   "Zaufanie noda": "Node-Vertrauen",
-  "Brak portfela": "Kein Wallet",
   "Przełączam node w tryb Bluetooth…": "Node wird in den Bluetooth-Modus geschaltet…",
   "Node nie odpowiada: %s": "Node antwortet nicht: %s",
   "Node restartuje się — szukam przez Bluetooth…": "Node startet neu — Suche über Bluetooth…",
@@ -1637,7 +1710,7 @@ const Map<String, String> _deMap = {
   "Ceremonia: %s": "Zeremonie: %s",
   "Przeprowadź ceremonię, aby potwierdzić,\nże to fizyczne urządzenie.":
       "Führe die Zeremonie durch, um zu bestätigen,\ndass dies ein physisches Gerät ist.",
-  "Node restartuje się w tryb Bluetooth (zostaw go włączonego).":
+  "Node restartuje się w tryb Bluetooth (zostaw go włączony).":
       "Der Node startet in den Bluetooth-Modus neu (eingeschaltet lassen).",
   "Telefon łączy się i wykonuje szybkie rundy challenge — dowód, że urządzenie jest fizycznie obok.":
       "Das Handy verbindet sich und führt schnelle Challenge-Runden aus — Beweis, dass das Gerät physisch in der Nähe ist.",
@@ -2044,4 +2117,62 @@ const Map<String, String> _deMap = {
   "Za duży plik do pobrania na telefon (limit %s MB)": "Zu groß zum Herunterladen aufs Telefon (Limit %s MB)",
   "Usunąć %s?": "%s löschen?",
   "Portfel wymagany": "Wallet erforderlich",
+
+  // ── dopisane 2026-09-09: brakowało tłumaczeń, obcojęzyczny user widział polski tekst ──
+  "%s GB · %s GALU na dobę": "%s GB · %s GALU pro Tag",
+  "Do wyboru teraz: %s GB": "Jetzt verfügbar: %s GB",
+  "LoRa": "LoRa",
+  "OK": "OK",
+  "Sprzedawców gotowych: %s · wolne w sieci: %s GB": "Bereite Anbieter: %s · frei im Netz: %s GB",
+  "Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram w %s kopiach u różnych właścicieli i nie mogą go odczytać.": "Dein Telefon verschlüsselt die Dateien mit einem Schlüssel aus deiner Wallet. Anbieter halten den Geheimtext in %s Kopien bei verschiedenen Besitzern und können ihn nicht lesen.",
+  "Wykup %s GB": "%s GB kaufen",
+  "Zobacz, ile miejsca ma sieć": "Sieh, wie viel Platz das Netz hat",
+  // ── archiwum pomiarów 2026-09-09 ──
+  "Archiwum pomiarów": "Messarchiv",
+  "Pomiary z Twoich nodów kasujemy po 48 godzinach. Włącz, a raz na dobę wylądują w tym pakiecie — zaszyfrowane Twoim kluczem, więc my ich nie odczytamy. Rok historii jednego noda to kilka MB.": "Messwerte deiner Nodes löschen wir nach 48 Stunden. Schalte das ein, und einmal täglich landen sie in diesem Paket — mit deinem Schlüssel verschlüsselt, wir können sie also nicht lesen. Ein Jahr Historie eines Nodes sind wenige MB.",
+  "Wstrzymane: %s — przestaw przełącznik, żeby wznowić.": "Angehalten: %s — Schalter umlegen, um fortzufahren.",
+  "Ostatnia zapisana doba: %s": "Zuletzt archivierter Tag: %s",
+  "Pierwsza paczka pojawi się po najbliższej pełnej dobie.": "Das erste Paket erscheint nach dem nächsten vollen Tag.",
+  "Włączam archiwum…": "Archiv wird eingeschaltet…",
+  "Wyłączam archiwum…": "Archiv wird ausgeschaltet…",
+  // ── konto bez noda 2026-09-09 ──
+  "Chcę tylko miejsce na pliki": "Ich will nur Platz für Dateien",
+  "Zakładamy portfel, node nie jest potrzebny.": "Wir legen eine Wallet an; ein Node ist nicht nötig.",
+  "Portfel gotowy: %s. Zapisz klucz (Portfel → Klucz prywatny) — bez noda to jedyna kopia.": "Wallet bereit: %s. Sichere den Schlüssel (Wallet → Privater Schlüssel) — ohne Node ist das die einzige Kopie.",
+  "albo bez własnego sprzętu": "oder ganz ohne eigene Hardware",
+  "GALU dostaniesz od kogoś, kto ma nody, albo wpłacisz je w portfelu.": "GALU bekommst du von jemandem mit Nodes, oder du zahlst es in deiner Wallet ein.",
+  // ── obietnice na ekranie powitalnym 2026-09-09 ──
+  "Twoja domowa sieć z dowolnego miejsca — bez VPN-u": "Dein Heimnetz von überall — ohne VPN",
+  "Home Assistant bez abonamentu": "Home Assistant ohne Abo",
+  "LoRa działa, gdy internet nie działa": "LoRa funktioniert, wenn das Internet ausfällt",
+  "Zaszyfrowane miejsce na pliki u innych": "Verschlüsselter Platz für Dateien bei anderen",
+  "Zatrzymaj": "Stoppen",
+  "Księgowanie odbioru…": "Abholung wird gebucht…",
+  "Wysłano: %s": "Gesendet: %s",
+  "bezpośrednio": "direkt",
+  "przez serwer": "über den Server",
+  "Dostępna nowsza wersja: sensmos-store.py": "Neuere Version verfügbar: sensmos-store.py",
+  "Nie udało się sprawdzić stanu pakietu": "Paketstatus nicht abrufbar",
+  "To nie znaczy, że coś zginęło — Twoje pliki leżą u sprzedawców niezależnie od tego połączenia. Spróbuj za chwilę.": "Das heißt nicht, dass etwas verloren ist — deine Dateien liegen unabhängig von dieser Verbindung auf den Platten der Anbieter. Versuch es gleich noch einmal.",
+  "Sprawdzam…": "Prüfe…",
+  "Sparowane urządzenia": "Gekoppelte Geräte",
+  "komputery wpuszczone na to konto": "Computer mit Zugang zu diesem Konto",
+  "Sparuj urządzenie": "Gerät koppeln",
+  "to urządzenie": "dieses Gerät",
+  "Dostęp znika natychmiast. Jeśli to token tego telefonu, powiadomienia i tunele odłączą się do czasu ponownego zalogowania.": "Der Zugang endet sofort. Ist das der Token dieses Telefons, fallen Benachrichtigungen und Tunnel aus, bis es sich neu anmeldet.",
+  "Urządzenie sparowane z kontem wchodzi tokenem, nie portfelem. Portfel zostaje w telefonie i nigdy go nie opuszcza.": "Ein gekoppeltes Gerät kommt mit einem Token hinein, nicht mit der Wallet. Die Wallet bleibt auf diesem Telefon und verlässt es nie.",
+  "Nic jeszcze nie sparowano.": "Noch nichts gekoppelt.",
+  "bez nazwy": "ohne Namen",
+  "ostatnio: %s": "zuletzt: %s",
+  "Na komputerze pojawi się kod. Przepisz go tutaj albo zeskanuj — to ten sam kod.": "Auf dem Computer erscheint ein Code. Tippe ihn hier ein oder scanne ihn — es ist derselbe Code.",
+  "Kod z komputera": "Code vom Computer",
+  "Zeskanuj": "Scannen",
+  "Zeskanuj kod": "Code scannen",
+  "Sprawdź kod": "Code prüfen",
+  "„%s\" prosi o dostęp do konta": "„%s“ bittet um Zugang zum Konto",
+  "Zaznacz, co temu urządzeniu wolno. Możesz to odebrać w każdej chwili.": "Kreuze an, was dieses Gerät darf. Du kannst es jederzeit zurücknehmen.",
+  "Może czytać pliki": "Darf Dateien lesen",
+  "Bez tego urządzenie wyśle pliki i zobaczy listę, ale nie otworzy żadnego. Odłączenie odbiera dostęp do konta, ale NIE odbiera klucza, który już dostało.": "Ohne das kann das Gerät hochladen und die Liste sehen, aber nichts öffnen. Das Entkoppeln nimmt den Kontozugang zurück, NICHT jedoch den bereits übergebenen Schlüssel.",
+  "Szukam…": "Suche…",
+  "Paruję…": "Koppeln…",
 };

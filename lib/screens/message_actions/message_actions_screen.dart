@@ -180,8 +180,8 @@ class _MessageActionsScreenState extends State<MessageActionsScreen> {
         children: [
           Expanded(
             child: Text(
-              tr('Automatyczne akcje wykonywane gdy node odbierze wiadomość '
-                  'o podanym ID (lub "*" dla wszystkich).'),
+              tr('Automatyczne akcje wykonywane, gdy node odbierze wiadomość '
+                  'o podanym ID (albo "*" dla wszystkich).'),
               style: const TextStyle(color: AppTheme.muted, fontSize: 13),
             ),
           ),

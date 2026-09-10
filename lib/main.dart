@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'theme.dart';
 import 'config.dart';
 import 'l10n.dart';
+import 'package:sensmos_store/sensmos_store.dart';
 import 'log.dart';
 import 'core/core_bloc.dart';
 import 'core/core_event.dart';
@@ -29,6 +30,9 @@ Future<void> main() async {
   await Config.initVersion();   // wersja z pakietu — updater i ekran Ustawień czytają ją stąd
   await L10n.init();
   await Log.load();
+  // Pakiet Store nie zna loggera apki — podpinamy go raz, tutaj.
+  storeLog = (poziom, tag, tresc) => poziom == 'E'
+      ? Log.e(tag, tresc) : poziom == 'W' ? Log.w(tag, tresc) : Log.i(tag, tresc);
   // Firebase opcjonalny — apka działa też bez google-services.json
   try {
     await Firebase.initializeApp();

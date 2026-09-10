@@ -76,7 +76,7 @@ class WalletService {
       // Portfel pod hasłem i zablokowany — najpierw unlock (UI: PIN/hasło gate).
       throw Exception(await isPasswordProtected()
           ? tr('Portfel zablokowany — odblokuj hasłem, aby wykonać operację.')
-          : tr('Brak walleta'));
+          : tr('Brak portfela'));
     }
     final priv = EthPrivateKey.fromHex(pk);
     final sig = priv.signPersonalMessageToUint8List(

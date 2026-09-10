@@ -52,7 +52,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/${widget.deviceId}/emergency?owner=$owner'),
-        headers: {'X-App-Key': 'sensmos2025'},
+        headers: {'X-App-Key': Config.appKey},
       ).timeout(const Duration(seconds: 8));
       if (res.statusCode != 200) {
         throw Exception((jsonDecode(res.body) as Map)['error'] ?? 'HTTP ${res.statusCode}');
@@ -124,7 +124,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
       final sig = await wallet.signMessage('sensmos:loracmd:${widget.deviceId}:$cmd:$ts');
       final res = await http.post(
         Uri.parse('${Config.beUrl}/v1/nodes/${widget.deviceId}/lora_cmd'),
-        headers: {'Content-Type': 'application/json', 'X-App-Key': 'sensmos2025'},
+        headers: {'Content-Type': 'application/json', 'X-App-Key': Config.appKey},
         body: jsonEncode({'owner': owner, 'cmd': cmd, 'ts': ts, 'sig': sig}),
       ).timeout(const Duration(seconds: 10));
       final j = jsonDecode(res.body) as Map<String, dynamic>;

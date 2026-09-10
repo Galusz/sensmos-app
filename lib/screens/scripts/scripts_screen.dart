@@ -280,7 +280,7 @@ class _NodeScriptCard extends StatelessWidget {
                     size: 18, color: running ? AppTheme.amber : AppTheme.teal),
                 label: Text(
                     interval > 0
-                        ? (running ? tr('Stop') : tr('Start'))
+                        ? (running ? tr('Zatrzymaj') : tr('Uruchom'))
                         : tr('Uruchom'),
                     style: TextStyle(
                         color: running ? AppTheme.amber : AppTheme.teal,

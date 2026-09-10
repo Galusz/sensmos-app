@@ -80,7 +80,7 @@ class _SetupScreenState extends State<SetupScreen> {
     try {
       final res = await http.get(
         Uri.parse('${Config.beUrl}/v1/nodes/by-owner/$owner'),
-        headers: const {'X-App-Key': 'sensmos2025'},
+        headers: const {'X-App-Key': Config.appKey},
       ).timeout(const Duration(seconds: 8));
       final list = (jsonDecode(res.body) as Map<String,dynamic>)['nodes'] as List? ?? [];
       for (final raw in list) {
@@ -462,7 +462,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   const SizedBox(height: 16),
                 ],
                 Text(
-                    _scanning ? tr('Skanowanie...') : tr('Brak urządzeń.\nUpewnij się że node jest w trybie konfiguracji.'),
+                    _scanning ? tr('Skanowanie...') : tr('Brak urządzeń.\nUpewnij się, że node jest w trybie konfiguracji.'),
                     textAlign: TextAlign.center,
                     style: const TextStyle(color: AppTheme.muted)),
               ]))

@@ -6,6 +6,7 @@ import '../../core/core_bloc.dart';
 import '../../core/core_event.dart';
 import '../../services/wallet_service.dart';
 import '../node/node_manager_screen.dart';
+import 'package:sensmos_store/sensmos_store.dart';
 
 /// Ekran powitalny (welcome). Nowy start (dodaj node) — albo, jeśli już
 /// korzystałeś z SENSMOS: wyszukaj swoje nody w WiFi lub zaimportuj portfel.
@@ -20,6 +21,28 @@ class OnboardingScreen extends StatelessWidget {
   void _findExisting(BuildContext context) {
     Navigator.push(context, MaterialPageRoute(
         builder: (_) => const NodeManagerScreen(existingOnly: true)));
+  }
+
+  /// Konto bez sprzętu. Miejsce w Store kupuje się na ADRES, nie na node (bramka zdjęta
+  /// 2026-09-09), więc ktoś, kto chce tylko trzymać pliki, nie ma po co kupować płytki.
+  /// UWAGA: portfel zakładany razem z nodem dostaje zaszyfrowaną kopię NA TYM NODZIE. Tutaj
+  /// takiej kopii nie ma i nie będzie — jedyną drogą odzysku jest eksport klucza z ekranu
+  /// portfela, więc od razu tam kierujemy.
+  Future<void> _walletOnly(BuildContext context) async {
+    final ws = context.read<WalletService>();
+    final messenger = ScaffoldMessenger.of(context);
+    final bloc = context.read<CoreBloc>();
+    try {
+      final w = await ws.create();
+      messenger.showSnackBar(SnackBar(
+          duration: const Duration(seconds: 8),
+          content: Text(tr('Portfel gotowy: %s. Zapisz klucz (Portfel → Klucz prywatny) — bez '
+                           'noda to jedyna kopia.',
+              ['${w.address.substring(0, 6)}…${w.address.substring(w.address.length - 4)}']))));
+      bloc.add(WalletImported());
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('$e'), backgroundColor: const Color(0xFFFF4444)));
+    }
   }
 
   Future<void> _importWallet(BuildContext context) async {
@@ -76,20 +99,20 @@ class OnboardingScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              const Text('SENSMOS',
-                  style: TextStyle(
-                      color: AppTheme.teal,
-                      fontSize: 40,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 4)),
-              const SizedBox(height: 12),
+              // Znak i wordmark 1:1 z nagłówka strony — apka i sensmos.com muszą wyglądać jak
+              // jedno. Wcześniej był tu sam napis wielkimi literami, czego marka nie przewiduje.
+              const SensmosLogo(size: 46, fontSize: 34, textColor: AppTheme.text),
+              const SizedBox(height: 14),
               Text(tr('Twoje urządzenia. Twoje dane. Twoja sieć.'),
                   style: const TextStyle(color: AppTheme.muted, fontSize: 15)),
               const SizedBox(height: 40),
-              _bullet(Icons.sensors, tr('Podłącz czujnik i monitoruj okolicę')),
-              _bullet(Icons.lan_outlined, tr('Monitoruj sieć i internet')),
-              _bullet(Icons.swap_horiz, tr('Wymieniaj dane z sąsiadami')),
-              _bullet(Icons.notifications_active, tr('Alerty na telefon')),
+              // Cztery obietnice wzięte z sekcji „co daje Sensmos" na stronie, żeby człowiek,
+              // który tam był, zobaczył tu to samo. Ostatnia jest nowa i tłumaczy przycisk poniżej:
+              // bez niej „Chcę tylko miejsce na pliki" wyskakuje znikąd.
+              _bullet(Icons.lock_outline, tr('Twoja domowa sieć z dowolnego miejsca — bez VPN-u')),
+              _bullet(Icons.hub_outlined, tr('Home Assistant bez abonamentu')),
+              _bullet(Icons.wifi_tethering, tr('LoRa działa, gdy internet nie działa')),
+              _bullet(Icons.folder_outlined, tr('Zaszyfrowane miejsce na pliki u innych')),
               const SizedBox(height: 32),
 
               // ── Nowy start ──
@@ -104,6 +127,19 @@ class OnboardingScreen extends StatelessWidget {
                   icon: const Icon(Icons.add),
                   label: Text(tr('Dodaj node')),
                 ),
+              ),
+              const SizedBox(height: 10),
+              // Druga droga nowego startu, nie „powrót": albo przychodzisz ze sprzętem,
+              // albo chcesz samego miejsca na pliki.
+              _secondary(
+                icon: Icons.folder_outlined,
+                label: tr('Chcę tylko miejsce na pliki'),
+                onTap: () => _walletOnly(context),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(tr('Zakładamy portfel, node nie jest potrzebny.'),
+                    style: const TextStyle(color: AppTheme.muted, fontSize: 12)),
               ),
 
               const SizedBox(height: 28),
@@ -138,6 +174,9 @@ class OnboardingScreen extends StatelessWidget {
     );
   }
 
+  /// Przyciski drugorzędne w kolorze marki: szara ramka na ciemnym tle nie czytała się jako
+  /// przycisk — ludzie nie wiedzieli, że to się naciska. Zielona ramka i zielony tekst mówią
+  /// „naciśnij", a wypełnienie zostaje zarezerwowane dla akcji głównej, żeby nie konkurowały.
   Widget _secondary(
           {required IconData icon, required String label, required VoidCallback onTap}) =>
       SizedBox(
@@ -145,11 +184,12 @@ class OnboardingScreen extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: onTap,
           style: OutlinedButton.styleFrom(
-            foregroundColor: AppTheme.text,
-            alignment: Alignment.centerLeft,
+            foregroundColor: AppTheme.teal,
+            side: const BorderSide(color: AppTheme.teal),
+            padding: const EdgeInsets.symmetric(vertical: 14),
           ),
-          icon: Icon(icon, size: 20, color: AppTheme.muted),
-          label: Text(label),
+          icon: Icon(icon, size: 20, color: AppTheme.teal),
+          label: Text(label, textAlign: TextAlign.center),
         ),
       );
 

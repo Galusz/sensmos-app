@@ -497,7 +497,7 @@ class _TrustScreenState extends State<TrustScreen> {
                       fontSize: 11,
                       letterSpacing: 0.8)),
               const SizedBox(height: 8),
-              _step('1', tr('Node restartuje się w tryb Bluetooth (zostaw go włączonego).')),
+              _step('1', tr('Node restartuje się w tryb Bluetooth (zostaw go włączony).')),
               _step('2', tr('Telefon łączy się i wykonuje szybkie rundy challenge — '
                   'dowód, że urządzenie jest fizycznie obok.')),
               _step('3', tr('Node podpisuje atest swoim kluczem, Ty podpisujesz portfelem.')),

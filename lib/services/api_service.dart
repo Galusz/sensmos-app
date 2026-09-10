@@ -10,7 +10,7 @@ class ApiService {
 
   Future<Map<String, dynamic>> _get(String path) async {
     final res = await _client.get(Uri.parse('${Config.beUrl}$path'),
-        headers: const {'X-App-Key': 'sensmos2025'});
+        headers: const {'X-App-Key': Config.appKey});
     if (res.statusCode != 200) {
       throw Exception('API $path → ${res.statusCode}');
     }

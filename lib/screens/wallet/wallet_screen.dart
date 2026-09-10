@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../theme.dart';
+import '../../app_shell.dart';
 import '../../config.dart';
 import '../../l10n.dart';
 import '../../core/core_bloc.dart';
@@ -15,20 +16,21 @@ import '../../services/wallet_service.dart';
 import '../../services/eth_service.dart';
 import '../../services/node_service.dart';
 
-/// Wpłata GALU — WYGASZONA, kod celowo zostaje.
+/// Wpłata GALU — WŁĄCZONA z powrotem 2026-09-09.
 ///
-/// Kupować dane może wyłącznie zarejestrowany node ([data.js] wymaga, by nadawca był aktywnym
-/// urządzeniem), a każdy node zarabia wielokrotnie więcej, niż kosztuje zapytanie: 0,50 GALU
-/// przy ~17 GALU/dobę. Saldo liczy się jako `earned + deposited − spent − claimed`, więc same
-/// zarobki są pełnoprawnym środkiem płatniczym i nikt nigdy nie musiał dopłacać.
+/// Była wygaszona i powód był wtedy prawdziwy: kupować dane mógł wyłącznie zarejestrowany node,
+/// a każdy node zarabiał wielokrotnie więcej, niż kosztowało zapytanie (0,50 GALU przy kilkunastu
+/// zarabianych na dobę). Skoro `earned + deposited − spent − claimed`, to same zarobki wystarczały
+/// i nikt nigdy nie musiał dopłacać — za całą historię sieci wydano wtedy 7,50 GALU wobec 41 152
+/// zarobionych, a depozyt wpłaciły trzy portfele, z czego dwa nie wydały nic.
 ///
-/// Dowód z produkcji: za całą historię sieci wydano 7,50 GALU (jedna subskrypcja + jedna
-/// wiadomość) wobec 41 152 zarobionych; depozyt wpłaciły 3 portfele, z czego dwa nie wydały nic.
+/// Store ten świat zamknął. Miejsce u sprzedawcy kupuje się na ADRES, nie na node (bramka „musisz
+/// mieć noda" zdjęta 2026-09-09), więc pierwszy raz w historii istnieje ktoś, kto ma za co płacić
+/// tylko wtedy, gdy dostanie albo wpłaci GALU: człowiek bez własnego sprzętu.
 ///
-/// Przestawienie na `true` przywraca wpłatę w całości — przyda się, gdy pojawią się płatne
-/// funkcje. Księgowanie w BE (listener `onDeposited`) zostaje włączone niezależnie od tej flagi,
-/// bo `deposit()` istnieje w kontrakcie i wywołane bezpośrednio musi się zaksięgować.
-const bool kDepositEnabled = false;
+/// NIE wygaszać ponownie „bo przecież nikt nie dopłaca" — dopóki Store żyje, to jest jedyna droga
+/// wejścia dla kupującego spoza sieci nodów.
+const bool kDepositEnabled = true;
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -56,6 +58,8 @@ class _WalletScreenState extends State<WalletScreen> {
   double _claimed = 0;
   double _claimPending = 0;   // hold claim-intent (wypłata w toku, czeka na event on-chain)
   double _depositPending = 0; // wpłata potwierdzona on-chain, czeka aż listener BE zaksięguje event Deposited
+  bool _settling = false;     // claim potwierdzony on-chain, czekamy aż BE go zaksięguje —
+                              // przez ten czas liczby są NIEAKTUALNE i tak je pokazujemy
 
   // saldo on-chain (wei)
   BigInt _dhv = BigInt.zero;
@@ -161,14 +165,38 @@ class _WalletScreenState extends State<WalletScreen> {
   /// Ratuje też ścieżkę bez claim-intentu (`viaIntent == false`), gdzie BE nie zapisał nic i bez
   /// tego wszystkie liczby zostawały dokładnie takie jak przed claimem.
   Future<void> _settleClaim(String addr, double claimedBefore) async {
-    for (int i = 0; i < 12 && mounted; i++) {   // 12 × 5 s = 60 s: 12 bloków (~24 s) + poll 15 s z zapasem
-      await Future.delayed(const Duration(seconds: 5));
-      if (!mounted) return;
-      await _loadBe(addr);
-      if (!mounted) return;
-      setState(() {});
-      if (_claimed > claimedBefore + 0.0001) return;   // zaksięgowane — hold schodzi tym samym UPDATE-em
+    if (mounted) setState(() => _settling = true);
+    try {
+      for (int i = 0; i < 12 && mounted; i++) {   // 12 × 5 s = 60 s: 12 bloków (~24 s) + poll 15 s z zapasem
+        await Future.delayed(const Duration(seconds: 5));
+        if (!mounted) return;
+        await _loadBe(addr);
+        if (!mounted) return;
+        setState(() {});
+        if (_claimed > claimedBefore + 0.0001) return;   // zaksięgowane — hold schodzi tym samym UPDATE-em
+      }
+    } finally {
+      if (mounted) setState(() => _settling = false);
     }
+  }
+
+  /// Kafel z liczbami, które przez chwilę po claimie są nieprawdziwe. Wygaszamy je i mówimy
+  /// wprost, że trwa księgowanie — milczące pokazywanie starej kwoty wyglądało jak zawieszony
+  /// przycisk i kusiło, żeby nacisnąć drugi raz.
+  Widget _settlingWrap(Widget child) {
+    if (!_settling) return child;
+    return Stack(children: [
+      Opacity(opacity: 0.35, child: IgnorePointer(child: child)),
+      Positioned.fill(child: Center(
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          const SizedBox(width: 16, height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.teal)),
+          const SizedBox(width: 10),
+          Text(tr('Księgowanie odbioru…'),
+              style: const TextStyle(color: AppTheme.teal, fontSize: 13)),
+        ]),
+      )),
+    ]);
   }
 
   Future<void> _loadBe(String addr) async {
@@ -236,7 +264,7 @@ class _WalletScreenState extends State<WalletScreen> {
       _snack(tr('Wpłacanie…'));
       final h = await _eth.deposit(pk, wei);
       final ok = await _eth.waitReceipt(h);
-      _snack(ok ? tr('Wpłacono %s GALU', [amount]) : tr('Deposit zrewertowany'),
+      _snack(ok ? tr('Wpłacono %s GALU', [amount]) : tr('Wpłata odrzucona przez kontrakt'),
           error: !ok);
       await _load();
       // Wpłata potwierdzona on-chain, ale saldo kredytuje dopiero listener BE z eventu Deposited
@@ -317,7 +345,7 @@ class _WalletScreenState extends State<WalletScreen> {
       _snack(tr('Odbieranie nagród…'));
       final h = await _eth.claim(pk, cumulativeWei, proof);
       final ok = await _eth.waitReceipt(h);
-      _snack(ok ? tr('Odebrano nagrody') : tr('Claim zrewertowany'), error: !ok);
+      _snack(ok ? tr('Odebrano nagrody') : tr('Odbiór odrzucony przez kontrakt'), error: !ok);
       await _load();
       if (ok) _settleClaim(addr, claimedBefore);   // BEZ await — inaczej scrim wisiałby minutę
     } catch (e) {
@@ -367,7 +395,7 @@ class _WalletScreenState extends State<WalletScreen> {
       _snack(tr('Wysyłanie…'));
       final h = pol ? await _eth.sendNative(pk, to, wei) : await _eth.transfer(pk, to, wei);
       final ok = await _eth.waitReceipt(h);
-      _snack(ok ? tr('Wysłano %s %s', [amountStr, asset]) : tr('Transakcja zrewertowana'), error: !ok);
+      _snack(ok ? tr('Wysłano %s %s', [amountStr, asset]) : tr('Transakcja odrzucona przez kontrakt'), error: !ok);
       await _load();
     } catch (e) {
       _snack(tr('Błąd: %s', [e]), error: true);
@@ -546,6 +574,7 @@ class _WalletScreenState extends State<WalletScreen> {
           IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: _busy ? null : _load),
+          const InboxBellSlot(),
         ],
       ),
       body: _loading
@@ -560,13 +589,13 @@ class _WalletScreenState extends State<WalletScreen> {
                     children: [
                       _addressCard(state.wallet?.address ?? '—'),
                       const SizedBox(height: 16),
-                      _balanceCard(),
+                      _settlingWrap(_balanceCard()),
                       if (kDepositEnabled) ...[
                         const SizedBox(height: 16),
                         _actions(),
                       ],
                       const SizedBox(height: 16),
-                      _onchainCard(),
+                      _settlingWrap(_onchainCard()),
                       const SizedBox(height: 16),
                       _expensesSection(state.wallet?.address),
                       const SizedBox(height: 16),
@@ -595,7 +624,7 @@ class _WalletScreenState extends State<WalletScreen> {
   Future<List<Map<String, dynamic>>> _fetchExpenses(String addr) async {
     final r = await http.get(
       Uri.parse('${Config.beUrl}/v1/nodes/expenses?owner=$addr'),
-      headers: {'X-App-Key': 'sensmos2025'},
+      headers: {'X-App-Key': Config.appKey},
     ).timeout(const Duration(seconds: 8));
     if (r.statusCode != 200) return const [];
     return List<Map<String, dynamic>>.from((jsonDecode(r.body) as Map)['items'] ?? []);
@@ -949,7 +978,7 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
       );
 
-  // Wpłata (Deposit) — wygaszona (kDepositEnabled=false), kod celowo zostaje.
+  // Wpłata (Deposit) — włączona 2026-09-09, patrz kDepositEnabled u góry pliku.
   Widget _actions() => Row(children: [
         Expanded(
           child: OutlinedButton.icon(

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../services/node_service.dart';
 import '../../services/store_card_pref.dart';
 import '../../config.dart';
 import '../../theme.dart';
 import '../../l10n.dart';
+import 'devices_screen.dart';
 import 'nodes_location_screen.dart';
 import 'logs_screen.dart';
 import 'update_check.dart';
@@ -17,19 +20,21 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // Nody
-          _section(tr('Nody')),
-          Card(child: Column(children: [
-            _tile(
-              context,
-              icon: Icons.location_on_outlined,
-              title: tr('Lokalizacja nodów'),
-              sub: tr('współrzędne wszystkich urządzeń'),
-              builder: (_) => const NodesLocationScreen(),
-            ),
-          ])),
-
-          const SizedBox(height: 16),
+          // Nody — TYLKO gdy jakieś są. Konto założone drogą „tylko portfel" nie ma czego tu
+          // ustawiać, a ekran współrzędnych i tak pokazałby pustą listę.
+          if (context.read<NodeService>().nodes.isNotEmpty) ...[
+            _section(tr('Nody')),
+            Card(child: Column(children: [
+              _tile(
+                context,
+                icon: Icons.location_on_outlined,
+                title: tr('Lokalizacja nodów'),
+                sub: tr('współrzędne wszystkich urządzeń'),
+                builder: (_) => const NodesLocationScreen(),
+              ),
+            ])),
+            const SizedBox(height: 16),
+          ],
 
           // Aplikacja
           _section(tr('Aplikacja')),
@@ -42,6 +47,16 @@ class SettingsScreen extends StatelessWidget {
               trailing: Text(_langLabel(),
                   style: const TextStyle(color: AppTheme.muted, fontSize: 13)),
               onTap: () => _pickLang(context),
+            ),
+            const Divider(color: AppTheme.border, height: 1),
+            // Token jest kontowy, nie sklepowy — dlatego mieszka tu, a nie w Storage. Tym samym
+            // ekranem damy kiedys komputerowi podglad nodow.
+            _tile(
+              context,
+              icon: Icons.devices_other,
+              title: tr('Sparowane urządzenia'),
+              sub: tr('komputery wpuszczone na to konto'),
+              builder: (_) => const DevicesScreen(),
             ),
             const Divider(color: AppTheme.border, height: 1),
             const _StoreCardSwitch(),

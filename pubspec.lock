@@ -861,6 +861,13 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.0"
+  sensmos_store:
+    dependency: "direct main"
+    description:
+      path: "../SHARED/sensmos_store"
+      relative: true
+    source: path
+    version: "1.0.0"
   shared_preferences:
     dependency: "direct main"
     description:

@@ -51,3 +51,18 @@ android/key.properties
 **/*.keystore
 *.apk
 *.aab
+
+# Flutter / Dart — wytwory budowania (apka, desktop, pakiet wspoldzielony)
+.dart_tool/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+desktop/build/
+desktop/.dart_tool/
+shared/.dart_tool/
+
+# Windows: wygenerowane pliki wtyczek desktopu
+desktop/windows/flutter/generated_plugin*
+desktop/linux/flutter/generated_plugin*
+desktop/macos/Flutter/GeneratedPluginRegistrant.swift

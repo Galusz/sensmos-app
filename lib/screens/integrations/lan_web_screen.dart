@@ -54,7 +54,7 @@ class _LanWebScreenState extends State<LanWebScreen> {
         throw Exception(tr('Node niesparowany — tunel nie ruszy. Sparuj, będąc w jego sieci WiFi.'));
       }
       if (!mounted) return;
-      final token = await ensureOwnerToken(context, wallet.address, label: 'panel LAN');
+      final token = await ensureOwnerToken(context, wallet.address, label: 'Ten telefon');
       if (!mounted) return;
 
       final relay = TerminalRelay(

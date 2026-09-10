@@ -149,7 +149,7 @@ class _TerminalScreenState extends State<TerminalScreen> {
       // Token ownera: pyta o hasło portfela najwyżej raz w życiu apki, potem tunel działa
       // przy zamkniętym portfelu (także z widgetu na pulpicie).
       if (!mounted) return;
-      final token = await ensureOwnerToken(context, wallet.address, label: 'terminal');
+      final token = await ensureOwnerToken(context, wallet.address, label: 'Ten telefon');
       if (!mounted) return;
 
       final relay = TerminalRelay(

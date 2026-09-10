@@ -11,6 +11,12 @@ class Config {
   // z manifestem wlasnie ja, a nie realna wersje APK.
   static String appVersion = '0.0.0';
 
+  /// Klucz bramkujacy publiczne odczyty (statystyki, mapa) przed skrobaniem. Podawany przy
+  /// budowaniu: `--dart-define=SENSMOS_APP_KEY=...`. W kliencie zadnego sekretu utrzymac sie nie
+  /// da — z pakietu i tak da sie go wyjac — ale w zrodlach lezec nie musi. Pusty domyslnie:
+  /// budujacy apke samodzielnie uzywa swojego klucza.
+  static const String appKey = String.fromEnvironment('SENSMOS_APP_KEY');
+
   static Future<void> initVersion() async {
     try {
       final info = await PackageInfo.fromPlatform();
