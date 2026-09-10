@@ -68,6 +68,14 @@ String tr(String pl, [List<Object?> args = const []]) {
 
 /// Nadpisania angielskie. Brak wpisu → pokazujemy klucz (PL).
 const Map<String, String> _enMap = {
+  // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
+  "Ile kopii": "Number of copies",
+  "%s · zalecane": "%s · recommended",
+  "Host, który zamilknie, wypada z pakietu dopiero po trzech dobach i dopiero wtedy kopia odbudowuje się gdzie indziej. Przy dwóch kopiach plik wisi przez ten czas na jednym dysku, przy trzech — na dwóch.": "A host that goes quiet only drops out of the package after three days, and only then is the copy rebuilt elsewhere. With two copies the file hangs on a single disk for that time; with three, on two.",
+  "Odbudowa: %s z %s kopii na miejscu": "Rebuilding: %s of %s copies in place",
+  "Zmieniam liczbę kopii…": "Changing the number of copies…",
+  "Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram u różnych właścicieli i nie mogą go odczytać.": "Your phone encrypts every file with a key from your wallet. The sellers hold ciphertext, at different owners, and cannot read it.",
+  "Dostęp znika natychmiast. Urządzenie nie wejdzie już na to konto, dopóki nie sparujesz go od nowa.": "Access is gone at once. The device cannot get back into this account until you pair it again.",
   "Ten folder jest pusty": "This folder is empty",
   "Wróć wyżej": "Back up one level",
   "plików: %s": "%s files",
@@ -1123,6 +1131,14 @@ const Map<String, String> _enMap = {
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
 const Map<String, String> _deMap = {
+  // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
+  "Ile kopii": "Wie viele Kopien",
+  "%s · zalecane": "%s · empfohlen",
+  "Host, który zamilknie, wypada z pakietu dopiero po trzech dobach i dopiero wtedy kopia odbudowuje się gdzie indziej. Przy dwóch kopiach plik wisi przez ten czas na jednym dysku, przy trzech — na dwóch.": "Ein Host, der verstummt, fällt erst nach drei Tagen aus dem Paket, und erst dann wird die Kopie anderswo neu aufgebaut. Bei zwei Kopien hängt die Datei diese Zeit an einer einzigen Platte, bei drei an zweien.",
+  "Odbudowa: %s z %s kopii na miejscu": "Wiederaufbau: %s von %s Kopien vorhanden",
+  "Zmieniam liczbę kopii…": "Zahl der Kopien wird geändert…",
+  "Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram u różnych właścicieli i nie mogą go odczytać.": "Ihr Telefon verschlüsselt jede Datei mit einem Schlüssel aus Ihrer Wallet. Die Verkäufer halten Chiffrat bei verschiedenen Besitzern und können es nicht lesen.",
+  "Dostęp znika natychmiast. Urządzenie nie wejdzie już na to konto, dopóki nie sparujesz go od nowa.": "Der Zugang ist sofort weg. Das Gerät kommt nicht mehr in dieses Konto, bis Sie es erneut koppeln.",
   "Ten folder jest pusty": "Dieser Ordner ist leer",
   "Wróć wyżej": "Eine Ebene h\u00f6her",
   "plików: %s": "%s Dateien",

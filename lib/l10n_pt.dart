@@ -1,6 +1,14 @@
 // pt-BR (Português do Brasil). PIERWSZY PRZELOT tłumaczenia — do przejrzenia przez native speakera.
 // Klucz = polski oryginał (MUSI zgadzać się z _enMap w l10n.dart). %s i {{...}} zachowane.
 const Map<String, String> ptMap = {
+  // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
+  "Ile kopii": "Quantas cópias",
+  "%s · zalecane": "%s · recomendado",
+  "Host, który zamilknie, wypada z pakietu dopiero po trzech dobach i dopiero wtedy kopia odbudowuje się gdzie indziej. Przy dwóch kopiach plik wisi przez ten czas na jednym dysku, przy trzech — na dwóch.": "Um anfitrião que se cala só sai do pacote ao fim de três dias, e só então a cópia é reconstruída noutro lado. Com duas cópias o ficheiro fica esse tempo num único disco; com três, em dois.",
+  "Odbudowa: %s z %s kopii na miejscu": "A reconstruir: %s de %s cópias no lugar",
+  "Zmieniam liczbę kopii…": "A alterar o número de cópias…",
+  "Twoje pliki szyfruje telefon kluczem z portfela. Sprzedawcy trzymają szyfrogram u różnych właścicieli i nie mogą go odczytać.": "O seu telemóvel cifra cada ficheiro com uma chave da sua carteira. Os vendedores guardam texto cifrado, em proprietários diferentes, e não o conseguem ler.",
+  "Dostęp znika natychmiast. Urządzenie nie wejdzie już na to konto, dopóki nie sparujesz go od nowa.": "O acesso desaparece de imediato. O dispositivo não volta a entrar nesta conta até o emparelhar de novo.",
   "Ten folder jest pusty": "Esta pasta está vazia",
   "Wróć wyżej": "Voltar um n\u00edvel",
   "plików: %s": "%s ficheiros",
