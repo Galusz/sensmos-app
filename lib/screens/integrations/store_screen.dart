@@ -348,15 +348,29 @@ class _StoreScreenState extends State<StoreScreen> {
       try {
         _setBusy(tr('Wysyłanie…'));
         final size = await enc.length();
-        await _relay!.put(cipher: enc, size: size, blocks: blocks, sha256hex: digest,
-            wrappedKey: await StoreCrypto.wrapDek(dek, _boxPub!),
-            nameEnc: StoreCrypto.encryptName(
-                dek, _folder.isEmpty ? f.name : '$_folder/${f.name}'),
-            // Odcisk katalogu OBOK podpisanej nazwy — po nim serwer grupuje i wydaje strony.
-            folderH: _hDla(_folder) ?? '',
-            folderEnc: _boxSeed == null
-                ? '' : StoreCrypto.encryptFolder(_boxSeed!, _folder),
-            onProgress: (s) => _setProgress(s / size));
+        // Telefon traci sieć w windzie, w metrze, przy przejściu z Wi-Fi na komórkę. To, co
+        // już doszło, leży u sprzedawcy, a szyfrogram mamy jeszcze obok — wracamy do TEJ SAMEJ
+        // wysyłki zamiast zaczynać nowej. Wznowienie kończy się razem z tym ekranem.
+        String? wznow;
+        for (var proba = 0; ; proba++) {
+          try {
+            await _relay!.put(cipher: enc, size: size, blocks: blocks, sha256hex: digest,
+                wrappedKey: await StoreCrypto.wrapDek(dek, _boxPub!),
+                nameEnc: StoreCrypto.encryptName(
+                    dek, _folder.isEmpty ? f.name : '$_folder/${f.name}'),
+                // Odcisk katalogu OBOK podpisanej nazwy — po nim serwer grupuje i wydaje strony.
+                folderH: _hDla(_folder) ?? '',
+                folderEnc: _boxSeed == null
+                    ? '' : StoreCrypto.encryptFolder(_boxSeed!, _folder),
+                resumeOid: wznow,
+                onProgress: (s) => _setProgress(s / size));
+            break;
+          } on UploadInterrupted catch (e) {
+            if (proba >= 2) rethrow;
+            wznow = e.objectId;
+            _setBusy(tr('Zerwane połączenie — wracam tam, gdzie skończyło'));
+          }
+        }
       } finally { try { await enc.parent.delete(recursive: true); } catch (_) {} }
       await _refresh();
       _snack('${tr('Wysłano: %s', [f.name])} · ${_route()}');

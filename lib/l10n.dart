@@ -68,6 +68,7 @@ String tr(String pl, [List<Object?> args = const []]) {
 
 /// Nadpisania angielskie. Brak wpisu → pokazujemy klucz (PL).
 const Map<String, String> _enMap = {
+  "Zerwane połączenie — wracam tam, gdzie skończyło": "Connection dropped — carrying on where it stopped",
   // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
   "Ile kopii": "Number of copies",
   "%s · zalecane": "%s · recommended",
@@ -1131,6 +1132,7 @@ const Map<String, String> _enMap = {
 
 /// Nadpisania niemieckie. Brak wpisu → fallback EN → klucz (PL).
 const Map<String, String> _deMap = {
+  "Zerwane połączenie — wracam tam, gdzie skończyło": "Verbindung abgerissen — es geht weiter, wo es aufhörte",
   // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
   "Ile kopii": "Wie viele Kopien",
   "%s · zalecane": "%s · empfohlen",

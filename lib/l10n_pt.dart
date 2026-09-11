@@ -1,6 +1,7 @@
 // pt-BR (Português do Brasil). PIERWSZY PRZELOT tłumaczenia — do przejrzenia przez native speakera.
 // Klucz = polski oryginał (MUSI zgadzać się z _enMap w l10n.dart). %s i {{...}} zachowane.
 const Map<String, String> ptMap = {
+  "Zerwane połączenie — wracam tam, gdzie skończyło": "Ligação caiu — continuo de onde parou",
   // ── Store: wybór liczby kopii + odparowanie (1.5.74) ──
   "Ile kopii": "Quantas cópias",
   "%s · zalecane": "%s · recomendado",
